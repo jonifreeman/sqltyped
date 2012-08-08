@@ -1,35 +1,5 @@
 package sqltyped
 
-object AssocHList {
-  import shapeless._
-
-  implicit def assochlistOps[L <: HList](l: L): AssocHListOps[L] = new AssocHListOps(l)
-
-  final class AssocHListOps[L <: HList](l: L) {
-    def lookup[K](implicit lookup: Lookup[L, K]): lookup.Out = lookup(l)
-
-    def get[K: Manifest](k: K)(implicit lookup0: Lookup[L, K]): lookup0.Out =
-      lookup[K]
-  }
-
-  trait Lookup[L <: HList, K] {
-    type Out
-    def apply(l: L): Out
-  }
-
-  object Lookup {
-    implicit def hlistLookup1[K, V, T <: HList] = new Lookup[(K, V) :: T, K] {
-      type Out = V
-      def apply(l: (K, V) :: T) = l.head._2
-    }
-
-    implicit def hlistLookup[K, V, T <: HList, K1, V1](implicit st: Lookup[T, K1]) = new Lookup[(K, V) :: T, K1] {
-      type Out = st.Out
-      def apply(l: (K, V) :: T) = st(l.tail)
-    }
-  }
-}
-
 case class Configuration[A](name: String, columns: List[A])
 
 object Sql {
@@ -77,4 +47,30 @@ object Sql {
   }
 
   def sql[A](s: String)(implicit config: Configuration[A]) = macro sqlImpl[A]
+
+  implicit def assochlistOps[L <: HList](l: L): AssocHListOps[L] = new AssocHListOps(l)
+
+  final class AssocHListOps[L <: HList](l: L) {
+    def lookup[K](implicit lookup: Lookup[L, K]): lookup.Out = lookup(l)
+
+    def get[K](k: K)(implicit lookup0: Lookup[L, K]): lookup0.Out = lookup[K]
+  }
+
+  @annotation.implicitNotFound(msg = "No such column ${K}")
+  trait Lookup[L <: HList, K] {
+    type Out
+    def apply(l: L): Out
+  }
+
+  object Lookup {
+    implicit def hlistLookup1[K, V, T <: HList] = new Lookup[(K, V) :: T, K] {
+      type Out = V
+      def apply(l: (K, V) :: T) = l.head._2
+    }
+
+    implicit def hlistLookup[K, V, T <: HList, K1, V1](implicit st: Lookup[T, K1]) = new Lookup[(K, V) :: T, K1] {
+      type Out = st.Out
+      def apply(l: (K, V) :: T) = st(l.tail)
+    }
+  }
 }
