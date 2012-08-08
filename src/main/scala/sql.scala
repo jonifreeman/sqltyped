@@ -1,10 +1,11 @@
 package sqltyped
 
-case class Configuration[A](name: String, columns: List[A])
+case class Configuration[A](url: String, driver: String, username: String, password: String, columns: A)
 
 object Sql {
   import java.sql._
   import shapeless._
+  import scala.reflect.runtime.universe._
   import scala.reflect.makro._
   import language.experimental.macros
 
@@ -16,9 +17,9 @@ object Sql {
      val q = Query2[Int, name.type, age.type, String, Int]("select name,age from person", name, age, rs => "Joni", rs => 32)
      execute(q)
    */
-  case class Query2[A, C1, C2, R1, R2](sql: String, c1: C1, c2: C2, r1: ResultSet => R1, r2: ResultSet => R2)
+  case class Query2[C1, C2, R1, R2](sql: String, c1: C1, c2: C2, r1: ResultSet => R1, r2: ResultSet => R2)
 
-  def execute[A, C1, C2, R1, R2](q: Query2[A, C1, C2, R1, R2]): ((C1, R1) :: (C2, R2) :: HNil) = {
+  def query[C1, C2, R1, R2](q: Query2[C1, C2, R1, R2]): ((C1, R1) :: (C2, R2) :: HNil) = {
     val rs: ResultSet = null // exec sql here
     (q.c1 -> q.r1(rs)) :: (q.c2 -> q.r2(rs)) :: HNil
   }
@@ -27,26 +28,34 @@ object Sql {
     import c.universe._
 
     val Literal(Constant(sql: String)) = s.tree
-//    val Select(xx, termName) = config.tree
 
-    // Select(config.tree, "name")
     // https://issues.scala-lang.org/browse/SI-5748
     // "It's more robust to parse the AST manually"
 //    val cc = c.eval(c.Expr(c.resetAllAttrs(config.tree)))
 //    println(cc.name)
 
-
-/*          case x =>
-        c.abort(c.enclosingPosition, "unexpected tree: " + show(x))
-        */
+    val stmt = SqlParser.parse(sql)
+    val meta = SqlMeta.infer(stmt)
     
 //    if (sql.contains("id,name")) reify(Query[(Long, String)](s.splice))
 //    else reify(Query[Long](s.splice))
-//    c.Expr(Select(config.tree, "name"))
-    c.Expr(Select(Select(config.tree, "columns"), "head"))
+    c.Expr(Select(config.tree, "name"))
+//    c.Expr(Select(Select(config.tree, "columns"), "head"))
   }
 
   def sql[A](s: String)(implicit config: Configuration[A]) = macro sqlImpl[A]
+
+  case class SqlStmt(columnNames: List[String])
+
+  object SqlParser {
+    def parse(sql: String) = SqlStmt(List("name", "age")) // FIXME impl parsing
+  }
+
+  case class SqlMeta(columns: List[(String, Type)])
+
+  object SqlMeta {
+    def infer(stmt: SqlStmt) = SqlMeta(List(("name", typeOf[String]), ("age", typeOf[Int]))) // FIXME impl
+  }
 
   implicit def assochlistOps[L <: HList](l: L): AssocHListOps[L] = new AssocHListOps(l)
 
