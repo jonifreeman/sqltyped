@@ -7,6 +7,9 @@ object AssocHList {
 
   final class AssocHListOps[L <: HList](l: L) {
     def lookup[K](implicit lookup: Lookup[L, K]): lookup.Out = lookup(l)
+
+    def get[K: Manifest](k: K)(implicit lookup0: Lookup[L, K]): lookup0.Out =
+      lookup[K]
   }
 
   trait Lookup[L <: HList, K] {
@@ -30,8 +33,25 @@ object AssocHList {
 case class Configuration[A](name: String, columns: List[A])
 
 object Sql {
+  import java.sql._
+  import shapeless._
   import scala.reflect.makro._
   import language.experimental.macros
+
+  /*
+     import sqltyped._
+     import Sql._
+     object name
+     object age
+     val q = Query2[Int, name.type, age.type, String, Int]("select name,age from person", name, age, rs => "Joni", rs => 32)
+     execute(q)
+   */
+  case class Query2[A, C1, C2, R1, R2](sql: String, c1: C1, c2: C2, r1: ResultSet => R1, r2: ResultSet => R2)
+
+  def execute[A, C1, C2, R1, R2](q: Query2[A, C1, C2, R1, R2]): ((C1, R1) :: (C2, R2) :: HNil) = {
+    val rs: ResultSet = null // exec sql here
+    (q.c1 -> q.r1(rs)) :: (q.c2 -> q.r2(rs)) :: HNil
+  }
 
   def sqlImpl[A: c.TypeTag](c: Context)(s: c.Expr[String])(config: c.Expr[Configuration[A]]): c.Expr[Any] = {
     import c.universe._
@@ -54,10 +74,6 @@ object Sql {
 //    else reify(Query[Long](s.splice))
 //    c.Expr(Select(config.tree, "name"))
     c.Expr(Select(Select(config.tree, "columns"), "head"))
-/*
-    reify {
-      Query2(s.splice, config.splice.name)
-    } */
   }
 
   def sql[A](s: String)(implicit config: Configuration[A]) = macro sqlImpl[A]
