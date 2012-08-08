@@ -3,6 +3,8 @@ package sqltyped
 object AssocHList {
   import shapeless._
 
+  implicit def assochlistOps[L <: HList](l: L): AssocHListOps[L] = new AssocHListOps(l)
+
   final class AssocHListOps[L <: HList](l: L) {
     def lookup[K](implicit lookup: Lookup[L, K]): lookup.Out = lookup(l)
   }
