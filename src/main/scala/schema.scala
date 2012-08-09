@@ -24,12 +24,8 @@ object Schema {
     })
   }
 
-  private def createConnection(url: String, username: String, password: String) = {
-    val props = new java.util.Properties
-    props.put("user", username)
-    props.put("password", password)
-    java.sql.DriverManager.getConnection(url, props)
-  }
+  private def createConnection(url: String, username: String, password: String) = 
+    java.sql.DriverManager.getConnection(url, username, password)
 
   // FIXME add rest of the types
   private def mkType(t: ColumnDataType): Type = t.getTypeClassName match {

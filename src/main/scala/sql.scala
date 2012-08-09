@@ -11,9 +11,15 @@ object Sql {
 
   case class Query2[C1, C2, R1, R2](sql: String, c1: C1, r1: ResultSet => R1, c2: C2, r2: ResultSet => R2)
 
-  def query[C1, C2, R1, R2](q: Query2[C1, C2, R1, R2]): List[(C1, R1) :: (C2, R2) :: HNil] = {
-    val rs: ResultSet = null // exec sql here
-    List((q.c1 -> q.r1(rs)) :: (q.c2 -> q.r2(rs)) :: HNil)
+  // FIXME close stmt + rs
+  def query[C1, C2, R1, R2](conn: Connection, q: Query2[C1, C2, R1, R2]): List[(C1, R1) :: (C2, R2) :: HNil] = {
+    val stmt = conn.prepareStatement(q.sql)
+    val rs = stmt.executeQuery
+    val rows = collection.mutable.ListBuffer[(C1, R1) :: (C2, R2) :: HNil]()
+    while (rs.next) {
+      rows.append((q.c1 -> q.r1(rs)) :: (q.c2 -> q.r2(rs)) :: HNil)
+    }
+    rows.toList
   }
 
   def sqlImpl[A: c.TypeTag](c: Context)(s: c.Expr[String])(config: c.Expr[Configuration[A]]): c.Expr[Any] = {
