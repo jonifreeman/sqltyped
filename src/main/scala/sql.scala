@@ -23,14 +23,20 @@ object Sql {
 
     // https://issues.scala-lang.org/browse/SI-5748
     // "It's more robust to parse the AST manually"
-//    val cc = c.eval(c.Expr(c.resetAllAttrs(config.tree)))
-//    println(cc.name)
+    // FIXME: this smells
+/*    val conf = c.eval(c.Expr(c.resetAllAttrs(config.tree))).asInstanceOf[{
+      def url: String; def username: String; def password: String
+    }] */
+    val url = "jdbc:mysql://localhost:3306/sqltyped"
+    val driver = "com.mysql.jdbc.Driver"
+    val username = "root"
+    val password = ""
 
     val stmt = SqlParser.parse(sql) fold (
       err => sys.error("Parse failed: " + err),
       res => SqlStmt(res)
     )
-    val meta = SqlMeta.infer(stmt)
+    val meta = Schema.infer(stmt, url, driver, username, password)
 
     def rs(name: String, pos: Int) = 
       Function(List(ValDef(Modifiers(Flag.PARAM), newTermName("rs"), TypeTree(typeOf[java.sql.ResultSet]), EmptyTree)), Apply(Select(Ident(newTermName("rs")), newTermName(name)), List(Literal(Constant(pos)))))
@@ -42,14 +48,6 @@ object Sql {
   }
 
   def sql[A](s: String)(implicit config: Configuration[A]) = macro sqlImpl[A]
-
-  case class SqlStmt(columns: List[Column])
-
-  case class SqlMeta(columns: List[(String, Type)])
-
-  object SqlMeta {
-    def infer(stmt: SqlStmt) = SqlMeta(List(("name", typeOf[String]), ("age", typeOf[Int]))) // FIXME impl
-  }
 
   implicit def assochlistOps[L <: HList](l: L): AssocHListOps[L] = new AssocHListOps(l)
 

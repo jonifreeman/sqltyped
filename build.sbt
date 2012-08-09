@@ -14,6 +14,8 @@ resolvers ++= Seq(
 libraryDependencies ++= Seq(
   "com.chuusai" % "shapeless_2.10.0-M6" % "1.2.3-SNAPSHOT",
   "org.scala-lang" % "scala-reflect" % "2.10.0-M6",
-  "org.scalatest" % "scalatest_2.10.0-M6" % "1.9-2.10.0-M6-B2" % "test"
+  "net.sourceforge.schemacrawler" % "schemacrawler" % "8.17",
+  "org.scalatest" % "scalatest_2.10.0-M6" % "1.9-2.10.0-M6-B2" % "test",
+  "mysql" % "mysql-connector-java" % "5.1.5" % "test"
 )
 
