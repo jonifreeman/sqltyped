@@ -26,7 +26,10 @@ object Sql {
 //    val cc = c.eval(c.Expr(c.resetAllAttrs(config.tree)))
 //    println(cc.name)
 
-    val stmt = SqlParser.parse(sql)
+    val stmt = SqlParser.parse(sql) fold (
+      err => sys.error("Parse failed: " + err),
+      res => SqlStmt(res)
+    )
     val meta = SqlMeta.infer(stmt)
 
     def rs(name: String, pos: Int) = 
@@ -40,11 +43,7 @@ object Sql {
 
   def sql[A](s: String)(implicit config: Configuration[A]) = macro sqlImpl[A]
 
-  case class SqlStmt(columnNames: List[String])
-
-  object SqlParser {
-    def parse(sql: String) = SqlStmt(List("name", "age")) // FIXME impl parsing
-  }
+  case class SqlStmt(columns: List[Column])
 
   case class SqlMeta(columns: List[(String, Type)])
 
