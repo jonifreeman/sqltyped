@@ -9,19 +9,11 @@ object Sql {
   import scala.reflect.makro._
   import language.experimental.macros
 
-  /*
-     import sqltyped._
-     import Sql._
-     object name
-     object age
-     val q = Query2[Int, name.type, age.type, String, Int]("select name,age from person", name, age, rs => "Joni", rs => 32)
-     execute(q)
-   */
-  case class Query2[C1, C2, R1, R2](sql: String, c1: C1, c2: C2, r1: ResultSet => R1, r2: ResultSet => R2)
+  case class Query2[C1, C2, R1, R2](sql: String, c1: C1, r1: ResultSet => R1, c2: C2, r2: ResultSet => R2)
 
-  def query[C1, C2, R1, R2](q: Query2[C1, C2, R1, R2]): ((C1, R1) :: (C2, R2) :: HNil) = {
+  def query[C1, C2, R1, R2](q: Query2[C1, C2, R1, R2]): List[(C1, R1) :: (C2, R2) :: HNil] = {
     val rs: ResultSet = null // exec sql here
-    (q.c1 -> q.r1(rs)) :: (q.c2 -> q.r2(rs)) :: HNil
+    List((q.c1 -> q.r1(rs)) :: (q.c2 -> q.r2(rs)) :: HNil)
   }
 
   def sqlImpl[A: c.TypeTag](c: Context)(s: c.Expr[String])(config: c.Expr[Configuration[A]]): c.Expr[Any] = {
@@ -36,11 +28,14 @@ object Sql {
 
     val stmt = SqlParser.parse(sql)
     val meta = SqlMeta.infer(stmt)
-    
-//    if (sql.contains("id,name")) reify(Query[(Long, String)](s.splice))
-//    else reify(Query[Long](s.splice))
-    c.Expr(Select(config.tree, "name"))
-//    c.Expr(Select(Select(config.tree, "columns"), "head"))
+
+    def rs(name: String, pos: Int) = 
+      Function(List(ValDef(Modifiers(Flag.PARAM), newTermName("rs"), TypeTree(typeOf[java.sql.ResultSet]), EmptyTree)), Apply(Select(Ident(newTermName("rs")), newTermName(name)), List(Literal(Constant(pos)))))
+
+    def col(name: String) = Select(Select(config.tree, "columns"), name)
+
+    // FIXME create from meta
+    c.Expr(Apply(Select(Select(Select(Ident("sqltyped"), newTermName("Sql")), newTermName("Query2")), newTermName("apply")), List(Literal(Constant(sql)), col("name"), rs("getString", 1), col("age"), rs("getInt", 2))))
   }
 
   def sql[A](s: String)(implicit config: Configuration[A]) = macro sqlImpl[A]
