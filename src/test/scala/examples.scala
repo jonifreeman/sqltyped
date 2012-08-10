@@ -7,10 +7,7 @@ import Sql._ // FIXME move to package object
 class ExampleSuite extends FunSuite with matchers.ShouldMatchers {
   Class.forName("com.mysql.jdbc.Driver")
 
-  object Columns {
-    object name
-    object age
-  }
+  object Columns { object name; object age }
 
   implicit val c = Configuration("jdbc:mysql://localhost:3306/sqltyped", "com.mysql.jdbc.Driver", "root", "", Columns)
   val conn = DriverManager.getConnection(c.url, c.username, c.password)
