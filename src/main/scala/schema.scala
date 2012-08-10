@@ -7,7 +7,9 @@ import scala.reflect.runtime.universe._
 
 case class SqlStmt(columns: List[Column])
 
-case class SqlMeta(columns: List[(String, Type, Boolean)])
+case class TypedColumn(column: Column, tpe: Type, nullable: Boolean)
+
+case class SqlMeta(columns: List[TypedColumn])
 
 // FIXME add error handling
 object Schema {
@@ -20,7 +22,7 @@ object Schema {
     val schema = database.getSchema("sqltyped") // FIXME hardcoded schema
     SqlMeta(stmt.columns map { col =>
       val colSchema = schema.getTable(col.table).getColumn(col.name)
-      (col.name, mkType(colSchema.getType), colSchema.isNullable)
+      TypedColumn(col, mkType(colSchema.getType), colSchema.isNullable)
     })
   }
 

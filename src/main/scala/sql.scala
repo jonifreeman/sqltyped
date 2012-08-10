@@ -45,12 +45,19 @@ object Sql {
     val meta = Schema.infer(stmt, url, driver, username, password)
 
     def rs(name: String, pos: Int) = 
-      Function(List(ValDef(Modifiers(Flag.PARAM), newTermName("rs"), TypeTree(typeOf[java.sql.ResultSet]), EmptyTree)), Apply(Select(Ident(newTermName("rs")), newTermName(name)), List(Literal(Constant(pos)))))
+      Function(
+        List(ValDef(Modifiers(Flag.PARAM), newTermName("rs"), TypeTree(typeOf[java.sql.ResultSet]), EmptyTree)), 
+        Apply(Select(Ident(newTermName("rs")), newTermName(name)), List(Literal(Constant(pos)))))
 
     def col(name: String) = Select(Select(config.tree, "columns"), name)
 
-    // FIXME create from meta
-    c.Expr(Apply(Select(Select(Select(Ident("sqltyped"), newTermName("Sql")), newTermName("Query2")), newTermName("apply")), List(Literal(Constant(sql)), col("name"), rs("getString", 1), col("age"), rs("getInt", 2))))
+    // FIXME date etc
+    def rsGetterName(c: TypedColumn) = "get" + c.tpe.toString.capitalize
+
+    val params = meta.columns.zipWithIndex.flatMap { case (c, i) => 
+      List(col(c.column.name), rs(rsGetterName(c), i + 1)) 
+    }
+    c.Expr(Apply(Select(Select(Select(Ident("sqltyped"), newTermName("Sql")), newTermName("Query" + meta.columns.length)), newTermName("apply")), Literal(Constant(sql)) :: params))
   }
 
   def sql[A](s: String)(implicit config: Configuration[A]) = macro sqlImpl[A]
