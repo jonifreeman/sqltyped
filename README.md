@@ -15,6 +15,7 @@ Examples
 
 First some boring initialization...
 
+```scala
     import java.sql._
     import sqltyped._
     import Sql._
@@ -23,18 +24,23 @@ First some boring initialization...
     implicit val c = Configuration("jdbc:mysql://localhost:3306/sqltyped", "com.mysql.jdbc.Driver", "root", "", Columns)
     val conn = DriverManager.getConnection(c.url, c.username, c.password)
     import Columns._
+```
 
 Now we are ready to query the data.
 
+```scala
     scala> val q = sql("select name, age from person")
     scala> query(conn, q).map(p => p.get(age))
     res0: List[Int] = List(36, 14)
+```
 
 Notice how the type of 'age' was infered to be Int.
 
+```scala
    scala> query(conn, q).map(p => p.get(age))
    <console>:24: error: No such column Columns.salary.type
                   query(conn, q).map(p => p.get(salary))
+```
 
 Oops, a compilation failure. Can't access 'salary', it was not selected in the query.
 
