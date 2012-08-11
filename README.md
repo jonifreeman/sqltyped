@@ -13,7 +13,7 @@ This experiment starts from following observations.
 Examples
 --------
 
-First some boring initialization...
+First some boring initialization... Start console: ```sbt test:console```
 
 ```scala
     import java.sql._

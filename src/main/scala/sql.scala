@@ -9,17 +9,48 @@ object Sql {
   import scala.reflect.makro._
   import language.experimental.macros
 
+  case class Query1[C1, R1](sql: String, c1: C1, r1: ResultSet => R1)
   case class Query2[C1, C2, R1, R2](sql: String, c1: C1, r1: ResultSet => R1, c2: C2, r2: ResultSet => R2)
+  case class Query3[C1, C2, C3, R1, R2, R3](sql: String, c1: C1, r1: ResultSet => R1, c2: C2, r2: ResultSet => R2, c3: C3, r3: ResultSet => R3)
 
-  // FIXME close stmt + rs
-  def query[C1, C2, R1, R2](conn: Connection, q: Query2[C1, C2, R1, R2]): List[(C1, R1) :: (C2, R2) :: HNil] = {
-    val stmt = conn.prepareStatement(q.sql)
-    val rs = stmt.executeQuery
-    val rows = collection.mutable.ListBuffer[(C1, R1) :: (C2, R2) :: HNil]()
-    while (rs.next) {
-      rows.append((q.c1 -> q.r1(rs)) :: (q.c2 -> q.r2(rs)) :: HNil)
+  // FIXME remove this boilerplate
+  def query[C1, R1](conn: Connection, q: Query1[C1, R1]): List[(C1, R1) :: HNil] = {
+    withResultSet(conn, q.sql) { rs =>
+      val rows = collection.mutable.ListBuffer[(C1, R1) :: HNil]()
+      while (rs.next) {
+        rows.append((q.c1 -> q.r1(rs)) :: HNil)
+      }
+      rows.toList
     }
-    rows.toList
+  }
+  def query[C1, C2, R1, R2](conn: Connection, q: Query2[C1, C2, R1, R2]): List[(C1, R1) :: (C2, R2) :: HNil] = {
+    withResultSet(conn, q.sql) { rs =>
+      val rows = collection.mutable.ListBuffer[(C1, R1) :: (C2, R2) :: HNil]()
+      while (rs.next) {
+        rows.append((q.c1 -> q.r1(rs)) :: (q.c2 -> q.r2(rs)) :: HNil)
+      }
+      rows.toList
+    }
+  }
+  def query[C1, C2, C3, R1, R2, R3](conn: Connection, q: Query3[C1, C2, C3, R1, R2, R3]): List[(C1, R1) :: (C2, R2) :: (C3, R3) :: HNil] = {
+    withResultSet(conn, q.sql) { rs =>
+      val rows = collection.mutable.ListBuffer[(C1, R1) :: (C2, R2) :: (C3, R3) :: HNil]()
+      while (rs.next) {
+        rows.append((q.c1 -> q.r1(rs)) :: (q.c2 -> q.r2(rs)) :: (q.c3 -> q.r3(rs)) :: HNil)
+      }
+      rows.toList
+    }
+  }
+
+  private def withResultSet[A](conn: Connection, sql: String)(f: ResultSet => A) = {
+    val stmt = conn.prepareStatement(sql)
+    var rs: ResultSet = null
+    try {
+      f(stmt.executeQuery)
+    } finally {
+      if (rs != null) rs.close
+      stmt.close
+    }
   }
 
   def sqlImpl[A: c.TypeTag](c: Context)(s: c.Expr[String])(config: c.Expr[Configuration[A]]): c.Expr[Any] = {
