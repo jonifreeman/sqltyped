@@ -1,6 +1,6 @@
 package sqltyped
 
-case class Configuration[A](url: String, driver: String, username: String, password: String, columns: A)
+case class Configuration[A](columns: A)
 
 object Sql {
   import java.sql._
@@ -26,17 +26,11 @@ object Sql {
     import c.universe._
 
     val Literal(Constant(sql: String)) = s.tree
-
-    // https://issues.scala-lang.org/browse/SI-5748
-    // "It's more robust to parse the AST manually"
-    // FIXME: this smells
-/*    val conf = c.eval(c.Expr(c.resetAllAttrs(config.tree))).asInstanceOf[{
-      def url: String; def username: String; def password: String
-    }] */
-    val url = "jdbc:mysql://localhost:3306/sqltyped"
-    val driver = "com.mysql.jdbc.Driver"
-    val username = "root"
-    val password = ""
+    
+    val url = System.getProperty("sqltyped.url")
+    val driver = System.getProperty("sqltyped.driver")
+    val username = System.getProperty("sqltyped.username")
+    val password = System.getProperty("sqltyped.password")
 
     val stmt = SqlParser.parse(sql) fold (
       err => sys.error("Parse failed: " + err),

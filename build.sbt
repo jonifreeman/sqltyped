@@ -19,3 +19,9 @@ libraryDependencies ++= Seq(
   "mysql" % "mysql-connector-java" % "5.1.5" % "test"
 )
 
+initialize ~= { _ =>
+  System.setProperty("sqltyped.url", "jdbc:mysql://localhost:3306/sqltyped")
+  System.setProperty("sqltyped.driver", "com.mysql.jdbc.Driver")
+  System.setProperty("sqltyped.username", "root")
+  System.setProperty("sqltyped.password", "")
+}
