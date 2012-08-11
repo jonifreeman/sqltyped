@@ -13,7 +13,15 @@ This experiment starts from following observations.
 Examples
 --------
 
-First some boring initialization... Start console: ```sbt test:console```
+First some boring initialization... 
+
+```sql
+    create table person(name varchar(255) not null, age INT not null, salary INT not null);
+    insert into person values ('joe', 36, 9500);
+    insert into person values ('moe', 14, 8000);
+```
+
+Start console: ```sbt test:console```
 
 ```scala
     import java.sql._
