@@ -16,7 +16,11 @@ object Schema {
   def infer(stmt: SqlStmt, url: String, driver: String, username: String, password: String): SqlMeta = {
     Class.forName(driver)
     val options = new SchemaCrawlerOptions
-    options.setSchemaInfoLevel(SchemaInfoLevel.standard)
+    val level = new SchemaInfoLevel
+    level.setRetrieveTables(true)
+    level.setRetrieveColumnDataTypes(true)
+    level.setRetrieveTableColumns(true)
+    options.setSchemaInfoLevel(level)
     val conn = createConnection(url, username, password)
     val database = SchemaCrawlerUtility.getDatabase(conn, options)
     val schema = database.getSchema("sqltyped") // FIXME hardcoded schema
