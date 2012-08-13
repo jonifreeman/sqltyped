@@ -30,7 +30,7 @@ Start console: ```sbt test:console```
     Class.forName("com.mysql.jdbc.Driver")
     object Columns { object name; object age; object salary }
     implicit val c = Configuration(Columns)
-    val conn = DriverManager.getConnection("jdbc:mysql://localhost:3306/sqltyped", "root", "")
+    implicit def conn = DriverManager.getConnection("jdbc:mysql://localhost:3306/sqltyped", "root", "")
     import Columns._
 ```
 
@@ -38,19 +38,34 @@ Now we are ready to query the data.
 
 ```scala
     scala> val q = sql("select name, age from person")
-    scala> query(conn, q).map(p => p.get(age))
+    scala> q().map(p => p.get(age))
     res0: List[Int] = List(36, 14)
 ```
 
 Notice how the type of 'age' was infered to be Int.
 
 ```scala
-   scala> query(conn, q).map(p => p.get(salary))
+   scala> q().map(p => p.get(salary))
    <console>:24: error: No such column Columns.salary.type
                   query(conn, q).map(p => p.get(salary))
 ```
 
 Oops, a compilation failure. Can't access 'salary', it was not selected in the query.
+
+Input parameters are parsed and typed too.
+
+```scala
+    scala> val q = sql("select name from person where age > ?")
+
+    scala> q("30").map(p => p.get(name))
+    <console>:24: error: type mismatch;
+     found   : String("30")
+     required: Int
+                  q("30").map(p => p.get(name))
+
+    scala> q(30).map(p => p.get(name))
+    res4: List[String] = List(joe)
+```
 
 Status
 ------
@@ -63,7 +78,6 @@ results are returned as a type safe record. Those type safe records are emulated
 [Shapeless](https://github.com/milessabin/shapeless) HLists.
 
 * Add support for Option (nullable columns)
-* Add support for input parameters
 * Tag primary keys?
 * API to return tuples as well as associative HLists
 * Full SQL syntax + SQL dialects 

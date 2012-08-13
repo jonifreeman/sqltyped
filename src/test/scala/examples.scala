@@ -10,12 +10,27 @@ class ExampleSuite extends FunSuite with matchers.ShouldMatchers {
   object Columns { object name; object age; object salary }
 
   implicit val c = Configuration(Columns)
-  val conn = DriverManager.getConnection("jdbc:mysql://localhost:3306/sqltyped", "root", "")
+  implicit def conn = DriverManager.getConnection("jdbc:mysql://localhost:3306/sqltyped", "root", "")
 
   import Columns._
 
   test("Simple query") {
     val q = sql("select name, age from person")
-    query(conn, q).map(p => p.get(age)).sum should equal (50)
+    q().map(_.get(age)).sum should equal (50)
   }
+
+  test("Query with input") {
+    val q = sql("select name, age from person where age > ? order by name")
+    q(30).map(_.get(name)) should equal (List("joe"))
+    q(10).map(_.get(name)) should equal (List("joe", "moe"))
+
+    // FIXME does not work
+//    val q2 = sql("select name, age from person where age > ? and name != ? order by name")
+//    q(10, "joe").map(_.get(name)) should equal (List("moe"))
+  }
+
+/*  test("Query with just one selected column") {
+      val q = sql("select name from person where age > ? order by name")
+      q(10) should equal (List("joe", "moe"))    
+  }*/
 }
