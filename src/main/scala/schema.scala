@@ -21,7 +21,8 @@ object Schema {
     options.setSchemaInfoLevel(level)
     val conn = createConnection(url, username, password)
     val database = SchemaCrawlerUtility.getDatabase(conn, options)
-    val schema = database.getSchema("sqltyped") // FIXME hardcoded schema
+    val schemaName = url.split('?')(0).split('/').reverse.head
+    val schema = database.getSchema(schemaName)
 
     def typeColumn(col: Column) = {
       val colSchema = schema.getTable(col.table).getColumn(col.name)
