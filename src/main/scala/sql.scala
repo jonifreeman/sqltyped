@@ -16,13 +16,13 @@ object Sql {
     def apply(i1: I1)(implicit conn: Connection): List[R]
   }
   trait QueryF2[I1, I2, R] { 
-    def apply(i1: I1)(implicit conn: Connection): List[R]
+    def apply(i1: I1, i2: I2)(implicit conn: Connection): List[R]
   }
   trait QueryF3[I1, I2, I3, R] { 
-    def apply(i1: I1)(implicit conn: Connection): List[R]
+    def apply(i1: I1, i2: I2, i3: I3)(implicit conn: Connection): List[R]
   }
   trait QueryF4[I1, I2, I3, I4, R] { 
-    def apply(i1: I1)(implicit conn: Connection): List[R]
+    def apply(i1: I1, i2: I2, i3: I3, i4: I4)(implicit conn: Connection): List[R]
   }
 
   case class Query1[C1, R1](sql: String, c1: C1, r1: ResultSet => R1)

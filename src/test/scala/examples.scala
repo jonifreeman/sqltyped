@@ -24,9 +24,8 @@ class ExampleSuite extends FunSuite with matchers.ShouldMatchers {
     q(30).map(_.get(name)) should equal (List("joe"))
     q(10).map(_.get(name)) should equal (List("joe", "moe"))
 
-    // FIXME does not work
-//    val q2 = sql("select name, age from person where age > ? and name != ? order by name")
-//    q(10, "joe").map(_.get(name)) should equal (List("moe"))
+    val q2 = sql("select name, age from person where age > ? and name != ? order by name")
+    q2(10, "joe").map(_.get(name)) should equal (List("moe"))
   }
 
 /*  test("Query with just one selected column") {

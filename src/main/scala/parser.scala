@@ -8,7 +8,7 @@ case class Column(table: String, name: String)
 
 // FIXME implement full SQL
 object SqlParser extends StandardTokenParsers {
-  lexical.delimiters ++= List("(", ")", ",", " ", "=", ">", "<", "?", ".")
+  lexical.delimiters ++= List("(", ")", ",", " ", "=", ">", "<", "?", "!=", ".")
   lexical.reserved += ("select", "from", "where", "as", "and", "or")
 
   case class Table(name: String, alias: Option[String])
@@ -44,6 +44,11 @@ object SqlParser extends StandardTokenParsers {
     | column ~ "=" ~ numericLit ^^ (_ => None)
     | column ~ "=" ~ column     ^^ (_ => None)
     | column <~ "=" ~ chr('?')  ^^ Some.apply
+    | column ~ "!=" ~ boolean    ^^ (_ => None)
+    | column ~ "!=" ~ stringLit  ^^ (_ => None)
+    | column ~ "!=" ~ numericLit ^^ (_ => None)
+    | column ~ "!=" ~ column     ^^ (_ => None)
+    | column <~ "!=" ~ chr('?')  ^^ Some.apply
     | column ~ "<" ~ numericLit ^^ (_ => None)
     | column ~ "<" ~ column     ^^ (_ => None)
     | column <~ "<" ~ chr('?')  ^^ Some.apply
