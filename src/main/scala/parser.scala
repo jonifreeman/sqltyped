@@ -31,9 +31,11 @@ object SqlParser extends StandardTokenParsers {
     defs => defs.unzip match { case (tables, columns) => (tables.flatten, columns.flatten) }
   }
 
-  def join = table ~ opt("join") ~ repsep(joiningTable, "join") ^^ {
+  def join = table ~ opt(joinSpec) ~ repsep(joiningTable, joinSpec) ^^ {
     case table ~ _ ~ joins => (table :: joins.map(_._1), joins.flatMap(_._2))
   }
+
+  def joinSpec = opt("left" | "right") ~> opt("inner" | "outer") ~> "join"
  
   def joiningTable = table ~ "on" ~ rep1sep(predicate, ("and" | "or")) ^^ {
     case table ~ "on" ~ predicates => (table, predicates collect { case Some(c) => c })

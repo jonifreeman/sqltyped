@@ -67,5 +67,16 @@ class ParserSuite extends FunSuite with matchers.ShouldMatchers {
                                    Column("job_history", "started"), 
                                    Column("job_history", "resigned")))))
 
+    parse("select j.name from person p inner join job_history j on p.id=j.person") should
+      equal(Right(Select(Nil, List(Column("job_history", "name")))))
+
+    parse("select j.name from person p left outer join job_history j on p.id=j.person") should
+      equal(Right(Select(Nil, List(Column("job_history", "name")))))
+
+    parse("select j.name from person p right outer join job_history j on p.id=j.person") should
+      equal(Right(Select(Nil, List(Column("job_history", "name")))))
+
+    parse("select j.name from person p join job_history j on p.id=j.person where j.age>?") should
+      equal(Right(Select(List(Column("job_history", "age")), List(Column("job_history", "name")))))
   }
 }
