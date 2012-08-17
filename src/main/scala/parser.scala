@@ -4,15 +4,16 @@ import scala.util.parsing.combinator._
 import scala.util.parsing.combinator.syntactical._
 
 case class Select(in: List[Column], out: List[Column])
-case class Column(table: String, name: String)
+case class Column(table: String, name: String, alias: Option[String] = None)
 
 // FIXME implement full SQL
 object SqlParser extends StandardTokenParsers {
   lexical.delimiters ++= List("(", ")", ",", " ", "=", ">", "<", "?", "!=", ".")
-  lexical.reserved += ("select", "from", "where", "as", "and", "or")
+  lexical.reserved += ("select", "from", "where", "as", "and", "or", "join", "inner", "outer", "left", 
+                       "right", "on")
 
   case class Table(name: String, alias: Option[String])
-  case class ColumnRef(name: String, tableRef: Option[String])
+  case class ColumnRef(name: String, tableRef: Option[String], alias: Option[String])
 
   def parse(sql: String): Either[String, Select] = selectStmt(new lexical.Scanner(sql)) match {
     case Success(r, q)  => Right(r)
@@ -21,12 +22,22 @@ object SqlParser extends StandardTokenParsers {
 
   def selectStmt = select ~ from ~ opt(where) ~ opt(groupBy) ~ opt(orderBy) ^^ {
     case select ~ from ~ where ~ groupBy ~ orderBy => 
-      Select(mkColumns(where.getOrElse(Nil), from), mkColumns(select, from))
+      Select(mkColumns(from._2 ::: where.getOrElse(Nil), from._1), mkColumns(select, from._1))
   }
 
   def select: Parser[List[ColumnRef]] = "select" ~> repsep(column, ",")
 
-  def from: Parser[List[Table]] = "from" ~> rep1sep(table, ",")
+  def from: Parser[(List[Table], List[ColumnRef])] = "from" ~> rep1sep(join, ",") ^^ {
+    defs => defs.unzip match { case (tables, columns) => (tables.flatten, columns.flatten) }
+  }
+
+  def join = table ~ opt("join") ~ repsep(joiningTable, "join") ^^ {
+    case table ~ _ ~ joins => (table :: joins.map(_._1), joins.flatMap(_._2))
+  }
+ 
+  def joiningTable = table ~ "on" ~ rep1sep(predicate, ("and" | "or")) ^^ {
+    case table ~ "on" ~ predicates => (table, predicates collect { case Some(c) => c })
+  }
 
   def table = (
       ident ~ "as" ~ ident  ^^ { case n ~ _ ~ a => Table(n, Some(a)) }
@@ -58,8 +69,10 @@ object SqlParser extends StandardTokenParsers {
   )
 
   def column = (
-      ident ~ "." ~ ident ^^ { case t ~ _ ~ c => ColumnRef(c, Some(t)) }
-    | ident ^^ (c => ColumnRef(c, None))
+      ident ~ "." ~ ident ^^ { case t ~ _ ~ c => ColumnRef(c, Some(t), None) }
+    | ident ~ "." ~ ident ~ "as" ~ ident ^^ { case t ~ _ ~ c ~ _ ~ a => ColumnRef(c, Some(t), Some(a)) }
+    | ident ~ "as" ~ ident ^^ { case c ~ _ ~ a => ColumnRef(c, None, Some(a)) }
+    | ident ^^ (c => ColumnRef(c, None, None))
   )
   
   def boolean = ("true" ^^^ true | "false" ^^^ false)
@@ -78,7 +91,7 @@ object SqlParser extends StandardTokenParsers {
         case (Some(ref), Some(a)) => t.name == ref || a == ref
         case (None, _) => true
       }
-    } getOrElse(sys.error("Column references invalid table " + c))
+    } getOrElse(sys.error("Column references invalid table " + c + ", tables " + from))
 
     select.map(c => Column(findTable(c).name, c.name))
   }
