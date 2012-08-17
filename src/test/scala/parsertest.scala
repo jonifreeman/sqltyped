@@ -30,6 +30,12 @@ class ParserSuite extends FunSuite with matchers.ShouldMatchers {
 
     parse("select p.name,p.age from person as p where p.age = 10 and p.name='joe' order by p.age asc") should 
       equal(Right(Select(Nil, List(Column("person", "name"), Column("person", "age")))))
+
+    parse("select name as personname from person") should
+      equal(Right(Select(Nil, List(Column("person", "name", Some("personname"))))))
+
+    parse("select p.name as personname from person as p") should
+      equal(Right(Select(Nil, List(Column("person", "name", Some("personname"))))))
   }
 
   test("Variable queries") {
@@ -55,12 +61,11 @@ class ParserSuite extends FunSuite with matchers.ShouldMatchers {
   }
 
   test("Joins") {
-//    parse("select p.name, j.name as employer, j.started, j.expired from person p join job_history j on p.id=j.person") should
-    parse("select p.name, j.name, j.started, j.expired from person p join job_history j on p.id=j.person") should
+    parse("select p.name, j.name as employer, j.started, j.resigned from person p join job_history j on p.id=j.person") should
       equal(Right(Select(Nil, List(Column("person", "name"), 
-                                   Column("job_history", "name"), 
+                                   Column("job_history", "name", Some("employer")), 
                                    Column("job_history", "started"), 
-                                   Column("job_history", "expired")))))
+                                   Column("job_history", "resigned")))))
 
   }
 }

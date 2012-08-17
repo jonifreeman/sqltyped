@@ -69,8 +69,8 @@ object SqlParser extends StandardTokenParsers {
   )
 
   def column = (
-      ident ~ "." ~ ident ^^ { case t ~ _ ~ c => ColumnRef(c, Some(t), None) }
-    | ident ~ "." ~ ident ~ "as" ~ ident ^^ { case t ~ _ ~ c ~ _ ~ a => ColumnRef(c, Some(t), Some(a)) }
+      ident ~ "." ~ ident ~ "as" ~ ident ^^ { case t ~ _ ~ c ~ _ ~ a => ColumnRef(c, Some(t), Some(a)) }
+    | ident ~ "." ~ ident ^^ { case t ~ _ ~ c => ColumnRef(c, Some(t), None) }
     | ident ~ "as" ~ ident ^^ { case c ~ _ ~ a => ColumnRef(c, None, Some(a)) }
     | ident ^^ (c => ColumnRef(c, None, None))
   )
@@ -93,7 +93,7 @@ object SqlParser extends StandardTokenParsers {
       }
     } getOrElse(sys.error("Column references invalid table " + c + ", tables " + from))
 
-    select.map(c => Column(findTable(c).name, c.name))
+    select.map(c => Column(findTable(c).name, c.name, c.alias))
   }
 }
 
