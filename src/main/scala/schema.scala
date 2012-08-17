@@ -25,7 +25,8 @@ object Schema {
     val schema = database.getSchema(schemaName)
 
     def typeColumn(col: Column) = {
-      val colSchema = schema.getTable(col.table).getColumn(col.name)
+      val colSchema = schema.getTable(col.table).getColumn(col.cname)
+      if (colSchema == null) sys.error("No such column " + col)
       TypedColumn(col, mkType(colSchema.getType), colSchema.isNullable)
     }
 

@@ -4,7 +4,9 @@ import scala.util.parsing.combinator._
 import scala.util.parsing.combinator.syntactical._
 
 case class Select(in: List[Column], out: List[Column])
-case class Column(table: String, name: String, alias: Option[String] = None)
+case class Column(table: String, cname: String, alias: Option[String] = None) {
+  def name = alias getOrElse cname
+}
 
 // FIXME implement full SQL
 object SqlParser extends StandardTokenParsers {

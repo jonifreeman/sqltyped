@@ -120,7 +120,7 @@ object Sql {
             List(Ident(newTermName("x$1")))
         ))
 
-      List(meta.columns.reverse.drop(1).reverse.zipWithIndex.foldRight(init) { case ((column, i), ast) =>
+      List(meta.columns.reverse.drop(1).zipWithIndex.foldLeft(init) { case (ast, (column, i)) =>
         Block(
           processRow(column, i+1),
           Apply(
@@ -191,10 +191,18 @@ object Sql {
 
   implicit def assochlistOps[L <: HList](l: L): AssocHListOps[L] = new AssocHListOps(l)
 
+  implicit def listOps[L <: HList](l: List[L]): ListOps[L] = new ListOps(l)
+
   final class AssocHListOps[L <: HList](l: L) {
     def lookup[K](implicit lookup: Lookup[L, K]): lookup.Out = lookup(l)
 
     def get[K](k: K)(implicit lookup0: Lookup[L, K]): lookup0.Out = lookup[K]
+
+    def values(implicit valueProj: ValueProjection[L]): valueProj.Out = valueProj(l)
+  }
+
+  final class ListOps[L <: HList](l: List[L]) {
+    def values(implicit valueProj: ValueProjection[L]) = l.map(_.values)
   }
 
   @annotation.implicitNotFound(msg = "No such column ${K}")
@@ -212,6 +220,23 @@ object Sql {
     implicit def hlistLookup[K, V, T <: HList, K1, V1](implicit st: Lookup[T, K1]) = new Lookup[(K, V) :: T, K1] {
       type Out = st.Out
       def apply(l: (K, V) :: T) = st(l.tail)
+    }
+  }
+
+  trait ValueProjection[L <: HList] {
+    type Out <: HList
+    def apply(l: L): Out
+  }
+
+  object ValueProjection {
+    implicit def valueProjection1[K, V] = new ValueProjection[(K, V) :: HNil] {
+      type Out = V :: HNil
+      def apply(x: (K, V) :: HNil) = x.head._2 :: HNil
+    }
+
+    implicit def valueProjection[K, V, T <: HList](implicit st: ValueProjection[T]) = new ValueProjection[(K, V) :: T] {
+      type Out = V :: st.Out
+      def apply(x: (K, V) :: T) = x.head._2 :: st(x.tail)
     }
   }
 }
