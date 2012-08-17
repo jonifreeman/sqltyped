@@ -26,7 +26,6 @@ Start console: ```sbt test:console```
 ```scala
     import java.sql._
     import sqltyped._
-    import Sql._
     Class.forName("com.mysql.jdbc.Driver")
     object Columns { object name; object age; object salary }
     implicit val c = Configuration(Columns)
@@ -51,6 +50,17 @@ Notice how the type of 'age' was infered to be Int.
 ```
 
 Oops, a compilation failure. Can't access 'salary', it was not selected in the query.
+The query results are returned as a List of type safe records (think ```List[{name:String, age:Int}]```).
+As the above examples showed a field of a record can be accessed with get function: ```row.get(name)```.
+Functions ```values``` and ```tuples``` can be used to drop record names and get just the query values.
+
+```scala
+   scala> q().values
+   res1: List[shapeless.::[String,shapeless.::[Int,shapeless.HNil]]] = List(joe :: 36 :: HNil, moe :: 14 :: HNil)
+
+   scala> q().tuples
+   res2: List[(String, Int)] = List((joe,36), (moe,14))
+```
 
 Input parameters are parsed and typed too.
 
@@ -79,7 +89,6 @@ results are returned as a type safe record. Those type safe records are emulated
 
 * Add support for Option (nullable columns)
 * Tag primary keys?
-* API to return tuples as well as associative HLists
 * Full SQL syntax + SQL dialects 
 * Requiring a user to create a type for each used column is unncessary boilerplate once Scala macros can create public types
 * Benchmark the effect on compilation times and optimize as needed

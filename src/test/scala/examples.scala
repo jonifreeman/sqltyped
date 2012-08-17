@@ -2,7 +2,7 @@ package sqltyped
 
 import java.sql._
 import org.scalatest._
-import Sql._ // FIXME move to package object
+import shapeless._
 
 class ExampleSuite extends FunSuite with matchers.ShouldMatchers {
   Class.forName("com.mysql.jdbc.Driver")
@@ -30,8 +30,9 @@ class ExampleSuite extends FunSuite with matchers.ShouldMatchers {
 
   test("Query with join and column alias") {
     val q = sql("select p.name, j.name as employer, p.age from person p join job_history j on p.id=j.person order by employer")
-    // FIXME cleanup
-    q().values.map(_.tupled) should equal (List(("joe", "Enron", 36), ("joe", "IBM", 36)))
+
+    q().values should equal (List("joe" :: "Enron" :: 36 :: HNil, "joe" :: "IBM" :: 36 :: HNil))
+    q().tuples should equal (List(("joe", "Enron", 36), ("joe", "IBM", 36)))
   }
 
 /*  test("Query with just one selected column") {
