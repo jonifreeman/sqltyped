@@ -8,28 +8,21 @@ object Sql {
   import scala.reflect.makro._
 
   // FIXME add more these
-  trait QueryF0[R] { 
+  trait Query0[R] { 
     def apply()(implicit conn: Connection): List[R]
   }
-  trait QueryF1[I1, R] { 
+  trait Query1[I1, R] { 
     def apply(i1: I1)(implicit conn: Connection): List[R]
   }
-  trait QueryF2[I1, I2, R] { 
+  trait Query2[I1, I2, R] { 
     def apply(i1: I1, i2: I2)(implicit conn: Connection): List[R]
   }
-  trait QueryF3[I1, I2, I3, R] { 
+  trait Query3[I1, I2, I3, R] { 
     def apply(i1: I1, i2: I2, i3: I3)(implicit conn: Connection): List[R]
   }
-  trait QueryF4[I1, I2, I3, I4, R] { 
+  trait Query4[I1, I2, I3, I4, R] { 
     def apply(i1: I1, i2: I2, i3: I3, i4: I4)(implicit conn: Connection): List[R]
   }
-
-  case class Query1[C1, R1]
-  case class Query2[C1, R1, C2, R2]
-  case class Query3[C1, R1, C2, R2, C3, R3]
-  case class Query4[C1, R1, C2, R2, C3, R3, C4, R4]
-  case class Query5[C1, R1, C2, R2, C3, R3, C4, R4, C5, R5]
-  case class Query6[C1, R1, C2, R2, C3, R3, C4, R4, C5, R5, C6, R6]
 
   def withResultSet[A](stmt: PreparedStatement)(f: ResultSet => A) = {
     var rs: ResultSet = null
@@ -72,7 +65,7 @@ object Sql {
     def queryParam(c: TypedColumn, pos: Int) = 
       ValDef(Modifiers(Flag.PARAM), newTermName("i" + pos), scalaType(c), EmptyTree)
 
-    def queryFTypeSig = meta.input.map(c => scalaType(c))
+    def inputTypeSig = meta.input.map(c => scalaType(c))
 
     val typeSig = meta.columns.flatMap { c => 
       List(SingletonTypeTree(col(c.column.name)), scalaType(c)) 
@@ -145,7 +138,7 @@ object Sql {
       )
 
     /* Generates following code:
-       new Query2(sql, name, rs => rs.getString(1), age, rs => rs.getInt(2)) with trait Query1F[I1, (name.type, String) :: (age.type, Int) :: HNil] { 
+       new Query1[I1, (name.type, String) :: (age.type, Int) :: HNil] { 
          def apply(i1: I1)(implicit conn: Connection) = {
            val stmt = conn.prepareStatement(sql)
            stmt.setInt(i1)
@@ -161,11 +154,24 @@ object Sql {
     */
     c.Expr {
       Block(
-        List(ClassDef(Modifiers(Flag.FINAL), newTypeName("$anon"), List(), 
-                      Template(List(
-                        AppliedTypeTree(Ident(c.mirror.staticClass("sqltyped.Sql.Query" + meta.columns.length)), typeSig), 
-                        AppliedTypeTree(Ident(c.mirror.staticClass("sqltyped.Sql.QueryF" + meta.input.length)), queryFTypeSig ::: returnTypeSig)), emptyValDef, List(DefDef(Modifiers(), nme.CONSTRUCTOR, List(), List(List()), TypeTree(), Block(List(Apply(Select(Super(This(""), ""), nme.CONSTRUCTOR), Nil)), Literal(Constant(())))), queryF))
-                    )),
+        List(
+          ClassDef(Modifiers(Flag.FINAL), newTypeName("$anon"), List(), 
+                   Template(List(
+                     AppliedTypeTree(
+                       Ident(c.mirror.staticClass("sqltyped.Sql.Query" + meta.input.length)), inputTypeSig ::: returnTypeSig)), 
+                            emptyValDef, List(
+                              DefDef(
+                                Modifiers(), 
+                                nme.CONSTRUCTOR, 
+                                List(), 
+                                List(List()), 
+                                TypeTree(), 
+                                Block(
+                                  List(
+                                    Apply(
+                                      Select(Super(This(""), ""), nme.CONSTRUCTOR), Nil)), 
+                                  Literal(Constant(())))), queryF))
+                 )),
         Apply(Select(New(Ident(newTypeName("$anon"))), nme.CONSTRUCTOR), List())
       )
     }
