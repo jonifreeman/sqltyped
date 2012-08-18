@@ -10,7 +10,7 @@ create table job_history(
   person bigint(20) NOT NULL,
   name varchar(255) NOT NULL, 
   started timestamp NOT NULL, 
-  resigned timestamp,
+  resigned timestamp NULL,
   FOREIGN KEY person_id_fk (person)
         REFERENCES person (id)
         ON DELETE CASCADE

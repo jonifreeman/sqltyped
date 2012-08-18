@@ -7,7 +7,8 @@ import shapeless._
 class ExampleSuite extends FunSuite with matchers.ShouldMatchers {
   Class.forName("com.mysql.jdbc.Driver")
 
-  object Columns { object name; object age; object salary; object employer }
+  object Columns { object name; object age; object salary; object employer; object started
+                   object resigned }
 
   implicit val c = Configuration(Columns)
   implicit def conn = DriverManager.getConnection("jdbc:mysql://localhost:3306/sqltyped", "root", "")
@@ -35,8 +36,19 @@ class ExampleSuite extends FunSuite with matchers.ShouldMatchers {
     q().tuples should equal (List(("joe", "Enron", 36), ("joe", "IBM", 36)))
   }
 
+  test("Query with optional column") {
+    val q = sql("select p.name, j.name as employer, j.started, j.resigned from person p join job_history j on p.id=j.person order by employer")
+    
+/*    q().tuples should equal (List(
+      ("joe", "Enron", date("2002-08-02 12:00:00"), Some(date("2004-06-22 18:00:00"))), 
+      ("joe", "IBM",   date("2004-07-13 11:00:00"), None)))*/
+  }
+
 /*  test("Query with just one selected column") {
       val q = sql("select name from person where age > ? order by name")
       q(10) should equal (List("joe", "moe"))    
   }*/
+
+  def date(s: String) = 
+    new java.sql.Timestamp(new java.text.SimpleDateFormat("yyyy-MM-dd hh:mm:ss").parse(s).getTime)
 }

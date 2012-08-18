@@ -65,40 +65,33 @@ object Sql {
         List(ValDef(Modifiers(Flag.PARAM), newTermName("rs"), TypeTree(), EmptyTree)), 
         Apply(Select(Ident(newTermName("rs")), newTermName(name)), List(Literal(Constant(pos)))))
 
-    // FIXME cleanup code generation
-    // FIXME rename: rsType -> scalaType
-    def rsType(col: TypedColumn) = 
-      if (col.tpe.toString == "String") Ident(newTypeName("String"))
-      else Ident(c.mirror.staticClass("scala." + col.tpe.toString))
-
+    def scalaType(col: TypedColumn) = Ident(c.mirror.staticClass(col.tpe.typeSymbol.fullName))
     def col(name: String) = Select(Select(config.tree, "columns"), name)
-
-    // FIXME date etc
-    def rsGetterName(c: TypedColumn)   = "get" + c.tpe.toString.capitalize
-    def stmtSetterName(c: TypedColumn) = "set" + c.tpe.toString.capitalize
+    def rsGetterName(c: TypedColumn)   = "get" + c.tpe.typeSymbol.name
+    def stmtSetterName(c: TypedColumn) = "set" + c.tpe.typeSymbol.name
 
     def setParam(c: TypedColumn, pos: Int) = 
       Apply(Select(Ident(newTermName("stmt")), newTermName(stmtSetterName(c))), 
             List(Literal(Constant(pos+1)), Ident(newTermName("i" + pos))))
 
     def queryParam(c: TypedColumn, pos: Int) = 
-      ValDef(Modifiers(Flag.PARAM), newTermName("i" + pos), rsType(c), EmptyTree)
+      ValDef(Modifiers(Flag.PARAM), newTermName("i" + pos), scalaType(c), EmptyTree)
 
-    def queryFTypeSig = meta.input.map(c => rsType(c))
+    def queryFTypeSig = meta.input.map(c => scalaType(c))
 
     val params = meta.columns.zipWithIndex.flatMap { case (c, i) => 
       List(col(c.column.name), rsF(rsGetterName(c), i + 1)) 
     }
 
     val typeSig = meta.columns.flatMap { c => 
-      List(SingletonTypeTree(col(c.column.name)), rsType(c)) 
+      List(SingletonTypeTree(col(c.column.name)), scalaType(c)) 
     }
 
     val returnTypeSig = List(meta.columns.foldRight(Ident(c.mirror.staticClass("shapeless.HNil")): Tree) { (column, sig) => 
       AppliedTypeTree(
         Ident(c.mirror.staticClass("shapeless.$colon$colon")), 
         List(AppliedTypeTree(Ident(c.mirror.staticClass("scala.Tuple2")), 
-                             List(SingletonTypeTree(col(column.column.name)), rsType(column))), sig)
+                             List(SingletonTypeTree(col(column.column.name)), scalaType(column))), sig)
       )
     })
 
@@ -132,6 +125,7 @@ object Sql {
          })
     }
 
+    // FIXME cleanup code generation
     val queryF = 
       DefDef(
         Modifiers(), newTermName("apply"), List(), 

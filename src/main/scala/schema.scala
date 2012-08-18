@@ -37,10 +37,18 @@ object Schema {
   private def createConnection(url: String, username: String, password: String) = 
     java.sql.DriverManager.getConnection(url, username, password)
 
-  // FIXME add rest of the types
   private def mkType(t: ColumnDataType): Type = t.getTypeClassName match {
     case "java.lang.String" => typeOf[String]
+    case "java.lang.Short" => typeOf[Short]
     case "java.lang.Integer" => typeOf[Int]
+    case "java.lang.Long" => typeOf[Long]
+    case "java.lang.Float" => typeOf[Float]
+    case "java.lang.Double" => typeOf[Double]
+    case "java.lang.Boolean" => typeOf[Boolean]
+    case "java.lang.Byte" => typeOf[Byte]
+    case "java.sql.Timestamp" => typeOf[java.sql.Timestamp]
+    case "java.sql.Date" => typeOf[java.sql.Date]
+    case "java.sql.Time" => typeOf[java.sql.Time]
     case x => sys.error("Unknown type " + x)  // FIXME improve error handling
   }
 }

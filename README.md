@@ -50,6 +50,7 @@ Notice how the type of 'age' was infered to be Int.
 ```
 
 Oops, a compilation failure. Can't access 'salary', it was not selected in the query.
+
 The query results are returned as a List of type safe records (think ```List[{name:String, age:Int}]```).
 As the above examples showed a field of a record can be accessed with get function: ```row.get(name)```.
 Functions ```values``` and ```tuples``` can be used to drop record names and get just the query values.
