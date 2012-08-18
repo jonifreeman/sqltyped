@@ -81,9 +81,12 @@ Input parameters are parsed and typed too.
 Nullable columns are returned as Scala Option's.
 
 ```scala
-    scala> val q = sql("select p.name, j.name as employer, j.started, j.resigned from person p join job_history j on p.id=j.person order by employer")
+    scala> val q = sql("""select p.name, j.name as employer, j.started, j.resigned 
+                          from person p join job_history j on p.id=j.person order by employer""")
     scala> q().tuples
-    res5: List[(String, String, java.sql.Timestamp, Option[java.sql.Timestamp])] = List((joe,Enron,2002-08-02 12:00:00.0,Some(2004-06-22 18:00:00.0)), (joe,IBM,2004-07-13 11:00:00.0,None))
+    res5: List[(String, String, java.sql.Timestamp, Option[java.sql.Timestamp])] = 
+      List((joe,Enron,2002-08-02 12:00:00.0,Some(2004-06-22 18:00:00.0)), 
+           (joe,IBM,2004-07-13 11:00:00.0,None))
 ```
 
 
