@@ -41,7 +41,7 @@ class ExampleSuite extends FunSuite with matchers.ShouldMatchers {
     
 /*    q().tuples should equal (List(
       ("joe", "Enron", date("2002-08-02 12:00:00"), Some(date("2004-06-22 18:00:00"))), 
-      ("joe", "IBM",   date("2004-07-13 11:00:00"), None)))*/
+      ("joe", "IBM",   date("2004-07-13 11:00:00"), None))) */
   }
 
 /*  test("Query with just one selected column") {

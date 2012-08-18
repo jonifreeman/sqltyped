@@ -24,12 +24,12 @@ object Sql {
     def apply(i1: I1, i2: I2, i3: I3, i4: I4)(implicit conn: Connection): List[R]
   }
 
-  case class Query1[C1, R1](sql: String, c1: C1, r1: ResultSet => R1)
-  case class Query2[C1, R1, C2, R2](sql: String, c1: C1, r1: ResultSet => R1, c2: C2, r2: ResultSet => R2)
-  case class Query3[C1, R1, C2, R2, C3, R3](sql: String, c1: C1, r1: ResultSet => R1, c2: C2, r2: ResultSet => R2, c3: C3, r3: ResultSet => R3)
-  case class Query4[C1, R1, C2, R2, C3, R3, C4, R4](sql: String, c1: C1, r1: ResultSet => R1, c2: C2, r2: ResultSet => R2, c3: C3, r3: ResultSet => R3, c4: C4, r4: ResultSet => R4)
-  case class Query5[C1, R1, C2, R2, C3, R3, C4, R4, C5, R5](sql: String, c1: C1, r1: ResultSet => R1, c2: C2, r2: ResultSet => R2, c3: C3, r3: ResultSet => R3, c4: C4, r4: ResultSet => R4, c5: C5, r5: ResultSet => R5)
-  case class Query6[C1, R1, C2, R2, C3, R3, C4, R4, C5, R5, C6, R6](sql: String, c1: C1, r1: ResultSet => R1, c2: C2, r2: ResultSet => R2, c3: C3, r3: ResultSet => R3, c4: C4, r4: ResultSet => R4, c5: C5, r5: ResultSet => R5, c6: C6, r6: ResultSet => R6)
+  case class Query1[C1, R1]
+  case class Query2[C1, R1, C2, R2]
+  case class Query3[C1, R1, C2, R2, C3, R3]
+  case class Query4[C1, R1, C2, R2, C3, R3, C4, R4]
+  case class Query5[C1, R1, C2, R2, C3, R3, C4, R4, C5, R5]
+  case class Query6[C1, R1, C2, R2, C3, R3, C4, R4, C5, R5, C6, R6]
 
   def withResultSet[A](stmt: PreparedStatement)(f: ResultSet => A) = {
     var rs: ResultSet = null
@@ -60,11 +60,6 @@ object Sql {
     def rs(name: String, pos: Int) = 
       Apply(Select(Ident(newTermName("rs")), newTermName(name)), List(Literal(Constant(pos))))
 
-    def rsF(name: String, pos: Int) = 
-      Function(
-        List(ValDef(Modifiers(Flag.PARAM), newTermName("rs"), TypeTree(), EmptyTree)), 
-        Apply(Select(Ident(newTermName("rs")), newTermName(name)), List(Literal(Constant(pos)))))
-
     def scalaType(col: TypedColumn) = Ident(c.mirror.staticClass(col.tpe.typeSymbol.fullName))
     def col(name: String) = Select(Select(config.tree, "columns"), name)
     def rsGetterName(c: TypedColumn)   = "get" + c.tpe.typeSymbol.name
@@ -78,10 +73,6 @@ object Sql {
       ValDef(Modifiers(Flag.PARAM), newTermName("i" + pos), scalaType(c), EmptyTree)
 
     def queryFTypeSig = meta.input.map(c => scalaType(c))
-
-    val params = meta.columns.zipWithIndex.flatMap { case (c, i) => 
-      List(col(c.column.name), rsF(rsGetterName(c), i + 1)) 
-    }
 
     val typeSig = meta.columns.flatMap { c => 
       List(SingletonTypeTree(col(c.column.name)), scalaType(c)) 
@@ -173,7 +164,7 @@ object Sql {
         List(ClassDef(Modifiers(Flag.FINAL), newTypeName("$anon"), List(), 
                       Template(List(
                         AppliedTypeTree(Ident(c.mirror.staticClass("sqltyped.Sql.Query" + meta.columns.length)), typeSig), 
-                        AppliedTypeTree(Ident(c.mirror.staticClass("sqltyped.Sql.QueryF" + meta.input.length)), queryFTypeSig ::: returnTypeSig)), emptyValDef, List(DefDef(Modifiers(), nme.CONSTRUCTOR, List(), List(List()), TypeTree(), Block(List(Apply(Select(Super(This(""), ""), nme.CONSTRUCTOR), Literal(Constant(sql)) :: params)), Literal(Constant(())))), queryF))
+                        AppliedTypeTree(Ident(c.mirror.staticClass("sqltyped.Sql.QueryF" + meta.input.length)), queryFTypeSig ::: returnTypeSig)), emptyValDef, List(DefDef(Modifiers(), nme.CONSTRUCTOR, List(), List(List()), TypeTree(), Block(List(Apply(Select(Super(This(""), ""), nme.CONSTRUCTOR), Nil)), Literal(Constant(())))), queryF))
                     )),
         Apply(Select(New(Ident(newTypeName("$anon"))), nme.CONSTRUCTOR), List())
       )
