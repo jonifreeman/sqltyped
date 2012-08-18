@@ -1,5 +1,5 @@
-Exploring techinques to embed SQL as an external DSL into Scala.
-================================================================
+Macro which infers Scala types from database
+============================================
 
 Intro
 -----
@@ -27,7 +27,7 @@ Start console: ```sbt test:console```
     import java.sql._
     import sqltyped._
     Class.forName("com.mysql.jdbc.Driver")
-    object Columns { object name; object age; object salary }
+    object Columns { object name; object age; object salary; object employer; object started; object resigned }
     implicit val c = Configuration(Columns)
     implicit def conn = DriverManager.getConnection("jdbc:mysql://localhost:3306/sqltyped", "root", "")
     import Columns._
@@ -78,7 +78,7 @@ Input parameters are parsed and typed too.
     res4: List[String] = List(joe)
 ```
 
-Nullable columns are returned as Scala Option's.
+Nullable columns are inferred to be Scala Option's.
 
 ```scala
     scala> val q = sql("""select p.name, j.name as employer, j.started, j.resigned 
