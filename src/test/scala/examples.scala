@@ -39,9 +39,9 @@ class ExampleSuite extends FunSuite with matchers.ShouldMatchers {
   test("Query with optional column") {
     val q = sql("select p.name, j.name as employer, j.started, j.resigned from person p join job_history j on p.id=j.person order by employer")
     
-/*    q().tuples should equal (List(
-      ("joe", "Enron", date("2002-08-02 12:00:00"), Some(date("2004-06-22 18:00:00"))), 
-      ("joe", "IBM",   date("2004-07-13 11:00:00"), None))) */
+    q().tuples should equal (List(
+      ("joe", "Enron", date("2002-08-02 08:00:00.0"), Some(date("2004-06-22 18:00:00.0"))), 
+      ("joe", "IBM",   date("2004-07-13 11:00:00.0"), None)))
   }
 
 /*  test("Query with just one selected column") {
@@ -50,5 +50,5 @@ class ExampleSuite extends FunSuite with matchers.ShouldMatchers {
   }*/
 
   def date(s: String) = 
-    new java.sql.Timestamp(new java.text.SimpleDateFormat("yyyy-MM-dd hh:mm:ss").parse(s).getTime)
+    new java.sql.Timestamp(new java.text.SimpleDateFormat("yyyy-MM-dd hh:mm:ss.S").parse(s).getTime)
 }

@@ -50,32 +50,43 @@ object Sql {
     )
     val meta = Schema.infer(select, url, driver, username, password)
 
-    def rs(name: String, pos: Int) = 
-      Apply(Select(Ident(newTermName("rs")), newTermName(name)), List(Literal(Constant(pos))))
+    def rs(col: TypedColumn, pos: Int) = 
+      if (col.nullable) {
+        Block(
+          List(ValDef(Modifiers(), newTermName("x"), TypeTree(), getValue(col, pos))), 
+          If(Apply(Select(Ident(newTermName("rs")), newTermName("wasNull")), List()), 
+             Select(Ident("scala"), newTermName("None")), 
+             Apply(Select(Select(Ident("scala"), newTermName("Some")), newTermName("apply")), List(Ident(newTermName("x"))))))
+      } else getValue(col, pos)
+
+    def getValue(col: TypedColumn, pos: Int) =
+        Apply(Select(Ident(newTermName("rs")), newTermName(rsGetterName(col))), List(Literal(Constant(pos))))
 
     def scalaType(col: TypedColumn) = Ident(c.mirror.staticClass(col.tpe.typeSymbol.fullName))
-    def col(name: String) = Select(Select(config.tree, "columns"), name)
-    def rsGetterName(c: TypedColumn)   = "get" + c.tpe.typeSymbol.name
-    def stmtSetterName(c: TypedColumn) = "set" + c.tpe.typeSymbol.name
+    def colKey(name: String) = Select(Select(config.tree, "columns"), name)
+    def stmtSetterName(col: TypedColumn) = "set" + col.tpe.typeSymbol.name
+    def rsGetterName(col: TypedColumn)   = "get" + col.tpe.typeSymbol.name
 
-    def setParam(c: TypedColumn, pos: Int) = 
-      Apply(Select(Ident(newTermName("stmt")), newTermName(stmtSetterName(c))), 
+    def setParam(col: TypedColumn, pos: Int) = 
+      Apply(Select(Ident(newTermName("stmt")), newTermName(stmtSetterName(col))), 
             List(Literal(Constant(pos+1)), Ident(newTermName("i" + pos))))
 
-    def queryParam(c: TypedColumn, pos: Int) = 
-      ValDef(Modifiers(Flag.PARAM), newTermName("i" + pos), scalaType(c), EmptyTree)
+    def inputParam(col: TypedColumn, pos: Int) = 
+      ValDef(Modifiers(Flag.PARAM), newTermName("i" + pos), scalaType(col), EmptyTree)
 
-    def inputTypeSig = meta.input.map(c => scalaType(c))
+    def inputTypeSig = meta.input.map(col => scalaType(col))
 
-    val typeSig = meta.columns.flatMap { c => 
-      List(SingletonTypeTree(col(c.column.name)), scalaType(c)) 
-    }
+    def possiblyOptional(col: TypedColumn, tpe: Tree) = 
+      if (col.nullable) AppliedTypeTree(Ident(c.mirror.staticClass("scala.Option")), List(tpe))
+      else tpe
 
     val returnTypeSig = List(meta.columns.foldRight(Ident(c.mirror.staticClass("shapeless.HNil")): Tree) { (column, sig) => 
       AppliedTypeTree(
         Ident(c.mirror.staticClass("shapeless.$colon$colon")), 
-        List(AppliedTypeTree(Ident(c.mirror.staticClass("scala.Tuple2")), 
-                             List(SingletonTypeTree(col(column.column.name)), scalaType(column))), sig)
+        List(AppliedTypeTree(
+          Ident(c.mirror.staticClass("scala.Tuple2")), 
+          List(SingletonTypeTree(colKey(column.column.name)), 
+               possiblyOptional(column, scalaType(column)))), sig)
       )
     })
 
@@ -86,7 +97,7 @@ object Sql {
                TypeTree(), 
                Apply(Select(Apply(
                  Select(Ident(c.mirror.staticModule("scala.Predef")), newTermName("any2ArrowAssoc")),
-                 List(col(column.column.name))), newTermName("$minus$greater")), List(rs(rsGetterName(column), meta.columns.length - i))))
+                 List(colKey(column.column.name))), newTermName("$minus$greater")), List(rs(column, meta.columns.length - i))))
 
       val init: Tree = 
         Block(List(
@@ -114,7 +125,7 @@ object Sql {
       DefDef(
         Modifiers(), newTermName("apply"), List(), 
         List(
-          meta.input.zipWithIndex.map { case (c, i) => queryParam(c, i) },
+          meta.input.zipWithIndex.map { case (c, i) => inputParam(c, i) },
           List(ValDef(Modifiers(Flag.IMPLICIT | Flag.PARAM), newTermName("conn"), Ident(c.mirror.staticClass("java.sql.Connection")), EmptyTree))), 
         AppliedTypeTree(Ident(newTypeName("List")), returnTypeSig), 
         Block(

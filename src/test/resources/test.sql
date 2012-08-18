@@ -20,5 +20,5 @@ create table job_history(
 insert into person values (1, 'joe', 36, 9500);
 insert into person values (2, 'moe', 14, 8000);
 
-insert into job_history values (1, 'Enron', '2002-08-02 12:00:00', '2004-06-22 18:00:00');
+insert into job_history values (1, 'Enron', '2002-08-02 08:00:00', '2004-06-22 18:00:00');
 insert into job_history values (1, 'IBM', '2004-07-13 11:00:00', NULL);

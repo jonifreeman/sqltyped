@@ -78,6 +78,15 @@ Input parameters are parsed and typed too.
     res4: List[String] = List(joe)
 ```
 
+Nullable columns are returned as Scala Option's.
+
+```scala
+    scala> val q = sql("select p.name, j.name as employer, j.started, j.resigned from person p join job_history j on p.id=j.person order by employer")
+    scala> q().tuples
+    res5: List[(String, String, java.sql.Timestamp, Option[java.sql.Timestamp])] = List((joe,Enron,2002-08-02 12:00:00.0,Some(2004-06-22 18:00:00.0)), (joe,IBM,2004-07-13 11:00:00.0,None))
+```
+
+
 Status
 ------
 
@@ -88,7 +97,6 @@ at compile time. The macro reads database schema and infers types and variable n
 results are returned as a type safe record. Those type safe records are emulated by building on
 [Shapeless](https://github.com/milessabin/shapeless) HLists.
 
-* Add support for Option (nullable columns)
 * Tag primary keys?
 * Full SQL syntax + SQL dialects 
 * Requiring a user to create a type for each used column is unncessary boilerplate once Scala macros can create public types
