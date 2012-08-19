@@ -3,7 +3,7 @@ import shapeless._
 package object sqltyped {
   import language.experimental.macros
 
-  def sql[A](s: String)(implicit config: Configuration[A]) = macro Sql.sqlImpl[A]
+  def sql[A](s: String)(implicit config: Configuration[A]) = macro SqlMacro.sqlImpl[A]
 
   implicit def assochlistOps[L <: HList](l: L): AssocHListOps[L] = new AssocHListOps(l)
 
