@@ -16,7 +16,7 @@ libraryDependencies ++= Seq(
   "org.scala-lang" % "scala-reflect" % "2.10.0-M6",
   "net.sourceforge.schemacrawler" % "schemacrawler" % "8.17",
   "org.scalatest" % "scalatest_2.10.0-M6" % "1.9-2.10.0-M6-B2" % "test",
-  "mysql" % "mysql-connector-java" % "5.1.5" % "test"
+  "mysql" % "mysql-connector-java" % "5.1.21" % "test"
 )
 
 initialize ~= { _ =>

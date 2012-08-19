@@ -34,66 +34,66 @@ object SqlMacro {
     )
     val meta = Schema.infer(select, url, driver, username, password)
 
-    def rs(col: TypedColumn, pos: Int) = 
-      if (col.nullable) {
+    def rs(expr: TypedExpr, pos: Int) = 
+      if (expr.nullable) {
         Block(
-          List(ValDef(Modifiers(), newTermName("x"), TypeTree(), getValue(col, pos))), 
+          List(ValDef(Modifiers(), newTermName("x"), TypeTree(), getValue(expr, pos))), 
           If(Apply(Select(Ident(newTermName("rs")), newTermName("wasNull")), List()), 
              Select(Ident("scala"), newTermName("None")), 
              Apply(Select(Select(Ident("scala"), newTermName("Some")), newTermName("apply")), List(Ident(newTermName("x"))))))
-      } else getValue(col, pos)
+      } else getValue(expr, pos)
 
-    def getValue(col: TypedColumn, pos: Int) =
-        Apply(Select(Ident(newTermName("rs")), newTermName(rsGetterName(col))), List(Literal(Constant(pos))))
+    def getValue(expr: TypedExpr, pos: Int) =
+        Apply(Select(Ident(newTermName("rs")), newTermName(rsGetterName(expr))), List(Literal(Constant(pos))))
 
-    def scalaType(col: TypedColumn) = Ident(c.mirror.staticClass(col.tpe.typeSymbol.fullName))
+    def scalaType(expr: TypedExpr) = Ident(c.mirror.staticClass(expr.tpe.typeSymbol.fullName))
     def colKey(name: String) = Select(Select(config.tree, "columns"), name)
-    def stmtSetterName(col: TypedColumn) = "set" + col.tpe.typeSymbol.name
-    def rsGetterName(col: TypedColumn)   = "get" + col.tpe.typeSymbol.name
+    def stmtSetterName(expr: TypedExpr) = "set" + expr.tpe.typeSymbol.name
+    def rsGetterName(expr: TypedExpr)   = "get" + expr.tpe.typeSymbol.name
 
-    def setParam(col: TypedColumn, pos: Int) = 
-      Apply(Select(Ident(newTermName("stmt")), newTermName(stmtSetterName(col))), 
+    def setParam(expr: TypedExpr, pos: Int) = 
+      Apply(Select(Ident(newTermName("stmt")), newTermName(stmtSetterName(expr))), 
             List(Literal(Constant(pos+1)), Ident(newTermName("i" + pos))))
 
-    def inputParam(col: TypedColumn, pos: Int) = 
-      ValDef(Modifiers(Flag.PARAM), newTermName("i" + pos), scalaType(col), EmptyTree)
+    def inputParam(expr: TypedExpr, pos: Int) = 
+      ValDef(Modifiers(Flag.PARAM), newTermName("i" + pos), scalaType(expr), EmptyTree)
 
     def inputTypeSig = meta.input.map(col => scalaType(col))
 
-    def possiblyOptional(col: TypedColumn, tpe: Tree) = 
-      if (col.nullable) AppliedTypeTree(Ident(c.mirror.staticClass("scala.Option")), List(tpe))
+    def possiblyOptional(expr: TypedExpr, tpe: Tree) = 
+      if (expr.nullable) AppliedTypeTree(Ident(c.mirror.staticClass("scala.Option")), List(tpe))
       else tpe
 
-    val returnTypeSig = List(meta.columns.foldRight(Ident(c.mirror.staticClass("shapeless.HNil")): Tree) { (column, sig) => 
+    val returnTypeSig = List(meta.output.foldRight(Ident(c.mirror.staticClass("shapeless.HNil")): Tree) { (expr, sig) => 
       AppliedTypeTree(
         Ident(c.mirror.staticClass("shapeless.$colon$colon")), 
         List(AppliedTypeTree(
           Ident(c.mirror.staticClass("scala.Tuple2")), 
-          List(SingletonTypeTree(colKey(column.column.name)), 
-               possiblyOptional(column, scalaType(column)))), sig)
+          List(SingletonTypeTree(colKey(expr.name)), 
+               possiblyOptional(expr, scalaType(expr)))), sig)
       )
     })
 
     val appendRow = {
-      def processRow(column: TypedColumn, i: Int): Tree = 
+      def processRow(expr: TypedExpr, i: Int): Tree = 
         ValDef(Modifiers(/*Flag.SYNTHETIC*/), 
                newTermName("x$" + (i+1)), 
                TypeTree(), 
                Apply(Select(Apply(
                  Select(Ident(c.mirror.staticModule("scala.Predef")), newTermName("any2ArrowAssoc")),
-                 List(colKey(column.column.name))), newTermName("$minus$greater")), List(rs(column, meta.columns.length - i))))
+                 List(colKey(expr.name))), newTermName("$minus$greater")), List(rs(expr, meta.output.length - i))))
 
       val init: Tree = 
         Block(List(
-          processRow(meta.columns.last, 0)), 
+          processRow(meta.output.last, 0)), 
           Apply(
             Select(Select(Ident("shapeless"), newTermName("HNil")), newTermName("$colon$colon")),
             List(Ident(newTermName("x$1")))
         ))
 
-      List(meta.columns.reverse.drop(1).zipWithIndex.foldLeft(init) { case (ast, (column, i)) =>
+      List(meta.output.reverse.drop(1).zipWithIndex.foldLeft(init) { case (ast, (expr, i)) =>
         Block(
-          processRow(column, i+1),
+          processRow(expr, i+1),
           Apply(
             Select(
               Apply(

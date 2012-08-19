@@ -79,4 +79,11 @@ class ParserSuite extends FunSuite with matchers.ShouldMatchers {
     parse("select j.name from person p join job_history j on p.id=j.person where j.age>?") should
       equal(Right(Select(List(Column("job_history", "age")), List(Column("job_history", "name")))))
   }
+
+  test("Functions") {
+    parse("select name, AVG(price), SUM(price) as p from titles group by title having AVG(price) > ? and COUNT(price) > 100") should
+      equal(Right(Select(
+        List(Function("AVG")),
+        List(Column("titles", "name"), Function("AVG"), Function("SUM", Some("p"))))))
+  }
 }

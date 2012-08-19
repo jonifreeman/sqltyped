@@ -8,7 +8,7 @@ class ExampleSuite extends FunSuite with matchers.ShouldMatchers {
   Class.forName("com.mysql.jdbc.Driver")
 
   object Columns { object name; object age; object salary; object employer; object started
-                   object resigned }
+                   object resigned; object avg; object count }
 
   implicit val c = Configuration(Columns)
   implicit def conn = DriverManager.getConnection("jdbc:mysql://localhost:3306/sqltyped", "root", "")
@@ -42,6 +42,14 @@ class ExampleSuite extends FunSuite with matchers.ShouldMatchers {
     q().tuples should equal (List(
       ("joe", "Enron", date("2002-08-02 08:00:00.0"), Some(date("2004-06-22 18:00:00.0"))), 
       ("joe", "IBM",   date("2004-07-13 11:00:00.0"), None)))
+  }
+
+  test("Query with functions") {
+    val q = sql("select avg(age), sum(salary) as salary, count(1) from person where abs(age) > ?")
+    val res = q(10).head
+    res.get(avg) should equal(Some(25.0))
+    res.get(salary) should equal(Some(17500))
+    res.get(count) should equal(2)
   }
 
 /*  test("Query with just one selected column") {

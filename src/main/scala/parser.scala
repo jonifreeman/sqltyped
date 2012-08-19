@@ -3,19 +3,27 @@ package sqltyped
 import scala.util.parsing.combinator._
 import scala.util.parsing.combinator.syntactical._
 
-case class Select(in: List[Column], out: List[Column])
-case class Column(table: String, cname: String, alias: Option[String] = None) {
+// FIXME rename as Statement
+case class Select(in: List[Expr], out: List[Expr])
+
+sealed trait Expr { def name: String }
+case class Column(table: String, cname: String, alias: Option[String] = None) extends Expr {
   def name = alias getOrElse cname
+}
+case class Function(fname: String, alias: Option[String] = None) extends Expr {
+  def name = alias getOrElse fname
 }
 
 // FIXME implement full SQL
 object SqlParser extends StandardTokenParsers {
   lexical.delimiters ++= List("(", ")", ",", " ", "=", ">", "<", "?", "!=", ".")
   lexical.reserved += ("select", "from", "where", "as", "and", "or", "join", "inner", "outer", "left", 
-                       "right", "on")
+                       "right", "on", "group", "by", "having")
 
   case class Table(name: String, alias: Option[String])
-  case class ColumnRef(name: String, tableRef: Option[String], alias: Option[String])
+  sealed trait ExprRef
+  case class ColumnRef(name: String, tableRef: Option[String], alias: Option[String]) extends ExprRef
+  case class FunctionRef(name: String, alias: Option[String]) extends ExprRef
 
   def parse(sql: String): Either[String, Select] = selectStmt(new lexical.Scanner(sql)) match {
     case Success(r, q)  => Right(r)
@@ -24,13 +32,14 @@ object SqlParser extends StandardTokenParsers {
 
   def selectStmt = select ~ from ~ opt(where) ~ opt(groupBy) ~ opt(orderBy) ^^ {
     case select ~ from ~ where ~ groupBy ~ orderBy => 
-      Select(mkColumns(from._2 ::: where.getOrElse(Nil), from._1), mkColumns(select, from._1))
+      Select(mkColumns(from._2 ::: where.getOrElse(Nil) ::: groupBy.getOrElse(Nil), from._1), 
+             mkColumns(select, from._1))
   }
 
-  def select: Parser[List[ColumnRef]] = "select" ~> repsep(column, ",")
+  def select: Parser[List[ExprRef]] = "select" ~> repsep(expr, ",")
 
-  def from: Parser[(List[Table], List[ColumnRef])] = "from" ~> rep1sep(join, ",") ^^ {
-    defs => defs.unzip match { case (tables, columns) => (tables.flatten, columns.flatten) }
+  def from: Parser[(List[Table], List[ExprRef])] = "from" ~> rep1sep(join, ",") ^^ {
+    defs => defs.unzip match { case (tables, exprs) => (tables.flatten, exprs.flatten) }
   }
 
   def join = table ~ opt(joinSpec) ~ repsep(joiningTable, joinSpec) ^^ {
@@ -53,23 +62,25 @@ object SqlParser extends StandardTokenParsers {
     case xs => xs collect { case Some(x) => x }
   }
 
+  def expr = function | column
+
   def predicate = (
-      column ~ "=" ~ boolean    ^^ (_ => None)
-    | column ~ "=" ~ stringLit  ^^ (_ => None)
-    | column ~ "=" ~ numericLit ^^ (_ => None)
-    | column ~ "=" ~ column     ^^ (_ => None)
-    | column <~ "=" ~ chr('?')  ^^ Some.apply
-    | column ~ "!=" ~ boolean    ^^ (_ => None)
-    | column ~ "!=" ~ stringLit  ^^ (_ => None)
-    | column ~ "!=" ~ numericLit ^^ (_ => None)
-    | column ~ "!=" ~ column     ^^ (_ => None)
-    | column <~ "!=" ~ chr('?')  ^^ Some.apply
-    | column ~ "<" ~ numericLit ^^ (_ => None)
-    | column ~ "<" ~ column     ^^ (_ => None)
-    | column <~ "<" ~ chr('?')  ^^ Some.apply
-    | column ~ ">" ~ numericLit ^^ (_ => None)
-    | column ~ ">" ~ column     ^^ (_ => None)
-    | column <~ ">" ~ chr('?')  ^^ Some.apply
+      expr ~ "=" ~ boolean     ^^^ None
+    | expr ~ "=" ~ stringLit   ^^^ None
+    | expr ~ "=" ~ numericLit  ^^^ None
+    | expr ~ "=" ~ expr        ^^^ None
+    | expr <~ "=" ~ chr('?')   ^^ Some.apply
+    | expr ~ "!=" ~ boolean    ^^^ None
+    | expr ~ "!=" ~ stringLit  ^^^ None
+    | expr ~ "!=" ~ numericLit ^^^ None
+    | expr ~ "!=" ~ expr       ^^^ None
+    | expr <~ "!=" ~ chr('?')  ^^ Some.apply
+    | expr ~ "<" ~ numericLit  ^^^ None
+    | expr ~ "<" ~ expr        ^^^ None
+    | expr <~ "<" ~ chr('?')   ^^ Some.apply
+    | expr ~ ">" ~ numericLit  ^^^ None
+    | expr ~ ">" ~ expr        ^^^ None
+    | expr <~ ">" ~ chr('?')   ^^ Some.apply
   )
 
   def column = (
@@ -78,17 +89,30 @@ object SqlParser extends StandardTokenParsers {
     | ident ~ "as" ~ ident ^^ { case c ~ _ ~ a => ColumnRef(c, None, Some(a)) }
     | ident ^^ (c => ColumnRef(c, None, None))
   )
+
+  def function: Parser[FunctionRef] = ident ~ "(" ~ functionArgs ~ ")" ~ opt("as" ~> ident) ^^ {
+    case name ~ _ ~ _ ~ _ ~ alias => FunctionRef(name, alias)
+  }
+
+  def functionArgs = 
+    repsep(ident ~ "." ~ ident | ident | function | boolean | stringLit | numericLit, ",")
   
   def boolean = ("true" ^^^ true | "false" ^^^ false)
 
   def orderBy = "order" ~> "by" ~> ident ~ opt("asc" | "desc")
 
-  def groupBy = "group" ~> "by" ~> ident
+  def groupBy: Parser[List[ExprRef]] = "group" ~> "by" ~> ident ~> opt(having) ^^ {
+    exprs => exprs.getOrElse(Nil)
+  }
+
+  def having = "having" ~> rep1sep(predicate, ("and" | "or")) ^^ { 
+    case xs => xs collect { case Some(x) => x }
+  }
 
   def chr(c: Char) = elem("", _.chars == c.toString)
 
   // FIXME improve error handling
-  private def mkColumns(select: List[ColumnRef], from: List[Table]) = {
+  private def mkColumns(exprs: List[ExprRef], from: List[Table]) = {
     def findTable(c: ColumnRef) = from.find { t => 
       (c.tableRef, t.alias) match {
         case (Some(ref), None) => t.name == ref
@@ -97,7 +121,10 @@ object SqlParser extends StandardTokenParsers {
       }
     } getOrElse(sys.error("Column references invalid table " + c + ", tables " + from))
 
-    select.map(c => Column(findTable(c).name, c.name, c.alias))
+    exprs.map {
+      case c@ColumnRef(n, _, a) => Column(findTable(c).name, n, a)
+      case FunctionRef(n, a)    => Function(n, a)
+    }
   }
 }
 
