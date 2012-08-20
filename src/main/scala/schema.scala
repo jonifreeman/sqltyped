@@ -27,28 +27,48 @@ object Schema {
     val schema = database.getSchema(schemaName)
 
     def typeExpr(expr: Expr) = expr match {
-      case col@Column(table, cname, alias) => 
-        val colSchema = schema.getTable(table).getColumn(cname)
-        if (colSchema == null) sys.error("No such column " + col)
-        TypedExpr(col, mkType(colSchema.getType), colSchema.isNullable)
-      case f@Function(fname, alias) =>
-        val (tpe, nullable) = 
-          inferReturnType(fname) getOrElse sys.error("Do not know return type of " + fname)
+      case col: Column =>
+        val (tpe, nullable) = inferColumnType(schema, col)
+        TypedExpr(col, tpe, nullable)
+      case f@Function(fname, params, alias) =>
+        val (tpe, nullable) = inferReturnType(schema, fname, params)
         TypedExpr(f, tpe, nullable)
+      case c@Constant(tpe) => TypedExpr(c, tpe, false)
     }
 
     SqlMeta(select.in map typeExpr, select.out map typeExpr)
   }
 
-  // FIXME functions can be polymorphic (e.g. abs :: a -> a)
-  private val knownFunctions = Map(
-      "abs"   -> (typeOf[Long], true)
-    , "avg"   -> (typeOf[Double], true)
-    , "count" -> (typeOf[Long], false)
-    , "sum"   -> (typeOf[Long], true)
+  val `a => a` = (schema: Schema, params: List[Expr]) =>
+    if (params.length != 1) sys.error("Expected 1 parameter " + params)
+    else tpeOf(schema, params.head)
+
+  val knownFunctions = Map(
+      "abs"   -> (`a => a`, true)
+    , "avg"   -> ((_: Schema, _: List[Expr]) => typeOf[Double], true)
+    , "count" -> ((_: Schema, _: List[Expr]) => typeOf[Long], false)
+    , "min"   -> (`a => a`, true)
+    , "max"   -> (`a => a`, true)
+    , "sum"   -> (`a => a`, true)
   )
 
-  private def inferReturnType(fname: String) = knownFunctions.get(fname.toLowerCase)
+  def tpeOf(schema: Schema, e: Expr): Type = e match {
+    case Constant(tpe)          => tpe
+    case col: Column            => inferColumnType(schema, col)._1
+    case Function(n, params, _) => inferReturnType(schema, n, params)._1
+  }
+
+  // FIXME emit warning for unknown function
+  def inferReturnType(schema: Schema, fname: String, params: List[Expr])  = 
+    knownFunctions.get(fname.toLowerCase)
+      .map { case (f, opt) => (f(schema, params), opt) }
+      .getOrElse((typeOf[AnyRef], true))
+
+  def inferColumnType(schema: Schema, col: Column) = {
+    val colSchema = schema.getTable(col.table).getColumn(col.cname)
+    if (colSchema == null) sys.error("No such column " + col)
+    (mkType(colSchema.getType), colSchema.isNullable)
+  }
 
   private def getConnection(url: String, username: String, password: String) =
     java.sql.DriverManager.getConnection(url, username, password)

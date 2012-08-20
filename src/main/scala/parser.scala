@@ -2,15 +2,19 @@ package sqltyped
 
 import scala.util.parsing.combinator._
 import scala.util.parsing.combinator.syntactical._
+import scala.reflect.runtime.universe.{Type, typeOf}
 
 // FIXME rename as Statement
 case class Select(in: List[Expr], out: List[Expr])
 
 sealed trait Expr { def name: String }
+case class Constant(tpe: Type) extends Expr {
+  def name = "<constant>"
+}
 case class Column(table: String, cname: String, alias: Option[String] = None) extends Expr {
   def name = alias getOrElse cname
 }
-case class Function(fname: String, alias: Option[String] = None) extends Expr {
+case class Function(fname: String, params: List[Expr], alias: Option[String] = None) extends Expr {
   def name = alias getOrElse fname
 }
 
@@ -22,8 +26,9 @@ object SqlParser extends StandardTokenParsers {
 
   case class Table(name: String, alias: Option[String])
   sealed trait ExprRef
+  case class ConstantRef(tpe: Type) extends ExprRef
   case class ColumnRef(name: String, tableRef: Option[String], alias: Option[String]) extends ExprRef
-  case class FunctionRef(name: String, alias: Option[String]) extends ExprRef
+  case class FunctionRef(name: String, params: List[ExprRef], alias: Option[String]) extends ExprRef
 
   def parse(sql: String): Either[String, Select] = selectStmt(new lexical.Scanner(sql)) match {
     case Success(r, q)  => Right(r)
@@ -69,18 +74,18 @@ object SqlParser extends StandardTokenParsers {
     | expr ~ "=" ~ stringLit   ^^^ None
     | expr ~ "=" ~ numericLit  ^^^ None
     | expr ~ "=" ~ expr        ^^^ None
-    | expr <~ "=" ~ chr('?')   ^^ Some.apply
+    | expr <~ "=" ~ chr('?')   ^^  Some.apply
     | expr ~ "!=" ~ boolean    ^^^ None
     | expr ~ "!=" ~ stringLit  ^^^ None
     | expr ~ "!=" ~ numericLit ^^^ None
     | expr ~ "!=" ~ expr       ^^^ None
-    | expr <~ "!=" ~ chr('?')  ^^ Some.apply
+    | expr <~ "!=" ~ chr('?')  ^^  Some.apply
     | expr ~ "<" ~ numericLit  ^^^ None
     | expr ~ "<" ~ expr        ^^^ None
-    | expr <~ "<" ~ chr('?')   ^^ Some.apply
+    | expr <~ "<" ~ chr('?')   ^^  Some.apply
     | expr ~ ">" ~ numericLit  ^^^ None
     | expr ~ ">" ~ expr        ^^^ None
-    | expr <~ ">" ~ chr('?')   ^^ Some.apply
+    | expr <~ ">" ~ chr('?')   ^^  Some.apply
   )
 
   def column = (
@@ -90,13 +95,21 @@ object SqlParser extends StandardTokenParsers {
     | ident ^^ (c => ColumnRef(c, None, None))
   )
 
-  def function: Parser[FunctionRef] = ident ~ "(" ~ functionArgs ~ ")" ~ opt("as" ~> ident) ^^ {
-    case name ~ _ ~ _ ~ _ ~ alias => FunctionRef(name, alias)
-  }
+  def function: Parser[FunctionRef] = 
+    ident ~ "(" ~ repsep(functionArg, ",") ~ ")" ~ opt("as" ~> ident) ^^ {
+      case name ~ _ ~ params ~ _ ~ alias => FunctionRef(name, params, alias)
+    }
 
-  def functionArgs = 
-    repsep(ident ~ "." ~ ident | ident | function | boolean | stringLit | numericLit, ",")
-  
+  def functionArg = (
+      ident ~ "." ~ ident ^^ { case t ~ _ ~ c => ColumnRef(c, Some(t), None) }
+    | ident               ^^ (c => ColumnRef(c, None, None))
+    | function 
+    | boolean             ^^^ ConstantRef(typeOf[Boolean])
+    | stringLit           ^^^ ConstantRef(typeOf[String])
+    | numericLit          ^^ (n => if (n.contains(".")) ConstantRef(typeOf[Double]) 
+                                   else ConstantRef(typeOf[Long]))
+  )
+
   def boolean = ("true" ^^^ true | "false" ^^^ false)
 
   def orderBy = "order" ~> "by" ~> ident ~ opt("asc" | "desc")
@@ -119,11 +132,17 @@ object SqlParser extends StandardTokenParsers {
         case (Some(ref), Some(a)) => t.name == ref || a == ref
         case (None, _) => true
       }
-    } getOrElse(sys.error("Column references invalid table " + c + ", tables " + from))
+    } getOrElse sys.error("Column references invalid table " + c + ", tables " + from)
 
-    exprs.map {
-      case c@ColumnRef(n, _, a) => Column(findTable(c).name, n, a)
-      case FunctionRef(n, a)    => Function(n, a)
+    def refToExpr(ref: ExprRef): Expr = ref match {
+      case c@ColumnRef(n, _, a)      => Column(findTable(c).name, n, a)
+      case FunctionRef(n, params, a) => Function(n, params map refToExpr, a)
+      case ConstantRef(t)            => Constant(t)
+    }
+
+    exprs map refToExpr collect { 
+      case e: Column => e
+      case e: Function => e
     }
   }
 }

@@ -89,6 +89,15 @@ Nullable columns are inferred to be Scala Option's.
            (joe,IBM,2004-07-13 11:00:00.0,None))
 ```
 
+Functions are supported too. Note how function 'min' is polymorphic on its arguments. For String
+columns it is typed as String => String etc.
+
+```scala
+    scala> val q = sql("select max(name) as name, max(age) as age from person where age > ?")
+    scala> q(10).tuples.head
+    res6: (Option[String], Option[Int]) = (Some(moe),Some(36))
+```
+
 
 Status
 ------
@@ -97,7 +106,7 @@ This is a proof-of-concept currently.
 
 The initial implementation uses [Scala macros](http://scalamacros.org) to connect to the database 
 at compile time. The macro reads database schema and infers types and variable names from there. Query
-results are returned as a type safe record. Those type safe records are emulated by building on
+results are returned as type safe records. Those type safe records are emulated by building on
 [Shapeless](https://github.com/milessabin/shapeless) HLists.
 
 * Tag primary keys?

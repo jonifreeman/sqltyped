@@ -1,0 +1,17 @@
+* Generic
+
+- Change the return type of Query*.apply after query analysis (Option[A], ...)
+- Exists, not exists, not null, in
+- Subselects
+- Unions
+- SQL insert
+- SQL update
+- SQL delete
+- Arithmetic (update player set age=age+1)
+- Case insensitivity
+- Infer function types
+- A mechanism to tranform or combine values
+
+* MySQL
+
+- ON DUPLICATE KEY
