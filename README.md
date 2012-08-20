@@ -89,8 +89,8 @@ Nullable columns are inferred to be Scala Option's.
            (joe,IBM,2004-07-13 11:00:00.0,None))
 ```
 
-Functions are supported too. Note how function 'min' is polymorphic on its arguments. For String
-columns it is typed as String => String etc.
+Functions are supported too. Note how function 'max' is polymorphic on its argument. For String
+column it is typed as String => String etc.
 
 ```scala
     scala> val q = sql("select max(name) as name, max(age) as age from person where age > ?")
