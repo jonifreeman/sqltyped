@@ -61,12 +61,12 @@ class ExampleSuite extends FunSuite with matchers.ShouldMatchers {
     res3.get(age) should equal(None)
   }
 
-/*
   test("Query with just one selected column") {
     val q = sql("select name from person where age > ? order by name")
     q(10) should equal (List("joe", "moe"))    
   }
   
+/*
   test("Query with constraint by unique column") {
     val q = sql("select age, name from person where id=?")
     q(1).tuples should equal (Some("joe", 36))

@@ -64,7 +64,10 @@ object SqlMacro {
       if (expr.nullable) AppliedTypeTree(Ident(c.mirror.staticClass("scala.Option")), List(tpe))
       else tpe
 
-    val returnTypeSig = List(meta.output.foldRight(Ident(c.mirror.staticClass("shapeless.HNil")): Tree) { (expr, sig) => 
+    def returnTypeSig = if (meta.output.length == 1) returnTypeSigScalar else returnTypeSigRecord
+    def appendRow =     if (meta.output.length == 1) appendRowScalar else appendRowRecord
+
+    def returnTypeSigRecord = List(meta.output.foldRight(Ident(c.mirror.staticClass("shapeless.HNil")): Tree) { (expr, sig) => 
       AppliedTypeTree(
         Ident(c.mirror.staticClass("shapeless.$colon$colon")), 
         List(AppliedTypeTree(
@@ -74,7 +77,9 @@ object SqlMacro {
       )
     })
 
-    val appendRow = {
+    def returnTypeSigScalar = List(possiblyOptional(meta.output.head, scalaType(meta.output.head)))
+
+    def appendRowRecord = {
       def processRow(expr: TypedExpr, i: Int): Tree = 
         ValDef(Modifiers(/*Flag.SYNTHETIC*/), 
                newTermName("x$" + (i+1)), 
@@ -103,6 +108,8 @@ object SqlMacro {
               newTermName("$colon$colon")), List(Ident(newTermName("x$" + (i+2))))))
          })
     }
+
+    def appendRowScalar = List(rs(meta.output.head, 1))
 
     // FIXME cleanup code generation
     val queryF = 
