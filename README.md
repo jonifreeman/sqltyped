@@ -98,6 +98,17 @@ column it is typed as String => String etc.
     res6: (Option[String], Option[Int]) = (Some(moe),Some(36))
 ```
 
+So far all the examples have returned results as Lists of records. But with a little bit of query
+analysis we can do better. If just one column is selected it is unnecessary box the values as records.
+
+```scala
+    scala> sql("select name from person").apply
+    res7: List[String] = List(joe, moe)
+
+    scala> sql("select age from person").apply
+    res8: List[Int] = List(36, 14)
+```
+
 
 Status
 ------
