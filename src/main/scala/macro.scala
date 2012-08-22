@@ -32,7 +32,7 @@ object SqlMacro {
       err => sys.error("Parse failed: " + err),
       res => res
     )
-    val meta = Schema.infer(select, url, driver, username, password)
+    val meta = Analyzer.refine(Schema.infer(select, url, driver, username, password))
 
     def rs(expr: TypedExpr, pos: Int) = 
       if (expr.nullable) {
@@ -111,7 +111,22 @@ object SqlMacro {
 
     def appendRowScalar = List(rs(meta.output.head, 1))
 
-    // FIXME cleanup code generation
+    val readRows = 
+      List(
+        ValDef(
+          Modifiers(), newTermName("rows"), TypeTree(), 
+          Apply(TypeApply(Select(Select(Select(Select(Ident("scala"), newTermName("collection")), newTermName("mutable")), newTermName("ListBuffer")), newTermName("apply")), returnTypeSig), List())),
+        LabelDef(newTermName("while$1"), List(), 
+                 If(Apply(Select(Ident(newTermName("rs")), newTermName("next")), List()), 
+                    Block(List(Apply(Select(Ident(newTermName("rows")), newTermName("append")), appendRow)), 
+                          Apply(Ident(newTermName("while$1")), List())), Literal(Constant(())))))
+
+    val returnRows = 
+      if (meta.multipleResults)
+        Select(Ident(newTermName("rows")), newTermName("toList"))
+      else
+        Select(Select(Ident(newTermName("rows")), newTermName("toList")), newTermName("headOption"))
+
     val queryF = 
       DefDef(
         Modifiers(), newTermName("apply"), List(), 
@@ -127,16 +142,7 @@ object SqlMacro {
           Apply(
             Apply(Select(Select(Ident("sqltyped"), newTermName("SqlMacro")), newTermName("withResultSet")), List(Ident(newTermName("stmt")))), 
             List(Function(List(ValDef(Modifiers(Flag.PARAM), newTermName("rs"), TypeTree(), EmptyTree)), 
-                          Block(List(ValDef(Modifiers(), newTermName("rows"), TypeTree(), 
-                                            Apply(
-                                              TypeApply(
-                                                Select(Select(Select(Select(Ident("scala"), newTermName("collection")), newTermName("mutable")), newTermName("ListBuffer")), 
-                                                       newTermName("apply")), returnTypeSig), List())), 
-                                     LabelDef(newTermName("while$1"), List(), 
-                                              If(Apply(Select(Ident(newTermName("rs")), newTermName("next")), List()), 
-                                                 Block(List(Apply(Select(Ident(newTermName("rows")), newTermName("append")), appendRow)), 
-                                                       Apply(Ident(newTermName("while$1")), List())), Literal(Constant(()))))), 
-                                Select(Ident(newTermName("rows")), newTermName("toList")))))))
+                          Block(readRows, returnRows)))))
       )
 
     /* Generates following code:

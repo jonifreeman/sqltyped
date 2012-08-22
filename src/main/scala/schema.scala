@@ -9,11 +9,11 @@ case class TypedExpr(expr: Expr, tpe: Type, nullable: Boolean) {
   def name = expr.name
 }
 
-case class SqlMeta(input: List[TypedExpr], output: List[TypedExpr])
+case class TypedStatement(input: List[TypedExpr], output: List[TypedExpr], stmt: Statement, multipleResults: Boolean = true)
 
 // FIXME add error handling
 object Schema {
-  def infer(select: Select, url: String, driver: String, username: String, password: String): SqlMeta = {
+  def infer(statement: Statement, url: String, driver: String, username: String, password: String): TypedStatement = {
     Class.forName(driver)
     val options = new SchemaCrawlerOptions
     val level = new SchemaInfoLevel
@@ -36,13 +36,14 @@ object Schema {
       case c@Constant(tpe) => TypedExpr(c, tpe, false)
     }
 
-    SqlMeta(select.in map typeExpr, select.out map typeExpr)
+    TypedStatement(statement.in map typeExpr, statement.out map typeExpr, statement)
   }
 
   val `a => a` = (schema: Schema, params: List[Expr]) =>
     if (params.length != 1) sys.error("Expected 1 parameter " + params)
     else tpeOf(schema, params.head)
 
+  // FIXME make this extensible
   val knownFunctions = Map(
       "abs"   -> (`a => a`, true)
     , "avg"   -> ((_: Schema, _: List[Expr]) => typeOf[Double], true)

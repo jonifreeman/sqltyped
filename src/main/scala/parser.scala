@@ -4,8 +4,7 @@ import scala.util.parsing.combinator._
 import scala.util.parsing.combinator.syntactical._
 import scala.reflect.runtime.universe.{Type, typeOf}
 
-// FIXME rename as Statement
-case class Select(in: List[Expr], out: List[Expr])
+case class Statement(in: List[Expr], out: List[Expr])
 
 sealed trait Expr { def name: String }
 case class Constant(tpe: Type) extends Expr {
@@ -30,15 +29,15 @@ object SqlParser extends StandardTokenParsers {
   case class ColumnRef(name: String, tableRef: Option[String], alias: Option[String]) extends ExprRef
   case class FunctionRef(name: String, params: List[ExprRef], alias: Option[String]) extends ExprRef
 
-  def parse(sql: String): Either[String, Select] = selectStmt(new lexical.Scanner(sql)) match {
+  def parse(sql: String): Either[String, Statement] = selectStmt(new lexical.Scanner(sql)) match {
     case Success(r, q)  => Right(r)
     case err: NoSuccess => Left(err.msg)
   }
 
   def selectStmt = select ~ from ~ opt(where) ~ opt(groupBy) ~ opt(orderBy) ^^ {
     case select ~ from ~ where ~ groupBy ~ orderBy => 
-      Select(mkColumns(from._2 ::: where.getOrElse(Nil) ::: groupBy.getOrElse(Nil), from._1), 
-             mkColumns(select, from._1))
+      Statement(mkColumns(from._2 ::: where.getOrElse(Nil) ::: groupBy.getOrElse(Nil), from._1), 
+                mkColumns(select, from._1))
   }
 
   def select: Parser[List[ExprRef]] = "select" ~> repsep(expr, ",")
