@@ -100,7 +100,7 @@ column it is typed as String => String etc.
 
 So far all the examples have returned results as Lists of records. But with a little bit of query
 analysis we can do better. Like, it is quite unnecessary to box the values as records if just one 
-column is selected .
+column is selected.
 
 ```scala
     scala> sql("select name from person").apply

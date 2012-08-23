@@ -48,8 +48,11 @@ object SqlMacro {
 
     def scalaType(expr: TypedExpr) = Ident(c.mirror.staticClass(expr.tpe.typeSymbol.fullName))
     def colKey(name: String) = Select(Select(config.tree, "columns"), name)
-    def stmtSetterName(expr: TypedExpr) = "set" + expr.tpe.typeSymbol.name
-    def rsGetterName(expr: TypedExpr)   = "get" + expr.tpe.typeSymbol.name
+    def stmtSetterName(expr: TypedExpr) = "set" + javaName(expr)
+    def rsGetterName(expr: TypedExpr)   = "get" + javaName(expr)
+
+    def javaName(expr: TypedExpr) = 
+      if (expr.tpe.typeSymbol.name.toString == "AnyRef") "Object" else expr.tpe.typeSymbol.name.toString
 
     def setParam(expr: TypedExpr, pos: Int) = 
       Apply(Select(Ident(newTermName("stmt")), newTermName(stmtSetterName(expr))), 

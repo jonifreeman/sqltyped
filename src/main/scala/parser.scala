@@ -19,7 +19,7 @@ case class Function(fname: String, params: List[Expr], alias: Option[String] = N
 
 // FIXME implement full SQL
 object SqlParser extends StandardTokenParsers {
-  lexical.delimiters ++= List("(", ")", ",", " ", "=", ">", "<", "?", "!=", ".")
+  lexical.delimiters ++= List("(", ")", ",", " ", "=", ">", "<", ">=", "<=", "?", "!=", ".")
   lexical.reserved += ("select", "from", "where", "as", "and", "or", "join", "inner", "outer", "left", 
                        "right", "on", "group", "by", "having")
 
@@ -82,9 +82,15 @@ object SqlParser extends StandardTokenParsers {
     | expr ~ "<" ~ numericLit  ^^^ None
     | expr ~ "<" ~ expr        ^^^ None
     | expr <~ "<" ~ chr('?')   ^^  Some.apply
+    | expr ~ "<=" ~ numericLit  ^^^ None
+    | expr ~ "<=" ~ expr        ^^^ None
+    | expr <~ "<=" ~ chr('?')   ^^  Some.apply
     | expr ~ ">" ~ numericLit  ^^^ None
     | expr ~ ">" ~ expr        ^^^ None
     | expr <~ ">" ~ chr('?')   ^^  Some.apply
+    | expr ~ ">=" ~ numericLit  ^^^ None
+    | expr ~ ">=" ~ expr        ^^^ None
+    | expr <~ ">=" ~ chr('?')   ^^  Some.apply
   )
 
   def column = (
