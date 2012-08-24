@@ -32,64 +32,64 @@ object SqlMacro {
       err => sys.error("Parse failed: " + err),
       res => res
     )
-    val meta = Analyzer.refine(Schema.infer(select, url, driver, username, password))
+    val meta = Analyzer.refine(Typer.infer(select, url, driver, username, password))
 
-    def rs(expr: TypedExpr, pos: Int) = 
-      if (expr.nullable) {
+    def rs(x: TypedValue, pos: Int) = 
+      if (x.nullable) {
         Block(
-          List(ValDef(Modifiers(), newTermName("x"), TypeTree(), getValue(expr, pos))), 
+          List(ValDef(Modifiers(), newTermName("x"), TypeTree(), getValue(x, pos))), 
           If(Apply(Select(Ident(newTermName("rs")), newTermName("wasNull")), List()), 
              Select(Ident("scala"), newTermName("None")), 
              Apply(Select(Select(Ident("scala"), newTermName("Some")), newTermName("apply")), List(Ident(newTermName("x"))))))
-      } else getValue(expr, pos)
+      } else getValue(x, pos)
 
-    def getValue(expr: TypedExpr, pos: Int) =
-        Apply(Select(Ident(newTermName("rs")), newTermName(rsGetterName(expr))), List(Literal(Constant(pos))))
+    def getValue(x: TypedValue, pos: Int) =
+        Apply(Select(Ident(newTermName("rs")), newTermName(rsGetterName(x))), List(Literal(Constant(pos))))
 
-    def scalaType(expr: TypedExpr) = Ident(c.mirror.staticClass(expr.tpe.typeSymbol.fullName))
+    def scalaType(x: TypedValue) = Ident(c.mirror.staticClass(x.tpe.typeSymbol.fullName))
     def colKey(name: String) = Select(Select(config.tree, "columns"), name)
-    def stmtSetterName(expr: TypedExpr) = "set" + javaName(expr)
-    def rsGetterName(expr: TypedExpr)   = "get" + javaName(expr)
+    def stmtSetterName(x: TypedValue) = "set" + javaName(x)
+    def rsGetterName(x: TypedValue)   = "get" + javaName(x)
 
-    def javaName(expr: TypedExpr) = 
-      if (expr.tpe.typeSymbol.name.toString == "AnyRef") "Object" else expr.tpe.typeSymbol.name.toString
+    def javaName(x: TypedValue) = 
+      if (x.tpe.typeSymbol.name.toString == "AnyRef") "Object" else x.tpe.typeSymbol.name.toString
 
-    def setParam(expr: TypedExpr, pos: Int) = 
-      Apply(Select(Ident(newTermName("stmt")), newTermName(stmtSetterName(expr))), 
+    def setParam(x: TypedValue, pos: Int) = 
+      Apply(Select(Ident(newTermName("stmt")), newTermName(stmtSetterName(x))), 
             List(Literal(Constant(pos+1)), Ident(newTermName("i" + pos))))
 
-    def inputParam(expr: TypedExpr, pos: Int) = 
-      ValDef(Modifiers(Flag.PARAM), newTermName("i" + pos), scalaType(expr), EmptyTree)
+    def inputParam(x: TypedValue, pos: Int) = 
+      ValDef(Modifiers(Flag.PARAM), newTermName("i" + pos), scalaType(x), EmptyTree)
 
     def inputTypeSig = meta.input.map(col => scalaType(col))
 
-    def possiblyOptional(expr: TypedExpr, tpe: Tree) = 
-      if (expr.nullable) AppliedTypeTree(Ident(c.mirror.staticClass("scala.Option")), List(tpe))
+    def possiblyOptional(x: TypedValue, tpe: Tree) = 
+      if (x.nullable) AppliedTypeTree(Ident(c.mirror.staticClass("scala.Option")), List(tpe))
       else tpe
 
     def returnTypeSig = if (meta.output.length == 1) returnTypeSigScalar else returnTypeSigRecord
     def appendRow =     if (meta.output.length == 1) appendRowScalar else appendRowRecord
 
-    def returnTypeSigRecord = List(meta.output.foldRight(Ident(c.mirror.staticClass("shapeless.HNil")): Tree) { (expr, sig) => 
+    def returnTypeSigRecord = List(meta.output.foldRight(Ident(c.mirror.staticClass("shapeless.HNil")): Tree) { (x, sig) => 
       AppliedTypeTree(
         Ident(c.mirror.staticClass("shapeless.$colon$colon")), 
         List(AppliedTypeTree(
           Ident(c.mirror.staticClass("scala.Tuple2")), 
-          List(SingletonTypeTree(colKey(expr.name)), 
-               possiblyOptional(expr, scalaType(expr)))), sig)
+          List(SingletonTypeTree(colKey(x.name)), 
+               possiblyOptional(x, scalaType(x)))), sig)
       )
     })
 
     def returnTypeSigScalar = List(possiblyOptional(meta.output.head, scalaType(meta.output.head)))
 
     def appendRowRecord = {
-      def processRow(expr: TypedExpr, i: Int): Tree = 
+      def processRow(x: TypedValue, i: Int): Tree = 
         ValDef(Modifiers(/*Flag.SYNTHETIC*/), 
                newTermName("x$" + (i+1)), 
                TypeTree(), 
                Apply(Select(Apply(
                  Select(Ident(c.mirror.staticModule("scala.Predef")), newTermName("any2ArrowAssoc")),
-                 List(colKey(expr.name))), newTermName("$minus$greater")), List(rs(expr, meta.output.length - i))))
+                 List(colKey(x.name))), newTermName("$minus$greater")), List(rs(x, meta.output.length - i))))
 
       val init: Tree = 
         Block(List(
@@ -99,9 +99,9 @@ object SqlMacro {
             List(Ident(newTermName("x$1")))
         ))
 
-      List(meta.output.reverse.drop(1).zipWithIndex.foldLeft(init) { case (ast, (expr, i)) =>
+      List(meta.output.reverse.drop(1).zipWithIndex.foldLeft(init) { case (ast, (x, i)) =>
         Block(
-          processRow(expr, i+1),
+          processRow(x, i+1),
           Apply(
             Select(
               Apply(

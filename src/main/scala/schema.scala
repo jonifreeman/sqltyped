@@ -1,19 +1,19 @@
 package sqltyped
 
 import schemacrawler.schemacrawler._
-import schemacrawler.schema._
+import schemacrawler.schema.{ColumnDataType, Schema}
 import schemacrawler.utility.SchemaCrawlerUtility
-import scala.reflect.runtime.universe._
+import scala.reflect.runtime.universe.{Type, typeOf}
+import Ast._
 
-case class TypedExpr(expr: Expr, tpe: Type, nullable: Boolean) {
-  def name = expr.name
-}
+case class TypedValue(name: String, tpe: Type, nullable: Boolean)
 
-case class TypedStatement(input: List[TypedExpr], output: List[TypedExpr], stmt: Statement, multipleResults: Boolean = true)
+case class TypedStatement(input: List[TypedValue], output: List[TypedValue], stmt: Statement, multipleResults: Boolean = true)
 
 // FIXME add error handling
-object Schema {
-  def infer(statement: Statement, url: String, driver: String, username: String, password: String): TypedStatement = {
+// FIXME rename file too
+object Typer {
+  def infer(stmt: Statement, url: String, driver: String, username: String, password: String): TypedStatement = {
     Class.forName(driver)
     val options = new SchemaCrawlerOptions
     val level = new SchemaInfoLevel
@@ -26,47 +26,49 @@ object Schema {
     val schemaName = url.split('?')(0).split('/').reverse.head
     val schema = database.getSchema(schemaName)
 
-    def typeExpr(expr: Expr) = expr match {
+    def typeValue(x: Value) = x match {
       case col: Column =>
-        val (tpe, nullable) = inferColumnType(schema, col)
-        TypedExpr(col, tpe, nullable)
-      case f@Function(fname, params, alias) =>
-        val (tpe, nullable) = inferReturnType(schema, fname, params)
-        TypedExpr(f, tpe, nullable)
-      case c@Constant(tpe) => TypedExpr(c, tpe, false)
+        val (tpe, nullable) = inferColumnType(schema, stmt, col)
+        TypedValue(col.aname, tpe, nullable)
+      case f@Function(name, params, alias) =>
+        val (tpe, nullable) = inferReturnType(schema, stmt, name, params)
+        TypedValue(f.aname, tpe, nullable)
+      case c@Constant(tpe) => TypedValue("<constant>", tpe, false)
     }
 
-    TypedStatement(statement.in map typeExpr, statement.out map typeExpr, statement)
+    TypedStatement(stmt.input map typeValue, stmt.output map typeValue, stmt)
   }
 
-  val `a => a` = (schema: Schema, params: List[Expr]) =>
+  val `a => a` = (schema: Schema, stmt: Statement, params: List[Term]) =>
     if (params.length != 1) sys.error("Expected 1 parameter " + params)
-    else tpeOf(schema, params.head)
+    else tpeOf(schema, stmt, params.head)
 
   // FIXME make this extensible
   val knownFunctions = Map(
       "abs"   -> (`a => a`, true)
-    , "avg"   -> ((_: Schema, _: List[Expr]) => typeOf[Double], true)
-    , "count" -> ((_: Schema, _: List[Expr]) => typeOf[Long], false)
+    , "avg"   -> ((_: Schema, _: Statement, _: List[Term]) => typeOf[Double], true)
+    , "count" -> ((_: Schema, _: Statement, _: List[Term]) => typeOf[Long], false)
     , "min"   -> (`a => a`, true)
     , "max"   -> (`a => a`, true)
     , "sum"   -> (`a => a`, true)
   )
 
-  def tpeOf(schema: Schema, e: Expr): Type = e match {
+  def tpeOf(schema: Schema, stmt: Statement, e: Term): Type = e match {
     case Constant(tpe)          => tpe
-    case col: Column            => inferColumnType(schema, col)._1
-    case Function(n, params, _) => inferReturnType(schema, n, params)._1
+    case col: Column            => inferColumnType(schema, stmt, col)._1
+    case Function(n, params, _) => inferReturnType(schema, stmt, n, params)._1
+    case x                      => sys.error("Term " + x + " not supported yet") // FIXME
   }
 
   // FIXME emit warning for unknown function
-  def inferReturnType(schema: Schema, fname: String, params: List[Expr])  = 
+  def inferReturnType(schema: Schema, stmt: Statement, fname: String, params: List[Term])  = 
     knownFunctions.get(fname.toLowerCase)
-      .map { case (f, opt) => (f(schema, params), opt) }
+      .map { case (f, opt) => (f(schema, stmt, params), opt) }
       .getOrElse((typeOf[AnyRef], true))
 
-  def inferColumnType(schema: Schema, col: Column) = {
-    val colSchema = schema.getTable(col.table).getColumn(col.cname)
+  def inferColumnType(schema: Schema, stmt: Statement, col: Column) = {
+    val table = stmt.tableOf(col).map(_.name).getOrElse(sys.error("No table for " + col))
+    val colSchema = schema.getTable(table).getColumn(col.name)
     if (colSchema == null) sys.error("No such column " + col)
     (mkType(colSchema.getType), colSchema.isNullable)
   }

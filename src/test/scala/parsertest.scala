@@ -4,6 +4,7 @@ import org.scalatest._
 import sqltyped.SqlParser._
 
 class ParserSuite extends FunSuite with matchers.ShouldMatchers {
+/*
   test("Simple queries") {
     parse("select name,age from person") should 
       equal(Right(Statement(Nil, List(Column("person", "name"), Column("person", "age")))))
@@ -86,4 +87,5 @@ class ParserSuite extends FunSuite with matchers.ShouldMatchers {
         List(Function("AVG", List(Column("titles", "price")))),
         List(Column("titles", "name"), Function("AVG", List(Column("titles", "price"))), Function("SUM", List(Column("titles", "price")), Some("p"))))))
   }
+  */
 }
