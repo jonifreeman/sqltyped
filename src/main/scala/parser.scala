@@ -40,11 +40,12 @@ object SqlParser extends StandardTokenParsers {
 
   def where = "where" ~> expr ^^ Where.apply
 
-  def expr: Parser[Expr] = (
-      predicate
-    | expr ~ "and" ~ expr ^^ { case e1 ~ _ ~ e2 => And(e1, e2) } // FIXME can this be cleaned?
-    | expr ~ "or" ~ expr  ^^ { case e1 ~ _ ~ e2 => Or(e1, e2) }
+  def expr: Parser[Expr] = (predicate | parens)* (
+      "and" ^^^ { (e1: Expr, e2: Expr) => And(e1, e2) } 
+    | "or"  ^^^ { (e1: Expr, e2: Expr) => Or(e1, e2) } 
   )
+
+  def parens: Parser[Expr] = "(" ~> expr  <~ ")"
 
   def predicate: Parser[Predicate] = (
       term ~ "=" ~ term  ^^ { case lhs ~ _ ~ rhs => Predicate(lhs, Eq, rhs) }
@@ -102,4 +103,3 @@ object SqlParser extends StandardTokenParsers {
 
   def chr(c: Char) = elem("", _.chars == c.toString)
 }
-
