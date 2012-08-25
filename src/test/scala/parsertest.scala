@@ -88,7 +88,6 @@ class ParserSuite extends FunSuite with matchers.ShouldMatchers {
   def testParse(sql: String, formattedAst: String) = {
     val Right(ast) = parse(sql)
     ast.toSql should equal(formattedAst)
-
-    // FIXME test that formattedAst can be parsed and resulting AST equals to orig AST
+    parse(formattedAst) should equal(Right(ast))
   }
 }
