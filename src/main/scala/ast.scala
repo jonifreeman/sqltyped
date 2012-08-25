@@ -119,7 +119,8 @@ private[sqltyped] object Ast {
     def tables = from flatMap { f => f.table :: f.join.map(_.table) }
 
     def toSql = "select " + (projection map format).mkString(", ") + " from " + 
-      (from map (f => format(f.table))).mkString(", ") +
+      (from map (f => format(f.table) + 
+                 f.join.map(j => " " + j.joinSpec + " " + format(j.table) + " on " + format(j.expr)).mkString(" "))).mkString(", ") +
       where.map(w => " where " + format(w.expr)).getOrElse("") +
       groupBy.map(g => 
         " group by " + format(g.col) + 
@@ -131,7 +132,7 @@ private[sqltyped] object Ast {
 
   case class Where(expr: Expr)
 
-  case class Join(table: Table, expr: Expr)
+  case class Join(table: Table, expr: Expr, joinSpec: String)
 
   case class GroupBy(col: Column, having: Option[Having])
 

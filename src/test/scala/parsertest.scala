@@ -61,7 +61,7 @@ class ParserSuite extends FunSuite with matchers.ShouldMatchers {
     testParse("select p.name, c.age from person as p, child c where p.name > c.parent and c.id>?",
               "select p.name, c.age from person as p, child as c where (p.name > c.parent and c.id > ?)")
   }
-/*
+
   test("Joins") {
     testParse("select p.name, j.name as employer, j.started, j.resigned from person p join job_history j on p.id=j.person",
               "select p.name, j.name as employer, j.started, j.resigned from person as p join job_history as j on p.id = j.person")
@@ -78,7 +78,7 @@ class ParserSuite extends FunSuite with matchers.ShouldMatchers {
     testParse("select j.name from person p join job_history j on p.id=j.person where j.age>?",
               "select j.name from person as p join job_history as j on p.id = j.person where j.age > ?")
   }
-*/
+
   test("Functions") {
     testParse(
       "select name, AVG(price), SUM(price) as p from titles group by title having AVG(price) > ? and COUNT(price) > 100",

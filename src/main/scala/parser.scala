@@ -25,12 +25,11 @@ object SqlParser extends StandardTokenParsers {
 
   def from: Parser[List[From]] = "from" ~> rep1sep(join, ",")
 
-  def join = table ~ opt(joinSpec) ~ repsep(joiningTable, joinSpec) ^^ { case t ~ _ ~ j => From(t, j) }
+  def join = table ~ rep(joinSpec) ^^ { case t ~ j => From(t, j) }
 
-  def joinSpec = opt("left" | "right") ~> opt("inner" | "outer") ~> "join"
- 
-  def joiningTable = table ~ "on" ~ expr ^^ {
-    case table ~ "on" ~ expr => Join(table, expr)
+  def joinSpec = opt("left" | "right") ~ opt("inner" | "outer") ~ "join" ~ table ~ "on" ~ expr ^^ {
+    case side ~ joinType ~ _ ~ table ~ "on" ~ expr => 
+      Join(table, expr, side.map(_ + " ").getOrElse("") + joinType.map(_ + " ").getOrElse("") + "join")
   }
 
   def table = (
