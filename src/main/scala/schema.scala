@@ -33,7 +33,7 @@ object Typer {
       case f@Function(name, params, alias) =>
         val (tpe, nullable) = inferReturnType(schema, stmt, name, params)
         TypedValue(f.aname, tpe, nullable)
-      case c@Constant(tpe) => TypedValue("<constant>", tpe, false)
+      case c@Constant(tpe, _) => TypedValue("<constant>", tpe, false)
     }
 
     TypedStatement(stmt.input map typeValue, stmt.output map typeValue, stmt)
@@ -54,7 +54,7 @@ object Typer {
   )
 
   def tpeOf(schema: Schema, stmt: Statement, e: Term): Type = e match {
-    case Constant(tpe)          => tpe
+    case Constant(tpe, _)       => tpe
     case col: Column            => inferColumnType(schema, stmt, col)._1
     case Function(n, params, _) => inferReturnType(schema, stmt, n, params)._1
     case x                      => sys.error("Term " + x + " not supported yet") // FIXME

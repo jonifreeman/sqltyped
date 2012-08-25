@@ -18,7 +18,7 @@ object SqlParser extends StandardTokenParsers {
   }
 
   def selectStmt = select ~ from ~ opt(where) ~ opt(groupBy) ~ opt(orderBy) ~ opt(limit) ^^ {
-    case s ~ f ~ w ~ g ~ o ~ l => Select(s, f, w, g, o, l) // FIXME cleanup
+    case s ~ f ~ w ~ g ~ o ~ l => Select(s, f, w, g, o, l)
   }
 
   def select: Parser[List[Value]] = "select" ~> repsep(value, ",")
@@ -58,18 +58,18 @@ object SqlParser extends StandardTokenParsers {
   )
 
   def term: Parser[Term] = (
-      boolean    ^^^ Constant(typeOf[Boolean])
-    | stringLit  ^^^ Constant(typeOf[String])
-    | numericLit ^^  (n => if (n.contains(".")) Constant(typeOf[Double]) else Constant(typeOf[Long]))
+      boolean    ^^ (b => Constant(typeOf[Boolean], b))
+    | stringLit  ^^ (s => Constant(typeOf[String], s))
+    | numericLit ^^ (n => if (n.contains(".")) Constant(typeOf[Double], n.toDouble) else Constant(typeOf[Long], n.toInt))
     | function
     | column
     | chr('?')   ^^^ Input
   )
 
   def value: Parser[Value] = (
-      boolean    ^^^ Constant(typeOf[Boolean])
-    | stringLit  ^^^ Constant(typeOf[String])
-    | numericLit ^^  (n => if (n.contains(".")) Constant(typeOf[Double]) else Constant(typeOf[Long]))
+      boolean    ^^ (b => Constant(typeOf[Boolean], b))
+    | stringLit  ^^ (s => Constant(typeOf[String], s))
+    | numericLit ^^ (n => if (n.contains(".")) Constant(typeOf[Double], n.toDouble) else Constant(typeOf[Long], n.toInt))
     | function
     | column
   )
