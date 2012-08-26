@@ -110,6 +110,17 @@ column is selected.
     res8: List[Int] = List(36, 14)
 ```
 
+Then, some queries are known to return just 0 or 1 values, a perfect match for Option type instead
+of List. The following queries return possible result in an Option. The first query uses a uniquely
+constraint column in its where clause. The second one explicitely wants at most one row.
+
+```scala
+    scala> sql("select name from person where id=?").apply(1)
+    res9: Some[String] = Some(joe)
+
+    scala> sql("select age from person order by age desc limit 1").apply
+    res10: Some[Int] = Some(36)
+```
 
 Status
 ------

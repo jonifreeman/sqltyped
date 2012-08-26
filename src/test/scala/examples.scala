@@ -66,21 +66,20 @@ class ExampleSuite extends FunSuite with matchers.ShouldMatchers {
     q(10) should equal (List("joe", "moe"))    
   }
   
-/*
   test("Query with constraint by unique column") {
     val q = sql("select age, name from person where id=?")
-    q(1).tuples should equal (Some("joe", 36))
+    q(1) should equal (Some((age -> 36) :: (name -> "joe") :: HNil))
+    q(1).tuples should equal (Some(36, "joe"))
     
     val q2 = sql("select name from person where id=?")
     q2(1) should equal (Some("joe"))
     
     val q3 = sql("select name from person where id=? and age>?")
-    q3(1, 20) should equal (Some("joe"))
+    q3(1, 10) should equal (Some("joe"))
     
     val q4 = sql("select name from person where id=? or age>?")
-    q4(1, 20) should equal (List("joe"))
+    q4(1, 10) should equal (List("joe", "moe"))
   }
-  */
 
   def date(s: String) = 
     new java.sql.Timestamp(new java.text.SimpleDateFormat("yyyy-MM-dd hh:mm:ss.S").parse(s).getTime)

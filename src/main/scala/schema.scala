@@ -8,7 +8,12 @@ import Ast._
 
 case class TypedValue(name: String, tpe: Type, nullable: Boolean)
 
-case class TypedStatement(input: List[TypedValue], output: List[TypedValue], stmt: Statement, multipleResults: Boolean = true)
+case class TypedStatement(
+    input: List[TypedValue]
+  , output: List[TypedValue]
+  , stmt: Statement
+  , uniqueConstraints: Map[Table, List[List[Column]]]
+  , multipleResults: Boolean = true)
 
 // FIXME add error handling
 // FIXME rename file too
@@ -20,6 +25,7 @@ object Typer {
     level.setRetrieveTables(true)
     level.setRetrieveColumnDataTypes(true)
     level.setRetrieveTableColumns(true)
+    level.setRetrieveIndices(true)
     options.setSchemaInfoLevel(level)
     val conn = getConnection(url, username, password)
     val database = SchemaCrawlerUtility.getDatabase(conn, options)
@@ -36,7 +42,17 @@ object Typer {
       case c@Constant(tpe, _) => TypedValue("<constant>", tpe, false)
     }
 
-    TypedStatement(stmt.input map typeValue, stmt.output map typeValue, stmt)
+    def uniqueConstraints = 
+      Map[Table, List[List[Column]]]().withDefault(_ => Nil) ++ (stmt.tables map { t =>
+        val table = schema.getTable(t.name)
+        val indices = Option(table.getPrimaryKey).map(List(_)).getOrElse(Nil) ::: table.getIndices.toList
+        val uniques = indices filter (_.isUnique) map { i =>
+          i.getColumns.toList.map(col => Column(col.getName, Some(t.name)))
+        }
+        (t, uniques)
+      })
+
+    TypedStatement(stmt.input map typeValue, stmt.output map typeValue, stmt, uniqueConstraints)
   }
 
   val `a => a` = (schema: Schema, stmt: Statement, params: List[Term]) =>

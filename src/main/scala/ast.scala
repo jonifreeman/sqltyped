@@ -29,7 +29,16 @@ private[sqltyped] object Ast {
   case object Le extends Operator
   case object Ge extends Operator
 
-  sealed trait Expr
+  sealed trait Expr {
+    def find(p: Expr => Boolean): Option[Expr] = 
+      if (p(this)) Some(this)
+      else this match {
+        case And(e1, e2)  => e1.find(p) orElse e2.find(p)
+        case Or(e1, e2)   => e1.find(p) orElse e2.find(p)
+        case _: Predicate => None
+      }
+  }
+
   case class Predicate(lhs: Term, op: Operator, rhs: Term) extends Expr
   case class And(e1: Expr, e2: Expr) extends Expr
   case class Or(e1: Expr, e2: Expr) extends Expr

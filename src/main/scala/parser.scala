@@ -10,7 +10,7 @@ object SqlParser extends StandardTokenParsers {
   lexical.delimiters ++= List("(", ")", ",", " ", "=", ">", "<", ">=", "<=", "?", "!=", ".")
   lexical.reserved += ("select", "from", "where", "as", "and", "or", "join", "inner", "outer", "left", 
                        "right", "on", "group", "by", "having", "limit", "offset", "order", "asc", 
-                       "desc")
+                       "desc", "distinct")
 
   def parse(sql: String): Either[String, Statement] = selectStmt(new lexical.Scanner(sql)) match {
     case Success(r, q)  => Right(r)
@@ -21,7 +21,7 @@ object SqlParser extends StandardTokenParsers {
     case s ~ f ~ w ~ g ~ o ~ l => Select(s, f, w, g, o, l)
   }
 
-  def select: Parser[List[Value]] = "select" ~> repsep(value, ",")
+  def select: Parser[List[Value]] = "select" ~> repsep((opt("distinct") ~> value), ",")
 
   def from: Parser[List[From]] = "from" ~> rep1sep(join, ",")
 

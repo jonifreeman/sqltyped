@@ -20,6 +20,15 @@ final class ListOps[L <: HList](l: List[L]) {
        tupler: TuplerAux[Out0, Out]) = l.map(_.values0.tupled)
 }
 
+final class OptionOps[L <: HList](o: Option[L]) {
+  def values(implicit valueProj: ValueProjection[L]): Option[valueProj.Out] = o.map(_.values)
+
+  def tuples[Out0 <: HList, Out <: Product]
+    (implicit 
+       valueProj: ValueProjectionAux[L, Out0],
+       tupler: TuplerAux[Out0, Out]) = o.map(_.values0.tupled)
+}
+
 @annotation.implicitNotFound(msg = "No such column ${K}")
 trait Lookup[L <: HList, K] {
   type Out
