@@ -16,7 +16,6 @@ case class TypedStatement(
   , multipleResults: Boolean = true)
 
 // FIXME add error handling
-// FIXME rename file too
 object Typer {
   def infer(stmt: Statement, url: String, driver: String, username: String, password: String): TypedStatement = {
     Class.forName(driver)
