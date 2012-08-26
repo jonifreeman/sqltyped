@@ -150,7 +150,11 @@ private[sqltyped] object Ast {
                     orderBy: Option[OrderBy],
                     limit: Option[Limit]) extends Statement {
 
-    def input = where.map(w => params(w.expr)).getOrElse(Nil) ::: groupBy.flatMap(g => g.having.map(h => params(h.expr))).getOrElse(Nil) // FIXME Limit
+    def input = 
+      where.map(w => params(w.expr)).getOrElse(Nil) ::: 
+      groupBy.flatMap(g => g.having.map(h => params(h.expr))).getOrElse(Nil) :::
+      limit.map(l => l.count.right.toSeq.toList ::: l.offset.map(_.right.toSeq.toList).getOrElse(Nil)).getOrElse(Nil).map(_ => Constant(typeOf[Long], None))
+
     def output = projection
     def tables = from flatMap { f => f.table :: f.join.map(_.table) }
 
@@ -180,6 +184,5 @@ private[sqltyped] object Ast {
   case object Asc extends Order
   case object Desc extends Order
 
-  // FIXME should be count: Value etc
-  case class Limit(count: Int, offset: Option[Int])
+  case class Limit(count: Either[Int, Input.type], offset: Option[Either[Int, Input.type]])
 }

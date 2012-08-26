@@ -32,7 +32,12 @@ object Analyzer {
       s.where.map(w => cols.map(col => inExpr(w.expr, col)).forall(identity)).getOrElse(false)
     }
 
-    def hasLimit1(s: Select) = s.limit.map(_.count == 1) getOrElse false
+    def hasLimit1(s: Select) = s.limit.map {
+      _.count match {
+        case Left(x) => x == 1
+        case _ => false
+      }
+    } getOrElse false
 
     stmt.stmt match {
       case s: Select => 

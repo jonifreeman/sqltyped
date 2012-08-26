@@ -84,6 +84,16 @@ class ExampleSuite extends FunSuite with matchers.ShouldMatchers {
     q5() should equal (Some(36))
   }
 
+  test("Query with limit") {
+    sql("select age from person order by age limit ?").apply(2) should equal(List(14, 36))
+    sql("select age from person order by age limit ?").apply(1) should equal(List(14))
+    sql("select age from person order by age limit ? offset 1").apply(1) should equal(List(36))
+    sql("select age from person order by age limit ? offset ?").apply(1, 1) should equal(List(36))
+
+    val q = sql("select age from person where name between ? and ? limit ?")
+    q("i", "k", 2) should equal(List(36))
+  }
+
   def date(s: String) = 
     new java.sql.Timestamp(new java.text.SimpleDateFormat("yyyy-MM-dd hh:mm:ss.S").parse(s).getTime)
 }

@@ -100,9 +100,14 @@ object SqlParser extends StandardTokenParsers {
 
   def having = "having" ~> expr ^^ Having.apply
 
-  def limit = "limit" ~> numericLit ~ opt("offset" ~> numericLit) ^^ {
-    case count ~ offset => Limit(count.toInt, offset.map(_.toInt))
+  def limit = "limit" ~> intOrInput ~ opt("offset" ~> intOrInput) ^^ {
+    case count ~ offset => Limit(count, offset)
   }
+
+  def intOrInput = (
+      chr('?') ^^^ Right(Input)
+    | numericLit ^^ (n => Left(n.toInt))
+  )
 
   def chr(c: Char) = elem("", _.chars == c.toString)
 }
