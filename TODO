@@ -1,12 +1,12 @@
 * Generic
 
-- Change the return type of Query*.apply after query analysis (Option[A], ...)
 - Exists, not exists, not null, in, distinct
 - LIMIT 
 - FOR UPDATE
 - select *
 - Subselects
 - Unions
+- Tag PKs
 - SQL insert
 - SQL update
 - SQL delete

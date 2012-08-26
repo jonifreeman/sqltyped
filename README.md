@@ -98,6 +98,8 @@ column it is typed as String => String etc.
     res6: (Option[String], Option[Int]) = (Some(moe),Some(36))
 ```
 
+### Analysis ###
+
 So far all the examples have returned results as Lists of records. But with a little bit of query
 analysis we can do better. Like, it is quite unnecessary to box the values as records if just one 
 column is selected.
