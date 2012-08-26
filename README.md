@@ -110,9 +110,9 @@ column is selected.
     res8: List[Int] = List(36, 14)
 ```
 
-Then, some queries are known to return just 0 or 1 values, a perfect match for Option type instead
-of List. The following queries return possible result in an Option. The first query uses a uniquely
-constraint column in its where clause. The second one explicitely wants at most one row.
+Then, some queries are known to return just 0 or 1 values, a perfect match for Option type. 
+The following queries return possible result as an Option instead of List. The first query uses 
+a uniquely constraint column in its where clause. The second one explicitely wants at most one row.
 
 ```scala
     scala> sql("select name from person where id=?").apply(1)

@@ -153,5 +153,6 @@ private[sqltyped] object Ast {
   case object Asc extends Order
   case object Desc extends Order
 
+  // FIXME should be count: Value etc
   case class Limit(count: Int, offset: Option[Int])
 }

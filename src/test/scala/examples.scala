@@ -79,6 +79,9 @@ class ExampleSuite extends FunSuite with matchers.ShouldMatchers {
     
     val q4 = sql("select name from person where id=? or age>?")
     q4(1, 10) should equal (List("joe", "moe"))
+
+    val q5 = sql("select age from person order by age desc limit 1")
+    q5() should equal (Some(36))
   }
 
   def date(s: String) = 

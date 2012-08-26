@@ -31,11 +31,14 @@ object Analyzer {
       s.where.map(w => cols.map(col => inExpr(w.expr, col)).forall(identity)).getOrElse(false)
     }
 
+    def hasLimit1(s: Select) = s.limit.map(_.count == 1) getOrElse false
+
     stmt.stmt match {
       case s: Select => 
-        if (s.from.length == 1 && s.from.head.join.length == 0 && 
-            s.where.isDefined && hasNoOrExprs(s) && 
-            stmt.uniqueConstraints(s.from.head.table).exists(c => inWhereClause(s, c)))
+        if ((s.from.length == 1 && s.from.head.join.length == 0 && 
+             s.where.isDefined && hasNoOrExprs(s) && 
+             stmt.uniqueConstraints(s.from.head.table).exists(c => inWhereClause(s, c))) || 
+            hasLimit1(s))
           false
         else 
           true
