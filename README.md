@@ -46,7 +46,7 @@ Notice how the type of 'age' was infered to be Int.
 ```scala
    scala> q().map(p => p.get(salary))
    <console>:24: error: No such column Columns.salary.type
-                  query(conn, q).map(p => p.get(salary))
+                  q().map(p => p.get(salary))
 ```
 
 Oops, a compilation failure. Can't access 'salary', it was not selected in the query.
@@ -114,7 +114,7 @@ column is selected.
 
 Then, some queries are known to return just 0 or 1 values, a perfect match for Option type. 
 The following queries return possible result as an Option instead of List. The first query uses 
-a uniquely constraint column in its where clause. The second one explicitely wants at most one row.
+a uniquely constraint column in its where clause. The second one explicitly wants at most one row.
 
 ```scala
     scala> sql("select name from person where id=?").apply(1)

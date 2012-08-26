@@ -85,6 +85,17 @@ class ParserSuite extends FunSuite with matchers.ShouldMatchers {
       "select name, AVG(price), SUM(price) as p from titles group by title having (AVG(price) > ? and COUNT(price) > 100)")
   }
 
+  test("Comparisons") {
+    testParse("select name from person where salary between ? and ?",
+              "select name from person where salary between ? and ?")
+
+    testParse("select name from person where salary is null",
+              "select name from person where salary is null")
+
+    testParse("select p.name from person p where p.salary is null",
+              "select p.name from person as p where p.salary is null")
+  }
+
   def testParse(sql: String, formattedAst: String) = {
     val Right(ast) = parse(sql)
     ast.toSql should equal(formattedAst)

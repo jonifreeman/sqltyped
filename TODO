@@ -1,10 +1,10 @@
 * Generic
 
-- Exists, not exists, not null, in, distinct
+- in
 - LIMIT 
 - FOR UPDATE
 - select *
-- Subselects
+- Subselects, Exists, not exists
 - Unions
 - Tag PKs
 - SQL insert

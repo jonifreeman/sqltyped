@@ -15,18 +15,19 @@ object Analyzer {
    * - It has LIMIT 1 clause
    */
   private def returnsMultipleResults(stmt: TypedStatement) = {
-    def hasNoOrExprs(s: Select) = {
+    def hasNoOrExprs(s: Select) = 
       s.where.map(w => !w.expr.find { case e: Or => true; case _ => false }.isDefined).getOrElse(false)
-    }
 
     def inWhereClause(s: Select, cols: List[Column]) = {
       def inExpr(e: Expr, col: Column): Boolean = e match {
         // note, column comparision works since we only examine statements with one table
-        case Predicate(Column(n, _, _), Eq, _) => col.name == n 
-        case Predicate(_, Eq, Column(n, _, _)) => col.name == n
-        case Predicate(_, _, _)                => false
-        case And(e1, e2)                       => inExpr(e1, col) || inExpr(e2, col)
-        case Or(e1, e2)                        => inExpr(e1, col) || inExpr(e2, col)
+        case Predicate1(_, _)                   => false
+        case Predicate2(Column(n, _, _), Eq, _) => col.name == n 
+        case Predicate2(_, Eq, Column(n, _, _)) => col.name == n
+        case Predicate2(_, _, _)                => false
+        case Predicate3(_, _, _, _)             => false
+        case And(e1, e2)                        => inExpr(e1, col) || inExpr(e2, col)
+        case Or(e1, e2)                         => inExpr(e1, col) || inExpr(e2, col)
       }
       s.where.map(w => cols.map(col => inExpr(w.expr, col)).forall(identity)).getOrElse(false)
     }

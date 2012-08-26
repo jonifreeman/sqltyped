@@ -21,13 +21,20 @@ private[sqltyped] object Ast {
 
   case class Table(name: String, alias: Option[String])
 
-  sealed trait Operator
-  case object Eq extends Operator
-  case object Neq extends Operator
-  case object Lt extends Operator
-  case object Gt extends Operator
-  case object Le extends Operator
-  case object Ge extends Operator
+  sealed trait Operator1
+  case object IsNull extends Operator1
+  case object IsNotNull extends Operator1
+
+  sealed trait Operator2
+  case object Eq extends Operator2
+  case object Neq extends Operator2
+  case object Lt extends Operator2
+  case object Gt extends Operator2
+  case object Le extends Operator2
+  case object Ge extends Operator2
+
+  sealed trait Operator3
+  case object Between extends Operator3
 
   sealed trait Expr {
     def find(p: Expr => Boolean): Option[Expr] = 
@@ -39,7 +46,11 @@ private[sqltyped] object Ast {
       }
   }
 
-  case class Predicate(lhs: Term, op: Operator, rhs: Term) extends Expr
+  sealed trait Predicate extends Expr
+
+  case class Predicate1(term: Term, op: Operator1) extends Predicate
+  case class Predicate2(lhs: Term, op: Operator2, rhs: Term) extends Predicate
+  case class Predicate3(t1: Term, op: Operator3, t2: Term, t3: Term) extends Predicate
   case class And(e1: Expr, e2: Expr) extends Expr
   case class Or(e1: Expr, e2: Expr) extends Expr
 
@@ -61,11 +72,16 @@ private[sqltyped] object Ast {
   }
 
   def params(e: Expr): List[Value] = e match {
-    case Predicate(Input, op, x) => termToValue(x) :: Nil
-    case Predicate(x, op, Input) => termToValue(x) :: Nil
-    case Predicate(_, op, _)     => Nil
-    case And(e1, e2)             => params(e1) ::: params(e2)
-    case Or(e1, e2)              => params(e1) ::: params(e2)
+    case Predicate1(_, _)                => Nil
+    case Predicate2(Input, op, x)        => termToValue(x) :: Nil
+    case Predicate2(x, op, Input)        => termToValue(x) :: Nil
+    case Predicate2(_, op, _)            => Nil
+    case Predicate3(x, op, Input, Input) => termToValue(x) :: termToValue(x) :: Nil
+    case Predicate3(x, op, Input, _)     => termToValue(x) :: Nil
+    case Predicate3(x, op, _, Input)     => termToValue(x) :: Nil
+    case Predicate3(_, op, _, _)         => Nil
+    case And(e1, e2)                     => params(e1) ::: params(e2)
+    case Or(e1, e2)                      => params(e1) ::: params(e2)
   }
 
   // FIXME clean this
@@ -83,9 +99,11 @@ private[sqltyped] object Ast {
   def format(t: Table): String = t.name + t.alias.map(a => " as " + a).getOrElse("")
 
   def format(expr: Expr): String = expr match {
-    case Predicate(t1, op, t2)   => format(t1) + " " + format(op) + " " + format(t2)
-    case And(e1, e2)             => "(" + format(e1) + " and " + format(e2) + ")"
-    case Or(e1, e2)              => "(" + format(e1) + " or " + format(e2) + ")"
+    case Predicate1(t, a)           => format(t) + " " + format(a)
+    case Predicate2(t1, op, t2)     => format(t1) + " " + format(op) + " " + format(t2)
+    case Predicate3(t1, op, t2, t3) => format(t1) + " " + format(op) + " " + format(t2) + " and " + format(t3)
+    case And(e1, e2)                => "(" + format(e1) + " and " + format(e2) + ")"
+    case Or(e1, e2)                 => "(" + format(e1) + " or " + format(e2) + ")"
   }
 
   def format(t: Term): String = t match {
@@ -102,17 +120,26 @@ private[sqltyped] object Ast {
     case f: Function => format(f)
   }
 
-  def format(op: Operator) = op match {
-    case Eq  => "="
-    case Neq => "!="
-    case Lt  => "<"
-    case Gt  => ">"
-    case Le  => "<="
-    case Ge  => ">="
+  def format(op: Operator1) = op match {
+    case IsNull    => "is null"
+    case IsNotNull => "is not null"
+  }
+
+  def format(op: Operator2) = op match {
+    case Eq       => "="
+    case Neq      => "!="
+    case Lt       => "<"
+    case Gt       => ">"
+    case Le       => "<="
+    case Ge       => ">="
+  }
+
+  def format(op: Operator3) = op match {
+    case Between  => "between"
   }
 
   def format(o: Order) = o match {
-    case Asc => "asc"
+    case Asc  => "asc"
     case Desc => "desc"
   }
 

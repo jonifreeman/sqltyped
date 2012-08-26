@@ -10,7 +10,7 @@ object SqlParser extends StandardTokenParsers {
   lexical.delimiters ++= List("(", ")", ",", " ", "=", ">", "<", ">=", "<=", "?", "!=", ".")
   lexical.reserved += ("select", "from", "where", "as", "and", "or", "join", "inner", "outer", "left", 
                        "right", "on", "group", "by", "having", "limit", "offset", "order", "asc", 
-                       "desc", "distinct")
+                       "desc", "distinct", "is", "not", "null", "between")
 
   def parse(sql: String): Either[String, Statement] = selectStmt(new lexical.Scanner(sql)) match {
     case Success(r, q)  => Right(r)
@@ -48,12 +48,15 @@ object SqlParser extends StandardTokenParsers {
   def parens: Parser[Expr] = "(" ~> expr  <~ ")"
 
   def predicate: Parser[Predicate] = (
-      term ~ "=" ~ term  ^^ { case lhs ~ _ ~ rhs => Predicate(lhs, Eq, rhs) }
-    | term ~ "!=" ~ term ^^ { case lhs ~ _ ~ rhs => Predicate(lhs, Neq, rhs) }
-    | term ~ "<" ~ term  ^^ { case lhs ~ _ ~ rhs => Predicate(lhs, Lt, rhs) }
-    | term ~ ">" ~ term  ^^ { case lhs ~ _ ~ rhs => Predicate(lhs, Gt, rhs) }
-    | term ~ "<=" ~ term ^^ { case lhs ~ _ ~ rhs => Predicate(lhs, Le, rhs) }
-    | term ~ ">=" ~ term ^^ { case lhs ~ _ ~ rhs => Predicate(lhs, Ge, rhs) }
+      term ~ "=" ~ term                      ^^ { case lhs ~ _ ~ rhs => Predicate2(lhs, Eq, rhs) }
+    | term ~ "!=" ~ term                     ^^ { case lhs ~ _ ~ rhs => Predicate2(lhs, Neq, rhs) }
+    | term ~ "<" ~ term                      ^^ { case lhs ~ _ ~ rhs => Predicate2(lhs, Lt, rhs) }
+    | term ~ ">" ~ term                      ^^ { case lhs ~ _ ~ rhs => Predicate2(lhs, Gt, rhs) }
+    | term ~ "<=" ~ term                     ^^ { case lhs ~ _ ~ rhs => Predicate2(lhs, Le, rhs) }
+    | term ~ ">=" ~ term                     ^^ { case lhs ~ _ ~ rhs => Predicate2(lhs, Ge, rhs) }
+    | term ~ "between" ~ term ~ "and" ~ term ^^ { case t1 ~ _ ~ t2 ~ _ ~ t3 => Predicate3(t1, Between, t2, t3) }
+    | term <~ "is" ~ "null"                  ^^ { t => Predicate1(t, IsNull) }
+    | term <~ "is" ~ "not" ~ "null"          ^^ { t => Predicate1(t, IsNotNull) }
   )
 
   def term: Parser[Term] = (
