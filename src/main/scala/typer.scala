@@ -6,7 +6,7 @@ import schemacrawler.utility.SchemaCrawlerUtility
 import scala.reflect.runtime.universe.{Type, typeOf}
 import Ast._
 
-case class TypedValue(name: String, tpe: Type, nullable: Boolean)
+case class TypedValue(name: String, tpe: Type, nullable: Boolean, tag: Option[String])
 
 case class TypedStatement(
     input: List[TypedValue]
@@ -25,20 +25,35 @@ object Typer {
     level.setRetrieveColumnDataTypes(true)
     level.setRetrieveTableColumns(true)
     level.setRetrieveIndices(true)
+    level.setRetrieveForeignKeys(true)
     options.setSchemaInfoLevel(level)
+    val schemaName = url.split('?')(0).split('/').reverse.head
+    options.setSchemaInclusionRule(new InclusionRule(schemaName, ""))
     val conn = getConnection(url, username, password)
     val database = SchemaCrawlerUtility.getDatabase(conn, options)
-    val schemaName = url.split('?')(0).split('/').reverse.head
     val schema = database.getSchema(schemaName)
+
+    def tag(col: Column) = {
+      None
+/*
+      val table = stmt.tableOf(col).getOrElse(sys.error("Column references invalid table " + col))
+      val t = schema.getTable(table.name)
+      if (t.getPrimaryKey != null && t.getPrimaryKey.getColumns.exists(_.getName == col.name))
+        Some(table.name)
+      else if (t.getForeignKeys.exists(_.getColumnPairs.exists(_.getForeignKeyColumn.getName == col.name)))
+        Some(???)
+      else 
+        None */
+    }
 
     def typeValue(x: Value) = x match {
       case col: Column =>
-        val (tpe, nullable) = inferColumnType(schema, stmt, col)
-        TypedValue(col.aname, tpe, nullable)
+        val (tpe, nullable) = inferColumnType(schema, stmt, col)        
+        TypedValue(col.aname, tpe, nullable, tag(col))
       case f@Function(name, params, alias) =>
         val (tpe, nullable) = inferReturnType(schema, stmt, name, params)
-        TypedValue(f.aname, tpe, nullable)
-      case c@Constant(tpe, _) => TypedValue("<constant>", tpe, false)
+        TypedValue(f.aname, tpe, nullable, None)
+      case c@Constant(tpe, _) => TypedValue("<constant>", tpe, false, None)
     }
 
     def uniqueConstraints = 

@@ -7,12 +7,14 @@ import shapeless._
 class ExampleSuite extends FunSuite with matchers.ShouldMatchers {
   Class.forName("com.mysql.jdbc.Driver")
 
+  object Tables { trait person; trait job_history }
   object Columns { object name; object age; object salary; object employer; object started
                    object resigned; object avg; object count }
 
-  implicit val c = Configuration(Columns)
+  implicit val c = Configuration(Tables, Columns)
   implicit def conn = DriverManager.getConnection("jdbc:mysql://localhost:3306/sqltyped", "root", "")
 
+  import Tables._
   import Columns._
 
   test("Simple query") {
@@ -93,6 +95,16 @@ class ExampleSuite extends FunSuite with matchers.ShouldMatchers {
     val q = sql("select age from person where name between ? and ? limit ?")
     q("i", "k", 2) should equal(List(36))
   }
+
+  test("Tagging") {
+/* FIXME better example
+    def findName(id: Int @@ person) = sql("select name from person where id=?").apply(id)
+
+    val names = sql("select person from job_history").apply map findName
+    names should equal(List(Some("joe"), Some("moe")))
+    */
+  }
+
 
   def date(s: String) = 
     new java.sql.Timestamp(new java.text.SimpleDateFormat("yyyy-MM-dd hh:mm:ss.S").parse(s).getTime)

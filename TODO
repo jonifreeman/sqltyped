@@ -1,14 +1,14 @@
 * Generic
 
-- FOR UPDATE
-- select *
+- Tag PKs and FKs
 - Subselects, Exists, not exists
-- Unions
-- Tag PKs
-- in operator
 - SQL insert
 - SQL update
 - SQL delete
+- Unions
+- select *
+- FOR UPDATE, LOCK MODE, etc.
+- in operator
 - Arithmetic (update player set age=age+1)
 - Make parser case insensitive (keywords only)
 - Infer function types

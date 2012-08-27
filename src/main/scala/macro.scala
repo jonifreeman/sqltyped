@@ -2,7 +2,7 @@ package sqltyped
 
 import java.sql._
 
-case class Configuration[A](columns: A)
+case class Configuration[A, B](tables: A, columns: B)
 
 object SqlMacro {
   import shapeless._
@@ -18,7 +18,7 @@ object SqlMacro {
     }
   }
 
-  def sqlImpl[A: c.TypeTag](c: Context)(s: c.Expr[String])(config: c.Expr[Configuration[A]]): c.Expr[Any] = {
+  def sqlImpl[A: c.TypeTag, B: c.TypeTag](c: Context)(s: c.Expr[String])(config: c.Expr[Configuration[A, B]]): c.Expr[Any] = {
     import c.universe._
 
     val Literal(Constant(sql: String)) = s.tree
