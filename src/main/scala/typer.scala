@@ -34,16 +34,17 @@ object Typer {
     val schema = database.getSchema(schemaName)
 
     def tag(col: Column) = {
-      None
-/*
       val table = stmt.tableOf(col).getOrElse(sys.error("Column references invalid table " + col))
       val t = schema.getTable(table.name)
+
+      def findFK = t.getForeignKeys
+        .flatMap(_.getColumnPairs.map(_.getForeignKeyColumn))
+        .find(_.getName == col.name)
+        .map(_.getReferencedColumn.getParent.getName)
+
       if (t.getPrimaryKey != null && t.getPrimaryKey.getColumns.exists(_.getName == col.name))
         Some(table.name)
-      else if (t.getForeignKeys.exists(_.getColumnPairs.exists(_.getForeignKeyColumn.getName == col.name)))
-        Some(???)
-      else 
-        None */
+      else findFK orElse None
     }
 
     def typeValue(x: Value) = x match {

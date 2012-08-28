@@ -4,7 +4,7 @@ create table person(
   age INT NOT NULL, 
   salary INT NOT NULL,
   PRIMARY KEY (id)
-);
+) ENGINE=InnoDB;
 
 create table job_history(
   person bigint(20) NOT NULL,
@@ -15,7 +15,7 @@ create table job_history(
         REFERENCES person (id)
         ON DELETE CASCADE
         ON UPDATE NO ACTION
-);
+) ENGINE=InnoDB;
 
 insert into person values (1, 'joe', 36, 9500);
 insert into person values (2, 'moe', 14, 8000);
