@@ -137,7 +137,6 @@ can be used for extra type safety in data access code.
     scala> def findName(id: Long @@ person) = sql("select name from person where id=?").apply(id)
 
     scala> sql("select person from job_history").apply map findName
-    res11: List(Some("joe"), Some("joe"))
 ```
 
 The above code compiles because 'job_history.person' is a foreign key referencing 'person.id'.
