@@ -13,13 +13,9 @@ This experiment starts from following observations.
 Examples
 --------
 
-First some boring initialization... 
+The following examples use schema and data from [test.sql](https://github.com/jonifreeman/sqltyped/blob/master/src/test/resources/test.sql)
 
-```sql
-    create table person(name varchar(255) not null, age INT not null, salary INT not null);
-    insert into person values ('joe', 36, 9500);
-    insert into person values ('moe', 14, 8000);
-```
+First some boring initialization... 
 
 Start console: ```sbt test:console```
 
