@@ -138,7 +138,7 @@ can be used for extra type safety in data access code.
 The above code compiles because 'job_history.person' is a foreign key referencing 'person.id'.
 Thus, its type is ```Long @@ person```.
 
-Note, input parameters are not currently typed. Otherwise this wouldn't compile:
+Note, input parameters are not currently tagged (just typed). Otherwise this wouldn't compile:
 
 ```scala
     sql("select name,age from person where id=?").apply(1)
