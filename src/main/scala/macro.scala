@@ -43,11 +43,31 @@ object SqlMacro {
              Apply(Select(Select(Ident("scala"), newTermName("Some")), newTermName("apply")), List(Ident(newTermName("x"))))))
       } else getValue(x, pos)
 
-    def getValue(x: TypedValue, pos: Int) =
-        Apply(Select(Ident(newTermName("rs")), newTermName(rsGetterName(x))), List(Literal(Constant(pos))))
+    def getValue(x: TypedValue, pos: Int) = {
+      def baseValue = Apply(Select(Ident(newTermName("rs")), newTermName(rsGetterName(x))), 
+                            List(Literal(Constant(pos))))
+      
+      x.tag.map(t =>
+        Apply(
+          Select(
+            TypeApply(
+              Select(Select(Ident("shapeless"), newTermName("TypeOperators")), newTermName("tag")), 
+              List(tagType(t))), newTermName("apply")), List(baseValue))
+      ) getOrElse baseValue
+    }
 
-    def scalaType(x: TypedValue) = Ident(c.mirror.staticClass(x.tpe.typeSymbol.fullName))
+    def scalaType(x: TypedValue) = {
+      def baseType = Ident(c.mirror.staticClass(x.tpe.typeSymbol.fullName))
+
+      x.tag.map(t => 
+        AppliedTypeTree(
+          Select(Select(Ident("shapeless"), newTermName("TypeOperators")), newTypeName("$at$at")), 
+          List(baseType, tagType(t)))
+      ) getOrElse baseType
+    }
+
     def colKey(name: String) = Select(Select(config.tree, "columns"), name)
+    def tagType(tag: String) = SelectFromTypeTree(Select(config.tree, "tables"), tag)
     def stmtSetterName(x: TypedValue) = "set" + javaName(x)
     def rsGetterName(x: TypedValue)   = "get" + javaName(x)
 

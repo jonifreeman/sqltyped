@@ -97,12 +97,10 @@ class ExampleSuite extends FunSuite with matchers.ShouldMatchers {
   }
 
   test("Tagging") {
-/* FIXME better example
-    def findName(id: Int @@ person) = sql("select name from person where id=?").apply(id)
+    def findName(id: Long @@ person) = sql("select name from person where id=?").apply(id)
 
     val names = sql("select person from job_history").apply map findName
-    names should equal(List(Some("joe"), Some("moe")))
-    */
+    names should equal(List(Some("joe"), Some("joe")))
   }
 
 

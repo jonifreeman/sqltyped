@@ -27,9 +27,11 @@ Start console: ```sbt test:console```
     import java.sql._
     import sqltyped._
     Class.forName("com.mysql.jdbc.Driver")
-    object Columns { object name; object age; object salary; object employer; object started; object resigned }
-    implicit val c = Configuration(Columns)
+    object Tables { trait person; trait job_history }
+    object Columns { object name; object age; object salary; object employer; object started; object resigned; object avg; object count }
+    implicit val c = Configuration(Tables, Columns)
     implicit def conn = DriverManager.getConnection("jdbc:mysql://localhost:3306/sqltyped", "root", "")
+    import Tables._
     import Columns._
 ```
 
@@ -124,6 +126,38 @@ a uniquely constraint column in its where clause. The second one explicitly want
     res10: Some[Int] = Some(36)
 ```
 
+### Tagging primary and foreign keys ###
+
+If a column is a primary or foreign key its type is tagged. For instance, a column which
+references 'person.id' is typed as ```Long @@ person```. That funny little @@ symbol is a type tag
+from Shapeless project. It is used to add extra type information to otherwise simple type and
+can be used for extra type safety in data access code.
+
+```scala
+    scala> def findName(id: Long @@ person) = sql("select name from person where id=?").apply(id)
+
+    scala> sql("select person from job_history").apply map findName
+    res11: List(Some("joe"), Some("joe"))
+```
+
+The above code compiles because 'job_history.person' is a foreign key referencing 'person.id'.
+Thus, its type is ```Long @@ person```.
+
+Note, input parameters are not currently typed. Otherwise this wouldn't compile:
+
+```scala
+    sql("select name,age from person where id=?").apply(1)
+```
+
+Instead, explicit tagging would had been required:
+
+```scala
+    sql("select name,age from person where id=?").apply(tag[person](1))
+```
+
+It is not clear if that extra verbosity is compensated by increased type safety.
+
+
 Status
 ------
 
@@ -134,7 +168,6 @@ at compile time. The macro reads database schema and infers types and variable n
 results are returned as type safe records. Those type safe records are emulated by building on
 [Shapeless](https://github.com/milessabin/shapeless) HLists.
 
-* Tag primary keys?
 * Full SQL syntax + SQL dialects 
 * Requiring a user to create a type for each used column is unncessary boilerplate once Scala macros can create public types
 * Benchmark the effect on compilation times and optimize as needed

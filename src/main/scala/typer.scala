@@ -47,10 +47,10 @@ object Typer {
       else findFK orElse None
     }
 
-    def typeValue(x: Value) = x match {
+    def typeValue(useTags: Boolean)(x: Value) = x match {
       case col: Column =>
         val (tpe, nullable) = inferColumnType(schema, stmt, col)        
-        TypedValue(col.aname, tpe, nullable, tag(col))
+        TypedValue(col.aname, tpe, nullable, if (useTags) tag(col) else None)
       case f@Function(name, params, alias) =>
         val (tpe, nullable) = inferReturnType(schema, stmt, name, params)
         TypedValue(f.aname, tpe, nullable, None)
@@ -67,7 +67,10 @@ object Typer {
         (t, uniques)
       })
 
-    TypedStatement(stmt.input map typeValue, stmt.output map typeValue, stmt, uniqueConstraints)
+    TypedStatement(stmt.input  map typeValue(useTags = false), 
+                   stmt.output map typeValue(useTags = true), 
+                   stmt, 
+                   uniqueConstraints)
   }
 
   val `a => a` = (schema: Schema, stmt: Statement, params: List[Term]) =>
