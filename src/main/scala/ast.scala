@@ -17,7 +17,7 @@ private[sqltyped] object Ast {
   case class Function(name: String, params: List[Term], alias: Option[String] = None) extends Value with Aliased
 
   case object Input extends Term
-  case class Subselect(select: Select) extends Term
+  case class Subselect(select: Select) extends Term with Expr
 
   case class Table(name: String, alias: Option[String])
 

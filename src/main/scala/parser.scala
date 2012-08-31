@@ -40,12 +40,14 @@ object SqlParser extends StandardTokenParsers {
 
   def where = "where" ~> expr ^^ Where.apply
 
-  def expr: Parser[Expr] = (predicate | parens)* (
+  def expr: Parser[Expr] = (subselect | predicate | parens)* (
       "and" ^^^ { (e1: Expr, e2: Expr) => And(e1, e2) } 
     | "or"  ^^^ { (e1: Expr, e2: Expr) => Or(e1, e2) } 
   )
 
   def parens: Parser[Expr] = "(" ~> expr  <~ ")"
+
+  def subselect = selectStmt ^^ Subselect.apply
 
   def predicate: Parser[Predicate] = (
       term ~ "=" ~ term                      ^^ { case lhs ~ _ ~ rhs => Predicate2(lhs, Eq, rhs) }

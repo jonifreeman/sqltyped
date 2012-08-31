@@ -103,6 +103,10 @@ class ExampleSuite extends FunSuite with matchers.ShouldMatchers {
     names should equal(List(Some("joe"), Some("joe")))
   }
 
+  test("Subselects") {
+    sql("select distinct name from person where id = (select person from job_history limit 1)").apply should
+      equal(List("joe"))
+  }
 
   def date(s: String) = 
     new java.sql.Timestamp(new java.text.SimpleDateFormat("yyyy-MM-dd hh:mm:ss.S").parse(s).getTime)
