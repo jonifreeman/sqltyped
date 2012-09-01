@@ -17,7 +17,7 @@ private[sqltyped] object Ast {
   case class Function(name: String, params: List[Term], alias: Option[String] = None) extends Value with Aliased
 
   case object Input extends Term
-  case class Subselect(select: Select) extends Term with Expr
+  case class Subselect(select: Select) extends Term
 
   case class Table(name: String, alias: Option[String])
 
@@ -32,6 +32,7 @@ private[sqltyped] object Ast {
   case object Gt extends Operator2
   case object Le extends Operator2
   case object Ge extends Operator2
+  case object In extends Operator2
 
   sealed trait Operator3
   case object Between extends Operator3
@@ -132,6 +133,7 @@ private[sqltyped] object Ast {
     case Gt       => ">"
     case Le       => "<="
     case Ge       => ">="
+    case In       => "in"
   }
 
   def format(op: Operator3) = op match {

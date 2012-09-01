@@ -10,7 +10,7 @@ object SqlParser extends StandardTokenParsers {
   lexical.delimiters ++= List("(", ")", ",", " ", "=", ">", "<", ">=", "<=", "?", "!=", ".")
   lexical.reserved += ("select", "from", "where", "as", "and", "or", "join", "inner", "outer", "left", 
                        "right", "on", "group", "by", "having", "limit", "offset", "order", "asc", 
-                       "desc", "distinct", "is", "not", "null", "between")
+                       "desc", "distinct", "is", "not", "null", "between", "in")
 
   def parse(sql: String): Either[String, Statement] = selectStmt(new lexical.Scanner(sql)) match {
     case Success(r, q)  => Right(r)
@@ -40,26 +40,27 @@ object SqlParser extends StandardTokenParsers {
 
   def where = "where" ~> expr ^^ Where.apply
 
-  def expr: Parser[Expr] = (subselect | predicate | parens)* (
+  def expr: Parser[Expr] = (predicate | parens)* (
       "and" ^^^ { (e1: Expr, e2: Expr) => And(e1, e2) } 
     | "or"  ^^^ { (e1: Expr, e2: Expr) => Or(e1, e2) } 
   )
 
   def parens: Parser[Expr] = "(" ~> expr  <~ ")"
 
-  def subselect = selectStmt ^^ Subselect.apply
-
   def predicate: Parser[Predicate] = (
-      term ~ "=" ~ term                      ^^ { case lhs ~ _ ~ rhs => Predicate2(lhs, Eq, rhs) }
-    | term ~ "!=" ~ term                     ^^ { case lhs ~ _ ~ rhs => Predicate2(lhs, Neq, rhs) }
-    | term ~ "<" ~ term                      ^^ { case lhs ~ _ ~ rhs => Predicate2(lhs, Lt, rhs) }
-    | term ~ ">" ~ term                      ^^ { case lhs ~ _ ~ rhs => Predicate2(lhs, Gt, rhs) }
-    | term ~ "<=" ~ term                     ^^ { case lhs ~ _ ~ rhs => Predicate2(lhs, Le, rhs) }
-    | term ~ ">=" ~ term                     ^^ { case lhs ~ _ ~ rhs => Predicate2(lhs, Ge, rhs) }
+      term ~ "="  ~ (term | subselect)       ^^ { case lhs ~ _ ~ rhs => Predicate2(lhs, Eq, rhs) }
+    | term ~ "!=" ~ (term | subselect)       ^^ { case lhs ~ _ ~ rhs => Predicate2(lhs, Neq, rhs) }
+    | term ~ "<"  ~ (term | subselect)       ^^ { case lhs ~ _ ~ rhs => Predicate2(lhs, Lt, rhs) }
+    | term ~ ">"  ~ (term | subselect)       ^^ { case lhs ~ _ ~ rhs => Predicate2(lhs, Gt, rhs) }
+    | term ~ "<=" ~ (term | subselect)       ^^ { case lhs ~ _ ~ rhs => Predicate2(lhs, Le, rhs) }
+    | term ~ ">=" ~ (term | subselect)       ^^ { case lhs ~ _ ~ rhs => Predicate2(lhs, Ge, rhs) }
+    | term ~ "in" ~ subselect                ^^ { case lhs ~ _ ~ rhs => Predicate2(lhs, In, rhs) }
     | term ~ "between" ~ term ~ "and" ~ term ^^ { case t1 ~ _ ~ t2 ~ _ ~ t3 => Predicate3(t1, Between, t2, t3) }
     | term <~ "is" ~ "null"                  ^^ { t => Predicate1(t, IsNull) }
     | term <~ "is" ~ "not" ~ "null"          ^^ { t => Predicate1(t, IsNotNull) }
   )
+
+  def subselect = "(" ~> selectStmt <~ ")" ^^ Subselect.apply
 
   def term: Parser[Term] = (
       boolean    ^^ (b => Constant(typeOf[Boolean], b))

@@ -32,10 +32,10 @@ class ExampleSuite extends FunSuite with matchers.ShouldMatchers {
   }
 
   test("Query with join and column alias") {
-    val q = sql("select p.name, j.name as employer, p.age from person p join job_history j on p.id=j.person order by employer")
+    val q = sql("select p.name, j.name as employer, p.age from person p join job_history j on p.id=j.person where id=? order by employer")
 
-    q().values should equal (List("joe" :: "Enron" :: 36 :: HNil, "joe" :: "IBM" :: 36 :: HNil))
-    q().tuples should equal (List(("joe", "Enron", 36), ("joe", "IBM", 36)))
+    q(1).values should equal (List("joe" :: "Enron" :: 36 :: HNil, "joe" :: "IBM" :: 36 :: HNil))
+    q(1).tuples should equal (List(("joe", "Enron", 36), ("joe", "IBM", 36)))
   }
 
   test("Query with optional column") {
@@ -43,7 +43,8 @@ class ExampleSuite extends FunSuite with matchers.ShouldMatchers {
     
     q().tuples should equal (List(
       ("joe", "Enron", date("2002-08-02 08:00:00.0"), Some(date("2004-06-22 18:00:00.0"))), 
-      ("joe", "IBM",   date("2004-07-13 11:00:00.0"), None)))
+      ("joe", "IBM",   date("2004-07-13 11:00:00.0"), None),
+      ("moe", "IBM",   date("2005-08-10 11:00:00.0"), None)))
   }
 
   test("Query with functions") {
@@ -99,15 +100,24 @@ class ExampleSuite extends FunSuite with matchers.ShouldMatchers {
   test("Tagging") {
     def findName(id: Long @@ person) = sql("select name from person where id=?").apply(id)
 
-    val names = sql("select person from job_history").apply map findName
-    names should equal(List(Some("joe"), Some("joe")))
+    val names = sql("select distinct person from job_history").apply map findName
+    names should equal(List(Some("joe"), Some("moe")))
   }
 
   test("Subselects") {
     sql("select distinct name from person where id = (select person from job_history limit 1)").apply should
-      equal(List("joe"))
+      equal(Some("joe"))
+
+    sql("select distinct name from person where id in (select person from job_history)").apply should
+      equal(List("joe", "moe"))
+
+/*    sql("""select distinct name from person where id in 
+             (select person from job_history where started > ?)""").apply(year(2003)) should
+      equal(List("joe")) */
   }
 
   def date(s: String) = 
     new java.sql.Timestamp(new java.text.SimpleDateFormat("yyyy-MM-dd hh:mm:ss.S").parse(s).getTime)
+
+  def year(y: Int) = date(y + "-01-01 00:00:00.0")
 }
