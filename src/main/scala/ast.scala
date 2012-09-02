@@ -61,29 +61,36 @@ private[sqltyped] object Ast {
     def output: List[Value]
     def tables: List[Table]
     def toSql: String
+
+    /**
+     * Returns a Statement where all columns have their tables resolved.
+     */
     def resolveTables: Statement
   }
 
   private def resolveSelect(s: Select): Select = {
     def resolveTables0(s: Select, env: List[Select]): Select = {
-      // FIXME remove casts
-      def resolve[A <: Term](term: A): A = term match {
-        case col: Column => 
-          (env.flatMap(_.from.flatMap(_.tables)) find { t => 
-            (col.table, t.alias) match {
-              case (Some(ref), None) => t.name == ref
-              case (Some(ref), Some(a)) => t.name == ref || a == ref
-              case (None, _) => true
-            }
-          } map(t => col.copy(resolvedTable = Some(t))) getOrElse sys.error("Column references unknown table " + col)).asInstanceOf[A]
-        case f@Function(_, ps, _) => f.copy(params = ps map resolve).asInstanceOf[A]
-        case Subselect(select) => Subselect(resolveTables0(select, select :: env)).asInstanceOf[A]
+      def resolve(term: Term): Term = term match {
+        case col: Column => resolveColumn(col)
+        case f@Function(_, ps, _) => resolveFunc(f)
+        case Subselect(select) => Subselect(resolveTables0(select, select :: env))
         case t => t
       }
 
+      def resolveColumn(col: Column) = 
+        (env.flatMap(_.from.flatMap(_.tables)) find { t => 
+          (col.table, t.alias) match {
+            case (Some(ref), None) => t.name == ref
+            case (Some(ref), Some(a)) => t.name == ref || a == ref
+            case (None, _) => true
+          }
+        } map(t => col.copy(resolvedTable = Some(t))) getOrElse sys.error("Column references unknown table " + col))
+
+      def resolveFunc(f: Function) = f.copy(params = f.params map resolve)
+
       def resolveProj(proj: List[Value]) = proj map {
-        case col: Column => resolve(col)
-        case f: Function => resolve(f)
+        case col: Column => resolveColumn(col)
+        case f: Function => resolveFunc(f)
         case x => x
       }
 
@@ -91,9 +98,9 @@ private[sqltyped] object Ast {
       def resolveFrom(from: From) = from.copy(join = from.join map resolveJoin)
       def resolveJoin(join: Join) = join.copy(expr = resolveExpr(join.expr))
       def resolveWhere(where: Option[Where]) = where.map(w => Where(resolveExpr(w.expr)))
-      def resolveGroupBy(groupBy: Option[GroupBy]) = groupBy.map(g => GroupBy(resolve(g.col), resolveHaving(g.having)))
+      def resolveGroupBy(groupBy: Option[GroupBy]) = groupBy.map(g => GroupBy(resolveColumn(g.col), resolveHaving(g.having)))
       def resolveHaving(having: Option[Having]) = having.map(h => Having(resolveExpr(h.expr)))
-      def resolveOrderBy(orderBy: Option[OrderBy]) = orderBy.map(o => o.copy(cols = o.cols map resolve))
+      def resolveOrderBy(orderBy: Option[OrderBy]) = orderBy.map(o => o.copy(cols = o.cols map resolveColumn))
 
       def resolveExpr(e: Expr): Expr = e match {
         case p@Predicate1(t1, op)         => p.copy(term = resolve(t1))
