@@ -28,11 +28,11 @@ object SqlMacro {
     val username = System.getProperty("sqltyped.username")
     val password = System.getProperty("sqltyped.password")
 
-    val select = SqlParser.parse(sql) fold (
+    val stmt = SqlParser.parse(sql) fold (
       err => sys.error("Parse failed: " + err),
       res => res
     )
-    val meta = Analyzer.refine(Typer.infer(select, url, driver, username, password))
+    val meta = Analyzer.refine(Typer.infer(stmt.resolveTables, url, driver, username, password))
 
     def rs(x: TypedValue, pos: Int) = 
       if (x.nullable) {

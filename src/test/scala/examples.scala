@@ -111,9 +111,9 @@ class ExampleSuite extends FunSuite with matchers.ShouldMatchers {
     sql("select distinct name from person where id in (select person from job_history)").apply should
       equal(List("joe", "moe"))
 
-/*    sql("""select distinct name from person where id in 
+    sql("""select distinct name from person where id in 
              (select person from job_history where started > ?)""").apply(year(2003)) should
-      equal(List("joe")) */
+      equal(List("joe", "moe")) 
   }
 
   def date(s: String) = 

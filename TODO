@@ -1,6 +1,6 @@
 * Generic
 
-- Subselects, Exists, not exists
+- Exists, not exists
 - SQL insert
 - SQL update
 - SQL delete

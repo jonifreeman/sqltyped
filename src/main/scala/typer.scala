@@ -34,7 +34,7 @@ object Typer {
     val schema = database.getSchema(schemaName)
 
     def tag(col: Column) = {
-      val table = stmt.tableOf(col).getOrElse(sys.error("Column references invalid table " + col))
+      val table = col.resolvedTable getOrElse sys.error("Column's table not resolved " + col)
       val t = schema.getTable(table.name)
 
       def findFK = t.getForeignKeys
@@ -62,7 +62,7 @@ object Typer {
         val table = schema.getTable(t.name)
         val indices = Option(table.getPrimaryKey).map(List(_)).getOrElse(Nil) ::: table.getIndices.toList
         val uniques = indices filter (_.isUnique) map { i =>
-          i.getColumns.toList.map(col => Column(col.getName, Some(t.name)))
+          i.getColumns.toList.map(col => Column(col.getName, Some(t.name), None, Some(t)))
         }
         (t, uniques)
       })
@@ -101,7 +101,7 @@ object Typer {
       .getOrElse((typeOf[AnyRef], true))
 
   def inferColumnType(schema: Schema, stmt: Statement, col: Column) = {
-    val table = stmt.tableOf(col).map(_.name).getOrElse(sys.error("No table for " + col))
+    val table = col.resolvedTable.map(_.name) getOrElse sys.error("Table not resolved for " + col)
     val colSchema = schema.getTable(table).getColumn(col.name)
     if (colSchema == null) sys.error("No such column " + col)
     (mkType(colSchema.getType), colSchema.isNullable)
