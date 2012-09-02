@@ -10,7 +10,7 @@ object SqlParser extends StandardTokenParsers {
   lexical.delimiters ++= List("(", ")", ",", " ", "=", ">", "<", ">=", "<=", "?", "!=", ".")
   lexical.reserved += ("select", "from", "where", "as", "and", "or", "join", "inner", "outer", "left", 
                        "right", "on", "group", "by", "having", "limit", "offset", "order", "asc", 
-                       "desc", "distinct", "is", "not", "null", "between", "in")
+                       "desc", "distinct", "is", "not", "null", "between", "in", "exists")
 
   def parse(sql: String): Either[String, Statement] = selectStmt(new lexical.Scanner(sql)) match {
     case Success(r, q)  => Right(r)

@@ -1,6 +1,5 @@
 * Generic
 
-- Exists, not exists
 - SQL insert
 - SQL update
 - SQL delete
