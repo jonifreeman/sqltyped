@@ -68,56 +68,61 @@ private[sqltyped] object Ast {
     def resolveTables: Statement
   }
 
-  private def resolveSelect(s: Select): Select = {
-    def resolveTables0(s: Select, env: List[Select]): Select = {
-      def resolve(term: Term): Term = term match {
-        case col: Column => resolveColumn(col)
-        case f@Function(_, ps, _) => resolveFunc(f)
-        case Subselect(select) => Subselect(resolveTables0(select, select :: env))
-        case t => t
-      }
-
-      def resolveColumn(col: Column) = 
-        (env.flatMap(_.from.flatMap(_.tables)) find { t => 
-          (col.table, t.alias) match {
-            case (Some(ref), None) => t.name == ref
-            case (Some(ref), Some(a)) => t.name == ref || a == ref
-            case (None, _) => true
-          }
-        } map(t => col.copy(resolvedTable = Some(t))) getOrElse sys.error("Column references unknown table " + col))
-
-      def resolveFunc(f: Function) = f.copy(params = f.params map resolve)
-
-      def resolveProj(proj: List[Value]) = proj map {
-        case col: Column => resolveColumn(col)
-        case f: Function => resolveFunc(f)
-        case x => x
-      }
-
-      def resolveFroms(from: List[From]) = from map resolveFrom
-      def resolveFrom(from: From) = from.copy(join = from.join map resolveJoin)
-      def resolveJoin(join: Join) = join.copy(expr = resolveExpr(join.expr))
-      def resolveWhere(where: Option[Where]) = where.map(w => Where(resolveExpr(w.expr)))
-      def resolveGroupBy(groupBy: Option[GroupBy]) = groupBy.map(g => GroupBy(resolveColumn(g.col), resolveHaving(g.having)))
-      def resolveHaving(having: Option[Having]) = having.map(h => Having(resolveExpr(h.expr)))
-      def resolveOrderBy(orderBy: Option[OrderBy]) = orderBy.map(o => o.copy(cols = o.cols map resolveColumn))
-
-      def resolveExpr(e: Expr): Expr = e match {
-        case p@Predicate1(t1, op)         => p.copy(term = resolve(t1))
-        case p@Predicate2(t1, op, t2)     => p.copy(lhs = resolve(t1), rhs = resolve(t2))
-        case p@Predicate3(t1, op, t2, t3) => p.copy(t1 = resolve(t1), t2 = resolve(t2), t3 = resolve(t3))
-        case And(e1, e2)                  => And(resolveExpr(e1), resolveExpr(e2))
-        case Or(e1, e2)                   => Or(resolveExpr(e1), resolveExpr(e2))
-      }
-
-      s.copy(projection = resolveProj(s.projection), 
-             from = resolveFroms(s.from), 
-             where = resolveWhere(s.where), 
-             groupBy = resolveGroupBy(s.groupBy), 
-             orderBy = resolveOrderBy(s.orderBy))
+  private class ResolveEnv(env: List[Table]) {
+    def resolve(term: Term): Term = term match {
+      case col: Column => resolveColumn(col)
+      case f@Function(_, ps, _) => resolveFunc(f)
+      case Subselect(select) => Subselect(resolveSelect(select)(select.tables ::: env))
+      case t => t
     }
 
-    resolveTables0(s, List(s))
+    def resolveColumn(col: Column) = 
+      env find { t => 
+        (col.table, t.alias) match {
+          case (Some(ref), None) => t.name == ref
+          case (Some(ref), Some(a)) => t.name == ref || a == ref
+          case (None, _) => true
+        }
+      } map(t => col.copy(resolvedTable = Some(t))) getOrElse sys.error("Column references unknown table " + col)
+
+    def resolveFunc(f: Function) = f.copy(params = f.params map resolve)
+
+    def resolveProj(proj: List[Value]) = proj map {
+      case col: Column => resolveColumn(col)
+      case f: Function => resolveFunc(f)
+      case x => x
+    }
+
+    def resolveFroms(from: List[From]) = from map resolveFrom
+    def resolveFrom(from: From) = from.copy(join = from.join map resolveJoin)
+    def resolveJoin(join: Join) = join.copy(expr = resolveExpr(join.expr))
+    def resolveWhere(where: Option[Where]) = where.map(w => Where(resolveExpr(w.expr)))
+    def resolveGroupBy(groupBy: Option[GroupBy]) = groupBy.map(g => GroupBy(resolveColumn(g.col), resolveHaving(g.having)))
+    def resolveHaving(having: Option[Having]) = having.map(h => Having(resolveExpr(h.expr)))
+    def resolveOrderBy(orderBy: Option[OrderBy]) = orderBy.map(o => o.copy(cols = o.cols map resolveColumn))
+
+    def resolveExpr(e: Expr): Expr = e match {
+      case p@Predicate1(t1, op)         => p.copy(term = resolve(t1))
+      case p@Predicate2(t1, op, t2)     => p.copy(lhs = resolve(t1), rhs = resolve(t2))
+      case p@Predicate3(t1, op, t2, t3) => p.copy(t1 = resolve(t1), t2 = resolve(t2), t3 = resolve(t3))
+      case And(e1, e2)                  => And(resolveExpr(e1), resolveExpr(e2))
+      case Or(e1, e2)                   => Or(resolveExpr(e1), resolveExpr(e2))
+    }
+  }
+
+  private def resolveSelect(s: Select)(env: List[Table] = s.tables): Select = {
+    val r = new ResolveEnv(env)
+    s.copy(projection = r.resolveProj(s.projection), 
+           from = r.resolveFroms(s.from), 
+           where = r.resolveWhere(s.where), 
+           groupBy = r.resolveGroupBy(s.groupBy), 
+           orderBy = r.resolveOrderBy(s.orderBy))
+  }
+
+  private def resolveDelete(d: Delete)(env: List[Table] = d.tables): Delete = {
+    val r = new ResolveEnv(env)
+    d.copy(from = r.resolveFrom(d.from), 
+           where = r.resolveWhere(d.where))
   }
 
   def params(e: Expr): List[Value] = e match {
@@ -194,6 +199,17 @@ private[sqltyped] object Ast {
     case Desc => "desc"
   }
 
+  case class Delete(from: From, where: Option[Where]) extends Statement {
+    def input = where.map(w => params(w.expr)).getOrElse(Nil)
+    def output = Nil
+    def tables = from.table :: Nil
+    def resolveTables = resolveDelete(this)()
+
+    def toSql = 
+      "delete from " + from.table.name + 
+      where.map(w => " where " + format(w.expr)).getOrElse("")
+  }
+
   case class Select(projection: List[Value], 
                     from: List[From], // should be NonEmptyList
                     where: Option[Where], 
@@ -207,10 +223,11 @@ private[sqltyped] object Ast {
       limit.map(l => l.count.right.toSeq.toList ::: l.offset.map(_.right.toSeq.toList).getOrElse(Nil)).getOrElse(Nil).map(_ => Constant(typeOf[Long], None))
 
     def output = projection
-    def tables = from flatMap { f => f.table :: f.join.map(_.table) }
-    def resolveTables = resolveSelect(this)
+    def tables = from flatMap (_.tables)
+    def resolveTables = resolveSelect(this)()
 
-    def toSql = "select " + (projection map format).mkString(", ") + " from " + 
+    def toSql = 
+      "select " + (projection map format).mkString(", ") + " from " + 
       (from map (f => format(f.table) + 
                  f.join.map(j => " " + j.joinSpec + " " + format(j.table) + " on " + format(j.expr)).mkString(" "))).mkString(", ") +
       where.map(w => " where " + format(w.expr)).getOrElse("") +

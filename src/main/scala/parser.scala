@@ -8,22 +8,30 @@ object SqlParser extends StandardTokenParsers {
   import Ast._
 
   lexical.delimiters ++= List("(", ")", ",", " ", "=", ">", "<", ">=", "<=", "?", "!=", ".")
-  lexical.reserved += ("select", "from", "where", "as", "and", "or", "join", "inner", "outer", "left", 
-                       "right", "on", "group", "by", "having", "limit", "offset", "order", "asc", 
-                       "desc", "distinct", "is", "not", "null", "between", "in", "exists")
+  lexical.reserved += ("select", "delete", "insert", "update", "from", "into", "where", "as", "and", 
+                       "or", "join", "inner", "outer", "left", "right", "on", "group", "by", 
+                       "having", "limit", "offset", "order", "asc", "desc", "distinct", "is", 
+                       "not", "null", "between", "in", "exists")
 
-  def parse(sql: String): Either[String, Statement] = selectStmt(new lexical.Scanner(sql)) match {
+  def parse(sql: String): Either[String, Statement] = stmt(new lexical.Scanner(sql)) match {
     case Success(r, q)  => Right(r)
     case err: NoSuccess => Left(err.msg)
   }
+
+  def stmt = (selectStmt | deleteStmt)
 
   def selectStmt = select ~ from ~ opt(where) ~ opt(groupBy) ~ opt(orderBy) ~ opt(limit) ^^ {
     case s ~ f ~ w ~ g ~ o ~ l => Select(s, f, w, g, o, l)
   }
 
+  def deleteStmt = "delete" ~ from1 ~ opt(where) ^^ {
+    case _ ~ f ~ w => Delete(f, w)
+  }
+
   def select: Parser[List[Value]] = "select" ~> repsep((opt("distinct") ~> value), ",")
 
   def from: Parser[List[From]] = "from" ~> rep1sep(join, ",")
+  def from1: Parser[From] = "from" ~> table ^^ { t => From(t, Nil) } 
 
   def join = table ~ rep(joinSpec) ^^ { case t ~ j => From(t, j) }
 

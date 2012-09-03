@@ -4,7 +4,7 @@ import java.sql._
 import org.scalatest._
 import shapeless._
 
-class ExampleSuite extends FunSuite with matchers.ShouldMatchers {
+class ExampleSuite extends FunSuite with BeforeAndAfterEach with matchers.ShouldMatchers {
   Class.forName("com.mysql.jdbc.Driver")
 
   object Tables { trait person; trait job_history }
@@ -16,6 +16,22 @@ class ExampleSuite extends FunSuite with matchers.ShouldMatchers {
 
   import Tables._
   import Columns._
+
+  override def beforeEach() {
+/*
+    val newPerson  = sql("insert into person(id, name, age, salary) values (?, ?, ?, ?)").apply _
+    val jobHistory = sql("insert into job_history values (?, ?, ?, ?").apply _
+
+    sql("delete from job_history")
+    sql("delete from person")
+
+    newPerson(1, "joe", 36, 9500)
+    newPerson(2, "moe", 14, 8000)
+    jobHistory(1, "Enron", date("2002-08-02 08:00:00"), Some(date("2004-06-22 18:00:00")))
+    jobHistory(1, "IBM", date("2004-07-13 11:00:00"), None)
+    jobHistory(2, "IBM", date("2005-08-10 11:00:00"), None)
+*/
+  }
 
   test("Simple query") {
     val q = sql("select name, age from person")
