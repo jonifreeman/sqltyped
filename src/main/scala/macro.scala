@@ -18,6 +18,13 @@ object SqlMacro {
     }
   }
 
+  def withStatement(stmt: PreparedStatement) = 
+    try {
+      stmt.executeUpdate
+    } finally {
+      stmt.close
+    }
+
   def sqlImpl[A: c.TypeTag, B: c.TypeTag](c: Context)(s: c.Expr[String])(config: c.Expr[Configuration[A, B]]): c.Expr[Any] = {
     import c.universe._
 
@@ -87,8 +94,18 @@ object SqlMacro {
       if (x.nullable) AppliedTypeTree(Ident(c.mirror.staticClass("scala.Option")), List(tpe))
       else tpe
 
-    def returnTypeSig = if (meta.output.length == 1) returnTypeSigScalar else returnTypeSigRecord
-    def appendRow =     if (meta.output.length == 1) appendRowScalar else appendRowRecord
+    def returnTypeSig = 
+      if (meta.output.length == 0) List(Ident(c.mirror.staticClass("scala.Int")))
+      else if (meta.output.length == 1) returnTypeSigScalar 
+      else returnTypeSigRecord
+
+    def resultTypeSig =
+      if (meta.output.length == 0) returnTypeSig.head
+      else AppliedTypeTree(Ident(newTypeName(if (meta.multipleResults) "List" else "Option")), returnTypeSig)
+
+    def appendRow = 
+      if (meta.output.length == 1) appendRowScalar 
+      else appendRowRecord
 
     def returnTypeSigRecord = List(meta.output.foldRight(Ident(c.mirror.staticClass("shapeless.HNil")): Tree) { (x, sig) => 
       AppliedTypeTree(
@@ -134,7 +151,7 @@ object SqlMacro {
 
     def appendRowScalar = List(rs(meta.output.head, 1))
 
-    val readRows = 
+    def readRows = 
       List(
         ValDef(
           Modifiers(), newTermName("rows"), TypeTree(), 
@@ -150,6 +167,16 @@ object SqlMacro {
       else
         Select(Select(Ident(newTermName("rows")), newTermName("toList")), newTermName("headOption"))
 
+    def processStmt =
+      if (meta.stmt.isQuery) {
+        Apply(
+          Apply(Select(Select(Ident("sqltyped"), newTermName("SqlMacro")), newTermName("withResultSet")), List(Ident(newTermName("stmt")))), 
+          List(Function(List(ValDef(Modifiers(Flag.PARAM), newTermName("rs"), TypeTree(), EmptyTree)), 
+                        Block(readRows, returnRows))))
+      } else {
+        Apply(Select(Select(Ident("sqltyped"), newTermName("SqlMacro")), newTermName("withStatement")), List(Ident(newTermName("stmt"))))
+      }
+
     val queryF = 
       DefDef(
         Modifiers(), newTermName("apply"), List(), 
@@ -158,14 +185,12 @@ object SqlMacro {
           List(ValDef(Modifiers(Flag.IMPLICIT | Flag.PARAM), newTermName("conn"), Ident(c.mirror.staticClass("java.sql.Connection")), EmptyTree))), 
         TypeTree() /*AppliedTypeTree(Ident(newTypeName("List")), returnTypeSig)*/, 
         Block(
-            ValDef(Modifiers(), newTermName("stmt"), TypeTree(), 
-                   Apply(
-                     Select(Ident(newTermName("conn")), newTermName("prepareStatement")), 
-                     List(Literal(Constant(sql))))) :: meta.input.zipWithIndex.map { case (c, i) => setParam(c, i) },
-          Apply(
-            Apply(Select(Select(Ident("sqltyped"), newTermName("SqlMacro")), newTermName("withResultSet")), List(Ident(newTermName("stmt")))), 
-            List(Function(List(ValDef(Modifiers(Flag.PARAM), newTermName("rs"), TypeTree(), EmptyTree)), 
-                          Block(readRows, returnRows)))))
+          ValDef(Modifiers(), newTermName("stmt"), TypeTree(), 
+                 Apply(
+                   Select(Ident(newTermName("conn")), newTermName("prepareStatement")), 
+                   List(Literal(Constant(sql))))) :: meta.input.zipWithIndex.map { case (c, i) => setParam(c, i) },
+          processStmt
+        )
       )
 
     /* Generates following code:
@@ -189,7 +214,7 @@ object SqlMacro {
           ClassDef(Modifiers(Flag.FINAL), newTypeName("$anon"), List(), 
                    Template(List(
                      AppliedTypeTree(
-                       Ident(c.mirror.staticClass("sqltyped.Query" + meta.input.length)), inputTypeSig ::: List(AppliedTypeTree(Ident(newTypeName(if (meta.multipleResults) "List" else "Option")), returnTypeSig)))), 
+                       Ident(c.mirror.staticClass("sqltyped.Query" + meta.input.length)), inputTypeSig ::: List(resultTypeSig))), 
                             emptyValDef, List(
                               DefDef(
                                 Modifiers(), 

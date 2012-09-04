@@ -48,7 +48,8 @@ object Analyzer {
           false
         else 
           true
-      case d: Delete => false // FIXME this return always 1 result
+      case _: Delete => false
+      case _: Insert => false
     }
   }
 }

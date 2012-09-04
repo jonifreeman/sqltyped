@@ -11,18 +11,26 @@ object SqlParser extends StandardTokenParsers {
   lexical.reserved += ("select", "delete", "insert", "update", "from", "into", "where", "as", "and", 
                        "or", "join", "inner", "outer", "left", "right", "on", "group", "by", 
                        "having", "limit", "offset", "order", "asc", "desc", "distinct", "is", 
-                       "not", "null", "between", "in", "exists")
+                       "not", "null", "between", "in", "exists", "values")
 
   def parse(sql: String): Either[String, Statement] = stmt(new lexical.Scanner(sql)) match {
     case Success(r, q)  => Right(r)
     case err: NoSuccess => Left(err.msg)
   }
 
-  def stmt = (selectStmt | deleteStmt)
+  def stmt = (selectStmt | insertStmt | deleteStmt)
 
   def selectStmt = select ~ from ~ opt(where) ~ opt(groupBy) ~ opt(orderBy) ~ opt(limit) ^^ {
     case s ~ f ~ w ~ g ~ o ~ l => Select(s, f, w, g, o, l)
   }
+
+  def insertStmt = "insert" ~ "into" ~ table ~ opt(colNames) ~ "values" ~ values ^^ {
+    case _ ~ _ ~ t ~ cols ~ _ ~ vals => Insert(t, cols, vals)
+  }
+
+  def colNames = "(" ~> repsep(ident, ",") <~ ")"
+
+  def values = "(" ~> repsep(term, ",") <~ ")"
 
   def deleteStmt = "delete" ~ from1 ~ opt(where) ^^ {
     case _ ~ f ~ w => Delete(f, w)

@@ -18,19 +18,24 @@ class ExampleSuite extends FunSuite with BeforeAndAfterEach with matchers.Should
   import Columns._
 
   override def beforeEach() {
-/*
-    val newPerson  = sql("insert into person(id, name, age, salary) values (?, ?, ?, ?)").apply _
-    val jobHistory = sql("insert into job_history values (?, ?, ?, ?").apply _
+    val newPerson  = sql("insert into person(id, name, age, salary) values (?, ?, ?, ?)")
+    val jobHistory = sql("insert into job_history(person, name, started, resigned) values (?, ?, ?, ?)")
+    // FIXME add support for this:
+//    val jobHistory = sql("insert into job_history values (?, ?, ?, ?")
 
-    sql("delete from job_history")
-    sql("delete from person")
+    sql("delete from job_history").apply
+    sql("delete from person").apply
 
-    newPerson(1, "joe", 36, 9500)
-    newPerson(2, "moe", 14, 8000)
-    jobHistory(1, "Enron", date("2002-08-02 08:00:00"), Some(date("2004-06-22 18:00:00")))
-    jobHistory(1, "IBM", date("2004-07-13 11:00:00"), None)
-    jobHistory(2, "IBM", date("2005-08-10 11:00:00"), None)
-*/
+    newPerson.apply(1, "joe", 36, 9500)
+    newPerson.apply(2, "moe", 14, 8000)
+
+    // FIXME
+    jobHistory.apply(1, "Enron", date("2002-08-02 08:00:00.0"), date("2004-06-22 18:00:00.0"))
+    jobHistory.apply(1, "IBM", date("2004-07-13 11:00:00.0"), null)
+    jobHistory.apply(2, "IBM", date("2005-08-10 11:00:00.0"), null)
+/*    jobHistory.apply(1, "Enron", date("2002-08-02 08:00:00.0"), Some(date("2004-06-22 18:00:00.0")))
+    jobHistory.apply(1, "IBM", date("2004-07-13 11:00:00.0"), None)
+    jobHistory.apply(2, "IBM", date("2005-08-10 11:00:00.0"), None) */
   }
 
   test("Simple query") {
@@ -55,7 +60,7 @@ class ExampleSuite extends FunSuite with BeforeAndAfterEach with matchers.Should
   }
 
   test("Query with optional column") {
-    val q = sql("select p.name, j.name as employer, j.started, j.resigned from person p join job_history j on p.id=j.person order by employer")
+    val q = sql("select p.name, j.name as employer, j.started, j.resigned from person p join job_history j on p.id=j.person order by j.started")
     
     q().tuples should equal (List(
       ("joe", "Enron", date("2002-08-02 08:00:00.0"), Some(date("2004-06-22 18:00:00.0"))), 

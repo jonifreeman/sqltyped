@@ -60,6 +60,7 @@ private[sqltyped] object Ast {
     def input: List[Value]
     def output: List[Value]
     def tables: List[Table]
+    def isQuery = false
     def toSql: String
 
     /**
@@ -210,6 +211,21 @@ private[sqltyped] object Ast {
       where.map(w => " where " + format(w.expr)).getOrElse("")
   }
 
+  case class Insert(table: Table, colNames: Option[List[String]], values: List[Term]) extends Statement {
+    def input = 
+      colNames getOrElse sys.error("Insert without col names not yet implemented") zip values collect {
+        case (name, Input) => Column(name, None, None, Some(table))
+      }
+
+    def output = Nil
+    def tables = table :: Nil
+    def resolveTables = this
+
+    def toSql = 
+      "insert into " + table.name + colNames.map(" (" + _.mkString(", ") + ")").getOrElse("") +
+      " values (" + (values map format) + ")"
+  }
+
   case class Select(projection: List[Value], 
                     from: List[From], // should be NonEmptyList
                     where: Option[Where], 
@@ -225,6 +241,7 @@ private[sqltyped] object Ast {
     def output = projection
     def tables = from flatMap (_.tables)
     def resolveTables = resolveSelect(this)()
+    override def isQuery = true
 
     def toSql = 
       "select " + (projection map format).mkString(", ") + " from " + 
