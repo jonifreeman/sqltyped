@@ -226,6 +226,14 @@ private[sqltyped] object Ast {
       " values (" + (values map format) + ")"
   }
 
+  case object Create extends Statement {
+    def input = Nil
+    def output = Nil
+    def tables = Nil
+    def resolveTables = this
+    def toSql = "create"      
+  }
+
   case class Select(projection: List[Value], 
                     from: List[From], // should be NonEmptyList
                     where: Option[Where], 

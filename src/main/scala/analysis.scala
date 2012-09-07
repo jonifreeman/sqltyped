@@ -50,6 +50,7 @@ object Analyzer {
           true
       case _: Delete => false
       case _: Insert => false
+      case Create => false
     }
   }
 }
