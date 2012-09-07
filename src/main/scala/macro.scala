@@ -81,14 +81,19 @@ object SqlMacro {
     def javaName(x: TypedValue) = 
       if (x.tpe.typeSymbol.name.toString == "AnyRef") "Object" else x.tpe.typeSymbol.name.toString
 
-    def setParam(x: TypedValue, pos: Int) = 
-      Apply(Select(Ident(newTermName("stmt")), newTermName(stmtSetterName(x))), 
-            List(Literal(Constant(pos+1)), Ident(newTermName("i" + pos))))
+    def setParam(x: TypedValue, pos: Int) =
+      if (x.nullable) 
+        If(Select(Ident(newTermName("i" + pos)), newTermName("isDefined")), 
+           Apply(Select(Ident(newTermName("stmt")), newTermName(stmtSetterName(x))), List(Literal(Constant(pos+1)), Select(Ident(newTermName("i" + pos)), newTermName("get")))), 
+           Apply(Select(Ident(newTermName("stmt")), newTermName("setObject")), List(Literal(Constant(pos+1)), Literal(Constant(null)))))
+      else
+        Apply(Select(Ident(newTermName("stmt")), newTermName(stmtSetterName(x))), 
+              List(Literal(Constant(pos+1)), Ident(newTermName("i" + pos))))
 
     def inputParam(x: TypedValue, pos: Int) = 
-      ValDef(Modifiers(Flag.PARAM), newTermName("i" + pos), scalaType(x), EmptyTree)
+      ValDef(Modifiers(Flag.PARAM), newTermName("i" + pos), possiblyOptional(x, scalaType(x)), EmptyTree)
 
-    def inputTypeSig = meta.input.map(col => scalaType(col))
+    def inputTypeSig = meta.input.map(col => possiblyOptional(col, scalaType(col)))
 
     def possiblyOptional(x: TypedValue, tpe: Tree) = 
       if (x.nullable) AppliedTypeTree(Ident(c.mirror.staticClass("scala.Option")), List(tpe))

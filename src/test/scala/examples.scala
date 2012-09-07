@@ -29,13 +29,9 @@ class ExampleSuite extends FunSuite with BeforeAndAfterEach with matchers.Should
     newPerson.apply(1, "joe", 36, 9500)
     newPerson.apply(2, "moe", 14, 8000)
 
-    // FIXME
-    jobHistory.apply(1, "Enron", date("2002-08-02 08:00:00.0"), date("2004-06-22 18:00:00.0"))
-    jobHistory.apply(1, "IBM", date("2004-07-13 11:00:00.0"), null)
-    jobHistory.apply(2, "IBM", date("2005-08-10 11:00:00.0"), null)
-/*    jobHistory.apply(1, "Enron", date("2002-08-02 08:00:00.0"), Some(date("2004-06-22 18:00:00.0")))
+    jobHistory.apply(1, "Enron", date("2002-08-02 08:00:00.0"), Some(date("2004-06-22 18:00:00.0")))
     jobHistory.apply(1, "IBM", date("2004-07-13 11:00:00.0"), None)
-    jobHistory.apply(2, "IBM", date("2005-08-10 11:00:00.0"), None) */
+    jobHistory.apply(2, "IBM", date("2005-08-10 11:00:00.0"), None)
   }
 
   test("Simple query") {
@@ -70,7 +66,7 @@ class ExampleSuite extends FunSuite with BeforeAndAfterEach with matchers.Should
 
   test("Query with functions") {
     val q = sql("select avg(age), sum(salary) as salary, count(1) from person where abs(age) > ?")
-    val res = q(10).head // FIXME .head is redundant, this query always returns just one row
+    val res = q(Some(10)).head // FIXME .head is redundant, this query always returns just one row
     res.get(avg) should equal(Some(25.0))
     res.get(salary) should equal(Some(17500))
     res.get(count) should equal(2)

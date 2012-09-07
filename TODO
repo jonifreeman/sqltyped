@@ -1,8 +1,11 @@
 * Generic
 
 - SQL insert
-- SQL update
 - SQL delete
+- sqlt
+- Generate meta types http://stackoverflow.com/questions/12295971/will-it-be-possible-to-generate-several-top-level-classes-with-one-macro-invocat
+- SQL update
+- Blobs
 - Unions
 - select *
 - FOR UPDATE, LOCK MODE, etc.
