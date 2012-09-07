@@ -66,7 +66,7 @@ class ExampleSuite extends FunSuite with BeforeAndAfterEach with matchers.Should
 
   test("Query with functions") {
     val q = sql("select avg(age), sum(salary) as salary, count(1) from person where abs(age) > ?")
-    val res = q(Some(10)).head // FIXME .head is redundant, this query always returns just one row
+    val res = q(10).head // FIXME .head is redundant, this query always returns just one row
     res.get(avg) should equal(Some(25.0))
     res.get(salary) should equal(Some(17500))
     res.get(count) should equal(2)

@@ -47,13 +47,13 @@ object Typer {
       else findFK orElse None
     }
 
-    def typeValue(useTags: Boolean)(x: Value) = x match {
+    def typeValue(inputArg: Boolean, useTags: Boolean)(x: Value) = x match {
       case col: Column =>
-        val (tpe, nullable) = inferColumnType(schema, stmt, col)        
-        TypedValue(col.aname, tpe, nullable, if (useTags) tag(col) else None)
+        val (tpe, inopt, outopt) = inferColumnType(schema, stmt, col)
+        TypedValue(col.aname, tpe, if (inputArg) inopt else outopt, if (useTags) tag(col) else None)
       case f@Function(name, params, alias) =>
-        val (tpe, nullable) = inferReturnType(schema, stmt, name, params)
-        TypedValue(f.aname, tpe, nullable, None)
+        val (tpe, inopt, outopt) = inferReturnType(schema, stmt, name, params)
+        TypedValue(f.aname, tpe, if (inputArg) inopt else outopt, None)
       case c@Constant(tpe, _) => TypedValue("<constant>", tpe, false, None)
     }
 
@@ -67,44 +67,47 @@ object Typer {
         (t, uniques)
       })
 
-    TypedStatement(stmt.input  map typeValue(useTags = false), 
-                   stmt.output map typeValue(useTags = true), 
+    TypedStatement(stmt.input  map typeValue(inputArg = true, useTags = false), 
+                   stmt.output map typeValue(inputArg = false, useTags = true), 
                    stmt, 
                    uniqueConstraints)
   }
 
-  val `a => a` = (schema: Schema, stmt: Statement, params: List[Term]) =>
+  def `a => a`(outopt: Boolean) = (schema: Schema, stmt: Statement, params: List[Term]) =>
     if (params.length != 1) sys.error("Expected 1 parameter " + params)
-    else tpeOf(schema, stmt, params.head)
+    else {
+      val (tpe, inopt, _) = tpeOf(schema, stmt, params.head)
+      (tpe, inopt, outopt)
+    }
 
   // FIXME make this extensible
   val knownFunctions = Map(
-      "abs"   -> (`a => a`, true)
-    , "avg"   -> ((_: Schema, _: Statement, _: List[Term]) => typeOf[Double], true)
-    , "count" -> ((_: Schema, _: Statement, _: List[Term]) => typeOf[Long], false)
-    , "min"   -> (`a => a`, true)
-    , "max"   -> (`a => a`, true)
-    , "sum"   -> (`a => a`, true)
+      "abs"   -> `a => a`(true)
+    , "avg"   -> ((_: Schema, _: Statement, _: List[Term]) => (typeOf[Double], false, true))
+    , "count" -> ((_: Schema, _: Statement, _: List[Term]) => (typeOf[Long], false, false))
+    , "min"   -> `a => a`(true)
+    , "max"   -> `a => a`(true)
+    , "sum"   -> `a => a`(true)
   )
 
-  def tpeOf(schema: Schema, stmt: Statement, e: Term): Type = e match {
-    case Constant(tpe, _)       => tpe
-    case col: Column            => inferColumnType(schema, stmt, col)._1
-    case Function(n, params, _) => inferReturnType(schema, stmt, n, params)._1
+  def tpeOf(schema: Schema, stmt: Statement, e: Term): (Type, Boolean, Boolean) = e match {
+    case Constant(tpe, _)       => (tpe, false, false)
+    case col: Column            => inferColumnType(schema, stmt, col)
+    case Function(n, params, _) => inferReturnType(schema, stmt, n, params)
     case x                      => sys.error("Term " + x + " not supported yet") // FIXME
   }
 
   // FIXME emit warning for unknown function
-  def inferReturnType(schema: Schema, stmt: Statement, fname: String, params: List[Term])  = 
+  def inferReturnType(schema: Schema, stmt: Statement, fname: String, params: List[Term]) = 
     knownFunctions.get(fname.toLowerCase)
-      .map { case (f, opt) => (f(schema, stmt, params), opt) }
-      .getOrElse((typeOf[AnyRef], true))
+      .map(f => f(schema, stmt, params))
+      .getOrElse((typeOf[AnyRef], true, true))
 
   def inferColumnType(schema: Schema, stmt: Statement, col: Column) = {
     val table = col.resolvedTable.map(_.name) getOrElse sys.error("Table not resolved for " + col)
     val colSchema = schema.getTable(table).getColumn(col.name)
     if (colSchema == null) sys.error("No such column " + col)
-    (mkType(colSchema.getType), colSchema.isNullable)
+    (mkType(colSchema.getType), colSchema.isNullable, colSchema.isNullable)
   }
 
   private def getConnection(url: String, username: String, password: String) =
