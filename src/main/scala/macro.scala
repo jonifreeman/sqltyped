@@ -25,7 +25,19 @@ object SqlMacro {
       stmt.close
     }
 
-  def sqlImpl[A: c.TypeTag, B: c.TypeTag](c: Context)(s: c.Expr[String])(config: c.Expr[Configuration[A, B]]): c.Expr[Any] = {
+  def sqlImpl[A: c.TypeTag, B: c.TypeTag](c: Context)
+                                         (s: c.Expr[String])
+                                         (config: c.Expr[Configuration[A, B]]): c.Expr[Any] = 
+    sqlImpl0(c, useInputTags = false)(s)(config)
+
+  def sqltImpl[A: c.TypeTag, B: c.TypeTag](c: Context)
+                                          (s: c.Expr[String])
+                                          (config: c.Expr[Configuration[A, B]]): c.Expr[Any] = 
+    sqlImpl0(c, useInputTags = true)(s)(config)
+
+  def sqlImpl0[A: c.TypeTag, B: c.TypeTag](c: Context, useInputTags: Boolean)
+                                          (s: c.Expr[String])
+                                          (config: c.Expr[Configuration[A, B]]): c.Expr[Any] = {
     import c.universe._
 
     val Literal(Constant(sql: String)) = s.tree
@@ -39,7 +51,7 @@ object SqlMacro {
       err => sys.error("Parse failed: " + err),
       res => res
     )
-    val meta = Analyzer.refine(Typer.infer(stmt.resolveTables, url, driver, username, password))
+    val meta = Analyzer.refine(Typer.infer(stmt.resolveTables, useInputTags, url, driver, username, password))
 
     def rs(x: TypedValue, pos: Int) = 
       if (x.nullable) {

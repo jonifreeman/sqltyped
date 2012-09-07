@@ -5,6 +5,8 @@ package object sqltyped {
 
   def sql[A, B](s: String)(implicit config: Configuration[A, B]) = macro SqlMacro.sqlImpl[A, B]
 
+  def sqlt[A, B](s: String)(implicit config: Configuration[A, B]) = macro SqlMacro.sqltImpl[A, B]
+
   implicit def assochlistOps[L <: HList](l: L): AssocHListOps[L] = new AssocHListOps(l)
 
   implicit def listOps[L <: HList](l: List[L]): ListOps[L] = new ListOps(l)  

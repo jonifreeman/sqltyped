@@ -119,6 +119,9 @@ class ExampleSuite extends FunSuite with BeforeAndAfterEach with matchers.Should
 
     val names = sql("select distinct person from job_history").apply map findName
     names should equal(List(Some("joe"), Some("moe")))
+
+    sqlt("select name,age from person where id=?").apply(tag[person](1)).tuples should 
+      equal(Some("joe", 36))
   }
 
   test("Subselects") {

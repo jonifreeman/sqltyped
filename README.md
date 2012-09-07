@@ -138,7 +138,7 @@ can be used for extra type safety in data access code.
 The above code compiles because 'job_history.person' is a foreign key referencing 'person.id'.
 Thus, its type is ```Long @@ person```.
 
-Note, input parameters are not currently tagged (just typed). Otherwise this wouldn't compile:
+Note, input parameters are not tagged (just typed). Otherwise this wouldn't compile:
 
 ```scala
     sql("select name,age from person where id=?").apply(1)
@@ -150,8 +150,20 @@ Instead, explicit tagging would had been required:
     sql("select name,age from person where id=?").apply(tag[person](1))
 ```
 
-It is not clear if that extra verbosity is compensated by increased type safety.
+There's a separate function called ```sqlt``` (t as tagged) which tags input parameters too.
 
+```scala
+    scala> val q = sqlt("select name,age from person where id=?")
+    scala> q.apply(1)
+    <console>:31: error: type mismatch;
+     found   : Int(1)
+     required: shapeless.TypeOperators.@@[Long,Tables.person]
+        (which expands to)  Long with AnyRef{type Tag = Tables.person}
+                  q.apply(1)
+
+    scala> q.apply(tag[person](1))
+    res2: Option[shapeless.::[(Columns.name.type, String),shapeless.::[(Columns.age.type, Int),shapeless.HNil]]] = Some((Columns$name$@d6d0dbe,joe) :: (Columns$age$@72a13bd4,36) :: HNil)
+```
 
 Status
 ------

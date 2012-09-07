@@ -17,7 +17,7 @@ case class TypedStatement(
 
 // FIXME add error handling
 object Typer {
-  def infer(stmt: Statement, url: String, driver: String, username: String, password: String): TypedStatement = {
+  def infer(stmt: Statement, useInputTags: Boolean, url: String, driver: String, username: String, password: String): TypedStatement = {
     Class.forName(driver)
     val options = new SchemaCrawlerOptions
     val level = new SchemaInfoLevel
@@ -67,7 +67,7 @@ object Typer {
         (t, uniques)
       })
 
-    TypedStatement(stmt.input  map typeValue(inputArg = true, useTags = false), 
+    TypedStatement(stmt.input  map typeValue(inputArg = true, useTags = useInputTags), 
                    stmt.output map typeValue(inputArg = false, useTags = true), 
                    stmt, 
                    uniqueConstraints)
