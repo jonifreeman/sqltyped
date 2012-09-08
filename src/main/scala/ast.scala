@@ -211,19 +211,29 @@ private[sqltyped] object Ast {
       where.map(w => " where " + format(w.expr)).getOrElse("")
   }
 
-  case class Insert(table: Table, colNames: Option[List[String]], values: List[Term]) extends Statement {
-    def input = 
-      colNames getOrElse sys.error("Insert without col names not yet implemented") zip values collect {
-        case (name, Input) => Column(name, None, None, Some(table))
-      }
+  sealed trait InsertInput
+  case class ListedInput(values: List[Term]) extends InsertInput
+  case class SelectedInput(select: Select) extends InsertInput
+
+  case class Insert(table: Table, colNames: Option[List[String]], inserInput: InsertInput) extends Statement {
+    def input = inserInput match {
+      case ListedInput(values) => 
+        colNames getOrElse sys.error("Insert without col names not yet implemented") zip values collect {
+          case (name, Input) => Column(name, None, None, Some(table))
+        }
+      case SelectedInput(select) => select.input
+    }
 
     def output = Nil
     def tables = table :: Nil
-    def resolveTables = this
+    def resolveTables = copy(inserInput = inserInput match {
+      case SelectedInput(select) => SelectedInput(select.resolveTables)
+      case i => i
+    })
 
     def toSql = 
-      "insert into " + table.name + colNames.map(" (" + _.mkString(", ") + ")").getOrElse("") +
-      " values (" + (values map format) + ")"
+      "insert into " + table.name + colNames.map(" (" + _.mkString(", ") + ")").getOrElse("") 
+    //  " values (" + (values map format) + ")"
   }
 
   case object Create extends Statement {

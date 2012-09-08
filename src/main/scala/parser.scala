@@ -24,13 +24,15 @@ object SqlParser extends StandardTokenParsers {
     case s ~ f ~ w ~ g ~ o ~ l => Select(s, f, w, g, o, l)
   }
 
-  def insertStmt = "insert" ~ "into" ~ table ~ opt(colNames) ~ "values" ~ values ^^ {
-    case _ ~ _ ~ t ~ cols ~ _ ~ vals => Insert(t, cols, vals)
+  def insertStmt = "insert" ~ "into" ~ table ~ opt(colNames) ~ (listValues | selectValues) ^^ {
+    case _ ~ _ ~ t ~ cols ~ vals => Insert(t, cols, vals)
   }
 
   def colNames = "(" ~> repsep(ident, ",") <~ ")"
 
-  def values = "(" ~> repsep(term, ",") <~ ")"
+  def listValues = "values" ~> "(" ~> repsep(term, ",") <~ ")" ^^ ListedInput.apply
+
+  def selectValues = selectStmt ^^ SelectedInput.apply
 
   def deleteStmt = "delete" ~ from1 ~ opt(where) ^^ {
     case _ ~ f ~ w => Delete(f, w)

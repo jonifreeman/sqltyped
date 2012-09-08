@@ -17,6 +17,8 @@ create table job_history(
         ON UPDATE NO ACTION
 ) ENGINE=InnoDB;
 
+create table jobs(person varchar(255) NOT NULL,job varchar(255) NOT NULL) ENGINE=InnoDB;
+
 insert into person values (1, 'joe', 36, 9500);
 insert into person values (2, 'moe', 14, 8000);
 

@@ -9,7 +9,7 @@ class ExampleSuite extends FunSuite with BeforeAndAfterEach with matchers.Should
 
   object Tables { trait person; trait job_history }
   object Columns { object name; object age; object salary; object employer; object started
-                   object resigned; object avg; object count }
+                   object resigned; object avg; object count; object person; object job }
 
   implicit val c = Configuration(Tables, Columns)
   implicit def conn = DriverManager.getConnection("jdbc:mysql://localhost:3306/sqltyped", "root", "")
@@ -142,6 +142,16 @@ class ExampleSuite extends FunSuite with BeforeAndAfterEach with matchers.Should
     sql("""select name from person p where not exists 
              (select person from job_history j where resigned is not null and p.id=j.person)""").apply should
       equal(List("moe"))
+  }
+
+  test("Insert, delete") {
+    sql("delete from jobs").apply
+    sql("insert into jobs(person, job) select p.name, j.name from person p, job_history j where p.id=j.person and p.age>?").apply(30)
+    sql("select person, job from jobs").apply.tuples should 
+      equal(List(("joe", "Enron"), ("joe", "IBM")))
+
+    sql("delete from jobs where job=?").apply("Enron")
+    sql("select person, job from jobs").apply.tuples should equal(List(("joe", "IBM")))
   }
 
   def date(s: String) = 
