@@ -1,5 +1,6 @@
 package sqltyped
 
+import schemacrawler.schema.Schema
 import scala.reflect.runtime.universe.{Type, typeOf}
 
 private[sqltyped] object Ast {
@@ -57,7 +58,7 @@ private[sqltyped] object Ast {
   case class Or(e1: Expr, e2: Expr) extends Expr
 
   sealed trait Statement {
-    def input: List[Value]
+    def input(schema: Schema): List[Value]
     def output: List[Value]
     def tables: List[Table]
     def isQuery = false
@@ -201,7 +202,7 @@ private[sqltyped] object Ast {
   }
 
   case class Delete(from: From, where: Option[Where]) extends Statement {
-    def input = where.map(w => params(w.expr)).getOrElse(Nil)
+    def input(schema: Schema) = where.map(w => params(w.expr)).getOrElse(Nil)
     def output = Nil
     def tables = from.table :: Nil
     def resolveTables = resolveDelete(this)()
@@ -216,12 +217,16 @@ private[sqltyped] object Ast {
   case class SelectedInput(select: Select) extends InsertInput
 
   case class Insert(table: Table, colNames: Option[List[String]], inserInput: InsertInput) extends Statement {
-    def input = inserInput match {
-      case ListedInput(values) => 
-        colNames getOrElse sys.error("Insert without col names not yet implemented") zip values collect {
-          case (name, Input) => Column(name, None, None, Some(table))
-        }
-      case SelectedInput(select) => select.input
+    def input(schema: Schema) = {
+      def colNamesFromSchema = schema.getTable(table.name).getColumns.toList.map(_.getName)
+
+      inserInput match {
+        case ListedInput(values) => 
+          colNames getOrElse colNamesFromSchema zip values collect {
+            case (name, Input) => Column(name, None, None, Some(table))
+          }
+        case SelectedInput(select) => select.input(schema)
+      }
     }
 
     def output = Nil
@@ -237,7 +242,7 @@ private[sqltyped] object Ast {
   }
 
   case object Create extends Statement {
-    def input = Nil
+    def input(schema: Schema) = Nil
     def output = Nil
     def tables = Nil
     def resolveTables = this
@@ -251,7 +256,7 @@ private[sqltyped] object Ast {
                     orderBy: Option[OrderBy],
                     limit: Option[Limit]) extends Statement {
 
-    def input = 
+    def input(schema: Schema) = 
       where.map(w => params(w.expr)).getOrElse(Nil) ::: 
       groupBy.flatMap(g => g.having.map(h => params(h.expr))).getOrElse(Nil) :::
       limit.map(l => l.count.right.toSeq.toList ::: l.offset.map(_.right.toSeq.toList).getOrElse(Nil)).getOrElse(Nil).map(_ => Constant(typeOf[Long], None))

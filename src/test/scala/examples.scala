@@ -19,9 +19,7 @@ class ExampleSuite extends FunSuite with BeforeAndAfterEach with matchers.Should
 
   override def beforeEach() {
     val newPerson  = sql("insert into person(id, name, age, salary) values (?, ?, ?, ?)")
-    val jobHistory = sql("insert into job_history(person, name, started, resigned) values (?, ?, ?, ?)")
-    // FIXME add support for this:
-//    val jobHistory = sql("insert into job_history values (?, ?, ?, ?")
+    val jobHistory = sql("insert into job_history values (?, ?, ?, ?)")
 
     sql("delete from job_history").apply
     sql("delete from person").apply

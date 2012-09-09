@@ -1,18 +1,18 @@
 * Generic
 
-- SQL insert
-- PreparedStatement.RETURN_GENERATED_KEYS
-- SQL delete
 - Generate meta types http://stackoverflow.com/questions/12295971/will-it-be-possible-to-generate-several-top-level-classes-with-one-macro-invocat
+- apply(10) vs (10) ?
+- SQL delete
+- PreparedStatement.RETURN_GENERATED_KEYS
+- select *
 - SQL update
 - Blobs
 - Unions
-- select *
 - FOR UPDATE, LOCK MODE, etc.
 - in operator
 - Arithmetic (update player set age=age+1)
 - Make parser case insensitive (keywords only)
-- Infer function types
+- Infer function types from schema
 - A mechanism to tranform or combine values
 
 * MySQL

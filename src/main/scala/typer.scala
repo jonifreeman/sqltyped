@@ -67,7 +67,7 @@ object Typer {
         (t, uniques)
       })
 
-    TypedStatement(stmt.input  map typeValue(inputArg = true, useTags = useInputTags), 
+    TypedStatement(stmt.input(schema)  map typeValue(inputArg = true, useTags = useInputTags), 
                    stmt.output map typeValue(inputArg = false, useTags = true), 
                    stmt, 
                    uniqueConstraints)
