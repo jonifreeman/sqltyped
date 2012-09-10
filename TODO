@@ -1,12 +1,10 @@
 * Generic
 
-- Generate meta types http://stackoverflow.com/questions/12295971/will-it-be-possible-to-generate-several-top-level-classes-with-one-macro-invocat
-- apply(10) vs (10) ?
-- SQL delete
 - PreparedStatement.RETURN_GENERATED_KEYS
 - select *
 - SQL update
 - Blobs
+- Generate meta types http://stackoverflow.com/questions/12295971/will-it-be-possible-to-generate-several-top-level-classes-with-one-macro-invocat
 - Unions
 - FOR UPDATE, LOCK MODE, etc.
 - in operator
@@ -14,6 +12,7 @@
 - Make parser case insensitive (keywords only)
 - Infer function types from schema
 - A mechanism to tranform or combine values
+- apply(10) vs (10) ?
 
 * MySQL
 

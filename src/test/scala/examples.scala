@@ -150,6 +150,14 @@ class ExampleSuite extends FunSuite with BeforeAndAfterEach with matchers.Should
 
     sql("delete from jobs where job=?").apply("Enron")
     sql("select person, job from jobs").apply.tuples should equal(List(("joe", "IBM")))
+
+    sql("delete p from person p where p.age < ?").apply(40)
+    sql("select name from person").apply should equal(Nil)
+  }
+
+  test("Multidelete") {
+    sql("delete p, j from person p, job_history j where p.id=j.person and p.id=?").apply(1)
+    sql("select name from person").apply should equal(List("moe"))
   }
 
   def date(s: String) = 

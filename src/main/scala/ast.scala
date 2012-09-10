@@ -123,7 +123,7 @@ private[sqltyped] object Ast {
 
   private def resolveDelete(d: Delete)(env: List[Table] = d.tables): Delete = {
     val r = new ResolveEnv(env)
-    d.copy(from = r.resolveFrom(d.from), 
+    d.copy(from = d.from.map(f => r.resolveFrom(f)), 
            where = r.resolveWhere(d.where))
   }
 
@@ -201,14 +201,14 @@ private[sqltyped] object Ast {
     case Desc => "desc"
   }
 
-  case class Delete(from: From, where: Option[Where]) extends Statement {
+  case class Delete(from: List[From], where: Option[Where]) extends Statement {
     def input(schema: Schema) = where.map(w => params(w.expr)).getOrElse(Nil)
     def output = Nil
-    def tables = from.table :: Nil
+    def tables = from.map(_.table)
     def resolveTables = resolveDelete(this)()
 
     def toSql = 
-      "delete from " + from.table.name + 
+      "delete from " + from.map(_.table.name).mkString(",") + 
       where.map(w => " where " + format(w.expr)).getOrElse("")
   }
 
@@ -216,11 +216,11 @@ private[sqltyped] object Ast {
   case class ListedInput(values: List[Term]) extends InsertInput
   case class SelectedInput(select: Select) extends InsertInput
 
-  case class Insert(table: Table, colNames: Option[List[String]], inserInput: InsertInput) extends Statement {
+  case class Insert(table: Table, colNames: Option[List[String]], insertInput: InsertInput) extends Statement {
     def input(schema: Schema) = {
       def colNamesFromSchema = schema.getTable(table.name).getColumns.toList.map(_.getName)
 
-      inserInput match {
+      insertInput match {
         case ListedInput(values) => 
           colNames getOrElse colNamesFromSchema zip values collect {
             case (name, Input) => Column(name, None, None, Some(table))
@@ -231,7 +231,7 @@ private[sqltyped] object Ast {
 
     def output = Nil
     def tables = table :: Nil
-    def resolveTables = copy(inserInput = inserInput match {
+    def resolveTables = copy(insertInput = insertInput match {
       case SelectedInput(select) => SelectedInput(select.resolveTables)
       case i => i
     })

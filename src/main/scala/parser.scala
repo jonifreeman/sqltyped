@@ -34,7 +34,7 @@ object SqlParser extends StandardTokenParsers {
 
   def selectValues = selectStmt ^^ SelectedInput.apply
 
-  def deleteStmt = "delete" ~ from1 ~ opt(where) ^^ {
+  def deleteStmt = "delete" ~ opt(repsep(ident, ",")) ~ from ~ opt(where) ^^ {
     case _ ~ f ~ w => Delete(f, w)
   }
 
@@ -43,7 +43,6 @@ object SqlParser extends StandardTokenParsers {
   def select: Parser[List[Value]] = "select" ~> repsep((opt("distinct") ~> value), ",")
 
   def from: Parser[List[From]] = "from" ~> rep1sep(join, ",")
-  def from1: Parser[From] = "from" ~> table ^^ { t => From(t, Nil) } 
 
   def join = table ~ rep(joinSpec) ^^ { case t ~ j => From(t, j) }
 
