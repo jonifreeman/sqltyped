@@ -72,8 +72,7 @@ object Typer {
       val t = getTable(schema, table)
 
       def tag(c: schemacrawler.schema.Column) = 
-        if (Option(t.getPrimaryKey).map(_.getName == c.getName) getOrElse false) Some(t.getName) 
-        else None
+        Option(t.getPrimaryKey).flatMap(_.getColumns.find(_.getName == c.getName)).map(_ => t.getName)
 
       t.getColumns.toList
         .filter(c => c.getType.isAutoIncrementable)

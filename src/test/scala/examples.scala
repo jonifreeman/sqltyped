@@ -77,6 +77,9 @@ class ExampleSuite extends FunSuite with BeforeAndAfterEach with matchers.Should
     val res3 = q2(100).head
     res3.get(name) should equal(None)
     res3.get(age) should equal(None)
+
+    // FIXME
+    //sql("select max(id) from person").apply
   }
 
   test("Query with just one selected column") {
@@ -160,19 +163,16 @@ class ExampleSuite extends FunSuite with BeforeAndAfterEach with matchers.Should
     sql("select name from person").apply should equal(List("moe"))
   }
 
-  test("Get generated keys (currently supports just one key per row)") {
+  test("Get generated keys (currently supports just one generated key per row)") {
     val newPerson  = sqlk("insert into person(name, age, salary) values (?, ?, ?)")
     val newPersons = sqlk("insert into person(name, age, salary) select name, age, salary from person")
 
-    // FIXME should return a scalar instead of List
-    // Explicit type here just to test that correct type was inferred
-//    val key: Int @@ person = newPerson.apply("bill", 45, 3000) 
-    val key = newPerson.apply("bill", 45, 3000) 
-    val genId = sql("select id from person where name=?").apply("bill").head
-    key should equal(List(genId))
-    sql("delete from person where id=?").apply(key.head)
+    val key = newPerson.apply("bill", 45, 3000)
+    val maxId = sql("select id from person where name=?").apply("bill").head 
+    assert(key.equals(maxId))
+    sqlt("delete from person where id=?").apply(key)
 
-    newPersons.apply should equal(List(genId + 1, genId + 2))
+    newPersons.apply should equal(List(maxId + 1, maxId + 2))
   }
 
   def date(s: String) = 

@@ -18,7 +18,7 @@ object SqlMacro {
     }
   }
 
-  def withStatement[A](stmt: PreparedStatement) = 
+  def withStatement(stmt: PreparedStatement) = 
     try {
       stmt.executeUpdate
     } finally {
@@ -130,7 +130,8 @@ object SqlMacro {
       else returnTypeSigRecord
 
     def resultTypeSig =
-      if (keys) AppliedTypeTree(Ident(newTypeName("List")), List(scalaType(meta.generatedKeyTypes.head)))
+      if (keys && !meta.multipleResults) scalaType(meta.generatedKeyTypes.head)
+      else if (keys) AppliedTypeTree(Ident(newTypeName("List")), List(scalaType(meta.generatedKeyTypes.head)))
       else if (meta.output.length == 0) returnTypeSig.head
       else AppliedTypeTree(Ident(newTypeName(if (meta.multipleResults) "List" else "Option")), returnTypeSig)
 
@@ -204,8 +205,10 @@ object SqlMacro {
           Apply(Select(Select(Ident("sqltyped"), newTermName("SqlMacro")), newTermName("withResultSet")), List(Ident(newTermName("stmt")))), 
           List(Function(List(ValDef(Modifiers(Flag.PARAM), newTermName("rs"), TypeTree(), EmptyTree)), 
                         Block(readRows, returnRows))))
-      } else if (keys) {
+      } else if (keys && meta.multipleResults) {
         processStmtWithKeys(meta.generatedKeyTypes.head)
+      } else if (keys) {
+        Select(processStmtWithKeys(meta.generatedKeyTypes.head), newTermName("head"))
       } else {
         Apply(Select(Select(Ident("sqltyped"), newTermName("SqlMacro")), newTermName("withStatement")), List(Ident(newTermName("stmt"))))
       }
@@ -223,7 +226,7 @@ object SqlMacro {
                        If(Apply(Select(Ident(newTermName("rs")), newTermName("next")), List()), 
                           Block(
                             List(
-                              Apply(Select(Ident(newTermName("keys")), newTermName("append")), List(Apply(Select(Ident(newTermName("rs")), newTermName(rsGetterName(keyType))), List(Literal(Constant(1))))))), 
+                              Apply(Select(Ident(newTermName("keys")), newTermName("append")), List(getValue(keyType, 1)))), 
                             Apply(Ident(newTermName("while$1")), List())), Literal(Constant(())))), 
               Apply(Select(Ident(newTermName("rs")), newTermName("close")), List())), 
             Select(Ident(newTermName("keys")), newTermName("toList")))))

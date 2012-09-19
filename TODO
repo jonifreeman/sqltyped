@@ -1,19 +1,30 @@
+======== 0.1 ========
+
 * Generic
 
-- PreparedStatement.RETURN_GENERATED_KEYS
-- select *
 - SQL update
 - Blobs
-- Generate meta types http://stackoverflow.com/questions/12295971/will-it-be-possible-to-generate-several-top-level-classes-with-one-macro-invocat
+- select *
 - Unions
 - FOR UPDATE, LOCK MODE, etc.
-- in operator
 - Arithmetic (update player set age=age+1)
 - Make parser case insensitive (keywords only)
 - Infer function types from schema
 - A mechanism to tranform or combine values
-- apply(10) vs (10) ?
 
 * MySQL
 
 - ON DUPLICATE KEY
+- IFNULL
+- interval
+
+* PostreSQL
+
+- run tests
+
+
+======== 0.2 ========
+
+- apply(10) vs (10) ?
+- Generate meta types http://stackoverflow.com/questions/12295971/will-it-be-possible-to-generate-several-top-level-classes-with-one-macro-invocat
+- in operator

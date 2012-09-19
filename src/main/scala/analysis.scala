@@ -14,7 +14,7 @@ object Analyzer {
    *   those targets unique constraint with '=' operator
    * - It has LIMIT 1 clause
    */
-  private def returnsMultipleResults(stmt: TypedStatement) = {
+  private def returnsMultipleResults(stmt: TypedStatement): Boolean = {
     def hasNoOrExprs(s: Select) = 
       s.where.map(w => !w.expr.find { case e: Or => true; case _ => false }.isDefined).getOrElse(false)
 
@@ -48,8 +48,9 @@ object Analyzer {
           false
         else 
           true
+      case Insert(_, _, SelectedInput(s)) => returnsMultipleResults(stmt.copy(stmt = s))
+      case Insert(_, _, _) => false
       case _: Delete => false
-      case _: Insert => false
       case Create => false
     }
   }
