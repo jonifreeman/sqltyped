@@ -13,6 +13,7 @@ case class TypedStatement(
   , output: List[TypedValue]
   , stmt: Statement
   , uniqueConstraints: Map[Table, List[List[Column]]]
+  , generatedKeyTypes: List[TypedValue]
   , multipleResults: Boolean = true)
 
 // FIXME add error handling
@@ -35,7 +36,7 @@ object Typer {
 
     def tag(col: Column) = {
       val table = col.resolvedTable getOrElse sys.error("Column's table not resolved " + col)
-      val t = schema.getTable(table.name)
+      val t = getTable(schema, table)
 
       def findFK = t.getForeignKeys
         .flatMap(_.getColumnPairs.map(_.getForeignKeyColumn))
@@ -59,7 +60,7 @@ object Typer {
 
     def uniqueConstraints = 
       Map[Table, List[List[Column]]]().withDefault(_ => Nil) ++ (stmt.tables map { t =>
-        val table = schema.getTable(t.name)
+        val table = getTable(schema, t)
         val indices = Option(table.getPrimaryKey).map(List(_)).getOrElse(Nil) ::: table.getIndices.toList
         val uniques = indices filter (_.isUnique) map { i =>
           i.getColumns.toList.map(col => Column(col.getName, Some(t.name), None, Some(t)))
@@ -67,10 +68,23 @@ object Typer {
         (t, uniques)
       })
 
+    def generatedKeyTypes(table: Table) = {
+      val t = getTable(schema, table)
+
+      def tag(c: schemacrawler.schema.Column) = 
+        if (Option(t.getPrimaryKey).map(_.getName == c.getName) getOrElse false) Some(t.getName) 
+        else None
+
+      t.getColumns.toList
+        .filter(c => c.getType.isAutoIncrementable)
+        .map(c => TypedValue(c.getName, mkType(c.getType), false, tag(c)))
+    }
+
     TypedStatement(stmt.input(schema)  map typeValue(inputArg = true, useTags = useInputTags), 
                    stmt.output map typeValue(inputArg = false, useTags = true), 
                    stmt, 
-                   uniqueConstraints)
+                   uniqueConstraints,
+                   generatedKeyTypes(stmt.tables.head))
   }
 
   def `a => a`(outopt: Boolean) = (schema: Schema, stmt: Statement, params: List[Term]) =>
@@ -104,11 +118,14 @@ object Typer {
       .getOrElse((typeOf[AnyRef], true, true))
 
   def inferColumnType(schema: Schema, stmt: Statement, col: Column) = {
-    val table = col.resolvedTable.map(_.name) getOrElse sys.error("Table not resolved for " + col)
-    val colSchema = schema.getTable(table).getColumn(col.name)
+    val table = col.resolvedTable getOrElse sys.error("Table not resolved for " + col)
+    val colSchema = getTable(schema, table).getColumn(col.name)
     if (colSchema == null) sys.error("No such column " + col)
     (mkType(colSchema.getType), colSchema.isNullable, colSchema.isNullable)
   }
+
+  private def getTable(schema: Schema, table: Table) =
+    Option(schema.getTable(table.name)) getOrElse sys.error("Unknown table " + table.name)
 
   private def getConnection(url: String, username: String, password: String) =
     java.sql.DriverManager.getConnection(url, username, password)

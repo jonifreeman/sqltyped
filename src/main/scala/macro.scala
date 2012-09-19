@@ -18,9 +18,17 @@ object SqlMacro {
     }
   }
 
-  def withStatement(stmt: PreparedStatement) = 
+  def withStatement[A](stmt: PreparedStatement) = 
     try {
       stmt.executeUpdate
+    } finally {
+      stmt.close
+    }
+
+  def withStatementF[A](stmt: PreparedStatement)(f: => A): A = 
+    try {
+      stmt.executeUpdate
+      f
     } finally {
       stmt.close
     }
@@ -28,14 +36,19 @@ object SqlMacro {
   def sqlImpl[A: c.TypeTag, B: c.TypeTag](c: Context)
                                          (s: c.Expr[String])
                                          (config: c.Expr[Configuration[A, B]]): c.Expr[Any] = 
-    sqlImpl0(c, useInputTags = false)(s)(config)
+    sqlImpl0(c, useInputTags = false, keys = false)(s)(config)
 
   def sqltImpl[A: c.TypeTag, B: c.TypeTag](c: Context)
                                           (s: c.Expr[String])
                                           (config: c.Expr[Configuration[A, B]]): c.Expr[Any] = 
-    sqlImpl0(c, useInputTags = true)(s)(config)
+    sqlImpl0(c, useInputTags = true, keys = false)(s)(config)
 
-  def sqlImpl0[A: c.TypeTag, B: c.TypeTag](c: Context, useInputTags: Boolean)
+  def sqlkImpl[A: c.TypeTag, B: c.TypeTag](c: Context)
+                                          (s: c.Expr[String])
+                                          (config: c.Expr[Configuration[A, B]]): c.Expr[Any] = 
+    sqlImpl0(c, useInputTags = false, keys = true)(s)(config)
+
+  def sqlImpl0[A: c.TypeTag, B: c.TypeTag](c: Context, useInputTags: Boolean, keys: Boolean)
                                           (s: c.Expr[String])
                                           (config: c.Expr[Configuration[A, B]]): c.Expr[Any] = {
     import c.universe._
@@ -117,7 +130,8 @@ object SqlMacro {
       else returnTypeSigRecord
 
     def resultTypeSig =
-      if (meta.output.length == 0) returnTypeSig.head
+      if (keys) AppliedTypeTree(Ident(newTypeName("List")), List(scalaType(meta.generatedKeyTypes.head)))
+      else if (meta.output.length == 0) returnTypeSig.head
       else AppliedTypeTree(Ident(newTypeName(if (meta.multipleResults) "List" else "Option")), returnTypeSig)
 
     def appendRow = 
@@ -190,9 +204,34 @@ object SqlMacro {
           Apply(Select(Select(Ident("sqltyped"), newTermName("SqlMacro")), newTermName("withResultSet")), List(Ident(newTermName("stmt")))), 
           List(Function(List(ValDef(Modifiers(Flag.PARAM), newTermName("rs"), TypeTree(), EmptyTree)), 
                         Block(readRows, returnRows))))
+      } else if (keys) {
+        processStmtWithKeys(meta.generatedKeyTypes.head)
       } else {
         Apply(Select(Select(Ident("sqltyped"), newTermName("SqlMacro")), newTermName("withStatement")), List(Ident(newTermName("stmt"))))
       }
+
+    def processStmtWithKeys(keyType: TypedValue) =
+      Apply(
+        Apply(Select(Select(Ident("sqltyped"), newTermName("SqlMacro")), newTermName("withStatementF")), List(Ident(newTermName("stmt")))),
+        List(
+          Block(
+            List(
+              ValDef(Modifiers(), newTermName("rs"), TypeTree(), Apply(Select(Ident(newTermName("stmt")), newTermName("getGeneratedKeys")), List())), 
+              ValDef(Modifiers(), newTermName("keys"), TypeTree(), Apply(
+                TypeApply(Select(Select(Select(Select(Ident("scala"), newTermName("collection")), newTermName("mutable")), newTermName("ListBuffer")), newTermName("apply")), List(scalaType(keyType))), List())), 
+              LabelDef(newTermName("while$1"), List(), 
+                       If(Apply(Select(Ident(newTermName("rs")), newTermName("next")), List()), 
+                          Block(
+                            List(
+                              Apply(Select(Ident(newTermName("keys")), newTermName("append")), List(Apply(Select(Ident(newTermName("rs")), newTermName(rsGetterName(keyType))), List(Literal(Constant(1))))))), 
+                            Apply(Ident(newTermName("while$1")), List())), Literal(Constant(())))), 
+              Apply(Select(Ident(newTermName("rs")), newTermName("close")), List())), 
+            Select(Ident(newTermName("keys")), newTermName("toList")))))
+
+    def prepareStatement = 
+      Apply(
+        Select(Ident(newTermName("conn")), newTermName("prepareStatement")), 
+        Literal(Constant(sql)) :: (if (keys) List(Literal(Constant(Statement.RETURN_GENERATED_KEYS))) else Nil))
 
     val queryF = 
       DefDef(
@@ -200,12 +239,9 @@ object SqlMacro {
         List(
           meta.input.zipWithIndex.map { case (c, i) => inputParam(c, i) },
           List(ValDef(Modifiers(Flag.IMPLICIT | Flag.PARAM), newTermName("conn"), Ident(c.mirror.staticClass("java.sql.Connection")), EmptyTree))), 
-        TypeTree() /*AppliedTypeTree(Ident(newTypeName("List")), returnTypeSig)*/, 
+        TypeTree(), 
         Block(
-          ValDef(Modifiers(), newTermName("stmt"), TypeTree(), 
-                 Apply(
-                   Select(Ident(newTermName("conn")), newTermName("prepareStatement")), 
-                   List(Literal(Constant(sql))))) :: meta.input.zipWithIndex.map { case (c, i) => setParam(c, i) },
+          ValDef(Modifiers(), newTermName("stmt"), TypeTree(), prepareStatement) :: meta.input.zipWithIndex.map { case (c, i) => setParam(c, i) },
           processStmt
         )
       )

@@ -160,6 +160,21 @@ class ExampleSuite extends FunSuite with BeforeAndAfterEach with matchers.Should
     sql("select name from person").apply should equal(List("moe"))
   }
 
+  test("Get generated keys (currently supports just one key per row)") {
+    val newPerson  = sqlk("insert into person(name, age, salary) values (?, ?, ?)")
+    val newPersons = sqlk("insert into person(name, age, salary) select name, age, salary from person")
+
+    // FIXME should return a scalar instead of List
+    // Explicit type here just to test that correct type was inferred
+//    val key: Int @@ person = newPerson.apply("bill", 45, 3000) 
+    val key = newPerson.apply("bill", 45, 3000) 
+    val genId = sql("select id from person where name=?").apply("bill").head
+    key should equal(List(genId))
+    sql("delete from person where id=?").apply(key.head)
+
+    newPersons.apply should equal(List(genId + 1, genId + 2))
+  }
+
   def date(s: String) = 
     new java.sql.Timestamp(new java.text.SimpleDateFormat("yyyy-MM-dd hh:mm:ss.S").parse(s).getTime)
 
