@@ -177,13 +177,17 @@ class ExampleSuite extends FunSuite with BeforeAndAfterEach with matchers.Should
 
   test("Update") {
     sql("update person set name=? where age >= ?").apply("joe2", 30)
-    sql("select name from person order by age").apply should(equal(List("moe", "joe2")))
+    sql("select name from person order by age").apply should equal(List("moe", "joe2"))
 
     sql("update person set name=? where age >= ? order by age asc limit 1").apply("moe2", 10)
-    sql("select name from person order by age").apply should(equal(List("moe2", "joe2")))
+    sql("select name from person order by age").apply should equal(List("moe2", "joe2"))
 
     sql("update person set name=upper(name)").apply
-    sql("select name from person order by age").apply should(equal(List("MOE2", "JOE2")))
+    sql("select name from person order by age").apply should equal(List("MOE2", "JOE2"))
+
+    sql("update person p, job_history j set p.name=?, j.name=? where p.id=j.person and p.age > ?").apply("joe2", "x", 30)
+    sql("select p.name, j.name from person p, job_history j where p.id=j.person order by age").apply.tuples should
+      equal(List(("MOE2", "IBM"), ("joe2", "x"), ("joe2", "x")))
   }
 
   def date(s: String) = 
