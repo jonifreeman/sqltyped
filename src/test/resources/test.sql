@@ -3,6 +3,7 @@ create table person(
   name varchar(255) NOT NULL, 
   age INT NOT NULL, 
   salary INT NOT NULL,
+  img BLOB,
   PRIMARY KEY (id)
 ) ENGINE=InnoDB;
 

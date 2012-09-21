@@ -142,6 +142,7 @@ object Typer {
     case "java.sql.Timestamp" => typeOf[java.sql.Timestamp]
     case "java.sql.Date" => typeOf[java.sql.Date]
     case "java.sql.Time" => typeOf[java.sql.Time]
+    case "byte[]" => typeOf[java.sql.Blob]
     case x => sys.error("Unknown type " + x)  // FIXME improve error handling
   }
 }

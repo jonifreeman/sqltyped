@@ -9,7 +9,8 @@ class ExampleSuite extends FunSuite with BeforeAndAfterEach with matchers.Should
 
   object Tables { trait person; trait job_history }
   object Columns { object name; object age; object salary; object employer; object started
-                   object resigned; object avg; object count; object person; object job }
+                   object resigned; object avg; object count; object person; object job;
+                   object img }
 
   implicit val c = Configuration(Tables, Columns)
   implicit def conn = DriverManager.getConnection("jdbc:mysql://localhost:3306/sqltyped", "root", "")
@@ -188,6 +189,15 @@ class ExampleSuite extends FunSuite with BeforeAndAfterEach with matchers.Should
     sql("update person p, job_history j set p.name=?, j.name=? where p.id=j.person and p.age > ?").apply("joe2", "x", 30)
     sql("select p.name, j.name from person p, job_history j where p.id=j.person order by age").apply.tuples should
       equal(List(("MOE2", "IBM"), ("joe2", "x"), ("joe2", "x")))
+  }
+
+  test("Blob") {
+    import javax.sql.rowset.serial.SerialBlob
+
+    val img = new SerialBlob("fake img".getBytes("UTF-8"))
+    sql("update person set img=? where name=?").apply(Some(img), "joe")
+    val savedImg = sql("select img from person where name=?").apply("joe").head.get.getBytes(1, 8)
+    new String(savedImg, "UTF-8") should equal("fake img")
   }
 
   def date(s: String) = 

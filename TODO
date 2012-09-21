@@ -2,14 +2,14 @@
 
 * Generic
 
-- Blobs
-- select *
 - Unions
+- select *
 - FOR UPDATE, LOCK MODE, etc.
 - Arithmetic (update player set age=age+1)
 - Make parser case insensitive (keywords only)
 - Make built-in function mapping extensible
 - A mechanism to tranform or combine values
+- Improve error messages + handling
 
 * MySQL
 
