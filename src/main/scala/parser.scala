@@ -11,14 +11,14 @@ object SqlParser extends StandardTokenParsers {
   lexical.reserved += ("select", "delete", "insert", "update", "from", "into", "where", "as", "and", 
                        "or", "join", "inner", "outer", "left", "right", "on", "group", "by", 
                        "having", "limit", "offset", "order", "asc", "desc", "distinct", "is", 
-                       "not", "null", "between", "in", "exists", "values", "create")
+                       "not", "null", "between", "in", "exists", "values", "create", "set")
 
   def parse(sql: String): Either[String, Statement] = stmt(new lexical.Scanner(sql)) match {
     case Success(r, q)  => Right(r)
     case err: NoSuccess => Left(err.msg)
   }
 
-  def stmt = (selectStmt | insertStmt | deleteStmt | createStmt)
+  def stmt = (selectStmt | insertStmt | updateStmt | deleteStmt | createStmt)
 
   def selectStmt = select ~ from ~ opt(where) ~ opt(groupBy) ~ opt(orderBy) ~ opt(limit) ^^ {
     case s ~ f ~ w ~ g ~ o ~ l => Select(s, f, w, g, o, l)
@@ -33,6 +33,12 @@ object SqlParser extends StandardTokenParsers {
   def listValues = "values" ~> "(" ~> repsep(term, ",") <~ ")" ^^ ListedInput.apply
 
   def selectValues = selectStmt ^^ SelectedInput.apply
+
+  def updateStmt = "update" ~ repsep(table, ",") ~ "set" ~ repsep(assignment, ",") ~ opt(where) ~ opt(orderBy) ~ opt(limit) ^^ {
+    case _ ~ t ~ _ ~ a ~ w ~ o ~ l => Update(t, a, w, o, l)
+  }
+
+  def assignment = column ~ "=" ~ term ^^ { case c ~ _ ~ t => (c, t) }
 
   def deleteStmt = "delete" ~ opt(repsep(ident, ",")) ~ from ~ opt(where) ^^ {
     case _ ~ f ~ w => Delete(f, w)

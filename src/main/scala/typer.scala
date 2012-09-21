@@ -101,6 +101,7 @@ object Typer {
     , "min"   -> `a => a`(true)
     , "max"   -> `a => a`(true)
     , "sum"   -> `a => a`(true)
+    , "upper" -> ((_: Schema, _: Statement, _: List[Term]) => (typeOf[String], false, true))
   )
 
   def tpeOf(schema: Schema, stmt: Statement, e: Term): (Type, Boolean, Boolean) = e match {

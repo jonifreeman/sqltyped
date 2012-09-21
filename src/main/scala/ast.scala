@@ -87,14 +87,14 @@ private[sqltyped] object Ast {
         }
       } map(t => col.copy(resolvedTable = Some(t))) getOrElse sys.error("Column references unknown table " + col)
 
-    def resolveFunc(f: Function) = f.copy(params = f.params map resolve)
-
-    def resolveProj(proj: List[Value]) = proj map {
+    def resolveValue(v: Value) = v match {
       case col: Column => resolveColumn(col)
       case f: Function => resolveFunc(f)
       case x => x
     }
 
+    def resolveFunc(f: Function) = f.copy(params = f.params map resolve)
+    def resolveProj(proj: List[Value]) = proj map resolveValue
     def resolveFroms(from: List[From]) = from map resolveFrom
     def resolveFrom(from: From) = from.copy(join = from.join map resolveJoin)
     def resolveJoin(join: Join) = join.copy(expr = resolveExpr(join.expr))
@@ -127,6 +127,13 @@ private[sqltyped] object Ast {
            where = r.resolveWhere(d.where))
   }
 
+  private def resolveUpdate(u: Update)(env: List[Table] = u.tables): Update = {
+    val r = new ResolveEnv(env)
+    u.copy(set = u.set map { case (c, t) => (r.resolveColumn(c), r.resolve(t)) },
+           where = r.resolveWhere(u.where),
+           orderBy = r.resolveOrderBy(u.orderBy))
+  }
+
   def params(e: Expr): List[Value] = e match {
     case Predicate1(_, _)                => Nil
     case Predicate2(Input, op, x)        => termToValue(x) :: Nil
@@ -140,6 +147,10 @@ private[sqltyped] object Ast {
     case And(e1, e2)                     => params(e1) ::: params(e2)
     case Or(e1, e2)                      => params(e1) ::: params(e2)
   }
+
+  def limitParams(limit: Option[Limit]) =
+    limit.map(l => l.count.right.toSeq.toList ::: l.offset.map(_.right.toSeq.toList).getOrElse(Nil))
+      .getOrElse(Nil).map(_ => Constant(typeOf[Long], None))
 
   // FIXME clean this
   def termToValue(x: Term) = x match {
@@ -241,6 +252,23 @@ private[sqltyped] object Ast {
     //  " values (" + (values map format) + ")"
   }
 
+  case class Update(tables: List[Table], set: List[(Column, Term)], where: Option[Where], 
+                    orderBy: Option[OrderBy], limit: Option[Limit]) extends Statement {
+    def input(schema: Schema) = 
+      set.collect { case (col, Input) => col } :::
+      where.map(w => params(w.expr)).getOrElse(Nil) ::: 
+      limitParams(limit)
+
+    def output = Nil
+    def resolveTables = resolveUpdate(this)()
+
+    def toSql = 
+      "update " + tables.map(_.name).mkString(", ") + " set " + 
+      (set.map { case (c, v) => format(c) + "=" + format(v) }).mkString(", ") +
+      where.map(w => " where " + format(w.expr)).getOrElse("") +
+      orderBy.map(o => " order by " + (o.cols map format).mkString(", ") + o.order.map(ord => " " + format(ord)).getOrElse("")).getOrElse("")
+  }
+
   case object Create extends Statement {
     def input(schema: Schema) = Nil
     def output = Nil
@@ -259,7 +287,7 @@ private[sqltyped] object Ast {
     def input(schema: Schema) = 
       where.map(w => params(w.expr)).getOrElse(Nil) ::: 
       groupBy.flatMap(g => g.having.map(h => params(h.expr))).getOrElse(Nil) :::
-      limit.map(l => l.count.right.toSeq.toList ::: l.offset.map(_.right.toSeq.toList).getOrElse(Nil)).getOrElse(Nil).map(_ => Constant(typeOf[Long], None))
+      limitParams(limit)
 
     def output = projection
     def tables = from flatMap (_.tables)

@@ -2,14 +2,13 @@
 
 * Generic
 
-- SQL update
 - Blobs
 - select *
 - Unions
 - FOR UPDATE, LOCK MODE, etc.
 - Arithmetic (update player set age=age+1)
 - Make parser case insensitive (keywords only)
-- Infer function types from schema
+- Make built-in function mapping extensible
 - A mechanism to tranform or combine values
 
 * MySQL
@@ -28,3 +27,4 @@
 - apply(10) vs (10) ?
 - Generate meta types http://stackoverflow.com/questions/12295971/will-it-be-possible-to-generate-several-top-level-classes-with-one-macro-invocat
 - in operator
+- Infer function types from schema

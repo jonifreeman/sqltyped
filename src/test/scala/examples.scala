@@ -175,6 +175,17 @@ class ExampleSuite extends FunSuite with BeforeAndAfterEach with matchers.Should
     newPersons.apply should equal(List(maxId + 1, maxId + 2))
   }
 
+  test("Update") {
+    sql("update person set name=? where age >= ?").apply("joe2", 30)
+    sql("select name from person order by age").apply should(equal(List("moe", "joe2")))
+
+    sql("update person set name=? where age >= ? order by age asc limit 1").apply("moe2", 10)
+    sql("select name from person order by age").apply should(equal(List("moe2", "joe2")))
+
+    sql("update person set name=upper(name)").apply
+    sql("select name from person order by age").apply should(equal(List("MOE2", "JOE2")))
+  }
+
   def date(s: String) = 
     new java.sql.Timestamp(new java.text.SimpleDateFormat("yyyy-MM-dd hh:mm:ss.S").parse(s).getTime)
 

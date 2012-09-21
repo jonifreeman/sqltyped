@@ -50,6 +50,7 @@ object Analyzer {
           true
       case Insert(_, _, SelectedInput(s)) => returnsMultipleResults(stmt.copy(stmt = s))
       case Insert(_, _, _) => false
+      case _: Update => false
       case _: Delete => false
       case Create => false
     }
