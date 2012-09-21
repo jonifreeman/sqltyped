@@ -84,8 +84,11 @@ class ExampleSuite extends FunSuite with BeforeAndAfterEach with matchers.Should
   }
 
   test("Query with just one selected column") {
-    val q = sql("select name from person where age > ? order by name")
-    q(10) should equal (List("joe", "moe"))    
+    sql("select name from person where age > ? order by name").apply(10) should 
+      equal (List("joe", "moe"))
+
+    sql("select name from person where age > ? order by name for update").apply(10) should
+      equal (List("joe", "moe"))
   }
   
   test("Query with constraint by unique column") {
