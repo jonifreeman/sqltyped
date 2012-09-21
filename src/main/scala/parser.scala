@@ -11,17 +11,22 @@ object SqlParser extends StandardTokenParsers {
   lexical.reserved += ("select", "delete", "insert", "update", "from", "into", "where", "as", "and", 
                        "or", "join", "inner", "outer", "left", "right", "on", "group", "by", 
                        "having", "limit", "offset", "order", "asc", "desc", "distinct", "is", 
-                       "not", "null", "between", "in", "exists", "values", "create", "set")
+                       "not", "null", "between", "in", "exists", "values", "create", "set",
+                       "union")
 
   def parse(sql: String): Either[String, Statement] = stmt(new lexical.Scanner(sql)) match {
     case Success(r, q)  => Right(r)
     case err: NoSuccess => Left(err.msg)
   }
 
-  def stmt = (selectStmt | insertStmt | updateStmt | deleteStmt | createStmt)
+  def stmt = (unionStmt | selectStmt | insertStmt | updateStmt | deleteStmt | createStmt)
 
   def selectStmt = select ~ from ~ opt(where) ~ opt(groupBy) ~ opt(orderBy) ~ opt(limit) ^^ {
     case s ~ f ~ w ~ g ~ o ~ l => Select(s, f, w, g, o, l)
+  }
+
+  def unionStmt = optParens(selectStmt) ~ "union" ~ optParens(selectStmt) ~ opt(orderBy) ~ opt(limit) ^^ {
+    case s1 ~ _ ~ s2 ~ o ~ l => Union(s1, s2, o, l)
   }
 
   def insertStmt = "insert" ~ "into" ~ table ~ opt(colNames) ~ (listValues | selectValues) ^^ {
@@ -135,6 +140,11 @@ object SqlParser extends StandardTokenParsers {
   def intOrInput = (
       chr('?') ^^^ Right(Input)
     | numericLit ^^ (n => Left(n.toInt))
+  )
+
+  def optParens[A](p: Parser[A]): Parser[A] = (
+      "(" ~> p <~ ")"
+    | p
   )
 
   def chr(c: Char) = elem("", _.chars == c.toString)

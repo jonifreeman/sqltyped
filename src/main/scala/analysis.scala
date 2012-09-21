@@ -53,6 +53,8 @@ object Analyzer {
       case _: Update => false
       case _: Delete => false
       case Create => false
+      case Union(s1, s2, _, _) => 
+        returnsMultipleResults(stmt.copy(stmt = s1)) && returnsMultipleResults(stmt.copy(stmt = s2))
     }
   }
 }

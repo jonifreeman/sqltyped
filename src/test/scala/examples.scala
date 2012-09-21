@@ -200,6 +200,23 @@ class ExampleSuite extends FunSuite with BeforeAndAfterEach with matchers.Should
     new String(savedImg, "UTF-8") should equal("fake img")
   }
 
+/*  test("Union") {
+    val q1 = sql(""" 
+                 select name,age from person where age < ?
+                 union 
+                 select name,age from person where age > ?
+                 """)
+    q1.apply(15, 20).tuples should equal(List(("joe", 36), ("moe", 14)))
+
+    val q2 = sql(""" 
+                 (select name from person where age < ?)
+                 union 
+                 (select name from person where age > ?)
+                 order by age desc limit ?
+                 """)
+    q2.apply(15, 20, 5) should equal(List(36, 14))
+  }*/
+
   def date(s: String) = 
     new java.sql.Timestamp(new java.text.SimpleDateFormat("yyyy-MM-dd hh:mm:ss.S").parse(s).getTime)
 

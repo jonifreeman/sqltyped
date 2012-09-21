@@ -252,6 +252,19 @@ private[sqltyped] object Ast {
     //  " values (" + (values map format) + ")"
   }
 
+  case class Union(left: Statement, right: Statement, 
+                   orderBy: Option[OrderBy], limit: Option[Limit]) extends Statement {
+    def tables = left.tables ::: right.tables
+    def input(schema: Schema) = left.input(schema) ::: right.input(schema) ::: limitParams(limit)
+    def output = left.output
+    def resolveTables = Union(left.resolveTables, right.resolveTables, orderBy, limit)
+    override def isQuery = true
+
+    def toSql = 
+      "(" + left.toSql + ") union (" + right.toSql + ")" +
+      orderBy.map(o => " order by " + (o.cols map format).mkString(", ") + o.order.map(ord => " " + format(ord)).getOrElse("")).getOrElse("")
+  }
+
   case class Update(tables: List[Table], set: List[(Column, Term)], where: Option[Where], 
                     orderBy: Option[OrderBy], limit: Option[Limit]) extends Statement {
     def input(schema: Schema) = 
