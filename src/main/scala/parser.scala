@@ -7,7 +7,8 @@ import scala.reflect.runtime.universe.{Type, typeOf}
 object SqlParser extends StandardTokenParsers {
   import Ast._
 
-  lexical.delimiters ++= List("(", ")", ",", " ", "=", ">", "<", ">=", "<=", "?", "!=", ".", "*")
+  lexical.delimiters ++= List("(", ")", ",", " ", "=", ">", "<", ">=", "<=", "?", "!=", ".", "*",
+                              "+", "-", "/", "%")
   lexical.reserved += ("select", "delete", "insert", "update", "from", "into", "where", "as", "and", 
                        "or", "join", "inner", "outer", "left", "right", "on", "group", "by", 
                        "having", "limit", "offset", "order", "asc", "desc", "distinct", "is", 
@@ -92,7 +93,9 @@ object SqlParser extends StandardTokenParsers {
 
   def subselect = "(" ~> selectStmt <~ ")" ^^ Subselect.apply
 
-  def term: Parser[Term] = (
+  def term = (arith | simpleTerm)
+
+  def simpleTerm: Parser[Term] = (
       boolean    ^^ (b => Constant(typeOf[Boolean], b))
     | stringLit  ^^ (s => Constant(typeOf[String], s))
     | numericLit ^^ (n => if (n.contains(".")) Constant(typeOf[Double], n.toDouble) else Constant(typeOf[Long], n.toInt))
@@ -101,7 +104,9 @@ object SqlParser extends StandardTokenParsers {
     | chr('?')   ^^^ Input
   )
 
-  def value: Parser[Value] = (
+  def value = (arith | simpleValue)
+
+  def simpleValue: Parser[Value] = (
       boolean    ^^ (b => Constant(typeOf[Boolean], b))
     | stringLit  ^^ (s => Constant(typeOf[String], s))
     | numericLit ^^ (n => if (n.contains(".")) Constant(typeOf[Double], n.toDouble) else Constant(typeOf[Long], n.toInt))
@@ -123,6 +128,16 @@ object SqlParser extends StandardTokenParsers {
     ident ~ "(" ~ repsep(term, ",") ~ ")" ~ opt("as" ~> ident) ^^ {
       case name ~ _ ~ params ~ _ ~ alias => Function(name, params, alias)
     }
+
+  def arith: Parser[Value] = (simpleValue | arithParens)* (
+      "+" ^^^ { (lhs: Value, rhs: Value) => ArithExpr(lhs, "+", rhs) }
+    | "-" ^^^ { (lhs: Value, rhs: Value) => ArithExpr(lhs, "-", rhs) }
+    | "*" ^^^ { (lhs: Value, rhs: Value) => ArithExpr(lhs, "*", rhs) }
+    | "/" ^^^ { (lhs: Value, rhs: Value) => ArithExpr(lhs, "/", rhs) }
+    | "%" ^^^ { (lhs: Value, rhs: Value) => ArithExpr(lhs, "%", rhs) }
+  )
+
+  def arithParens = "(" ~> arith <~ ")"
 
   def boolean = ("true" ^^^ true | "false" ^^^ false)
 

@@ -18,7 +18,8 @@ private[sqltyped] object Ast {
                     resolvedTable: Option[Table] = None) extends Value with Aliased
   case class AllColumns(table: Option[String], resolvedTable: Option[Table] = None) extends Value
   case class Function(name: String, params: List[Term], alias: Option[String] = None) extends Value with Aliased
-
+  case class ArithExpr(lhs: Value, op: String, rhs: Value) extends Value
+  
   case object Input extends Term
   case class Subselect(select: Select) extends Term
 
@@ -77,6 +78,7 @@ private[sqltyped] object Ast {
       case AllColumns(t, _) => resolveAllColumns(t)
       case f@Function(_, ps, _) => resolveFunc(f)
       case Subselect(select) => Subselect(resolveSelect(select)(select.tables ::: env))
+      case ArithExpr(lhs, op, rhs) => ArithExpr(resolveValue(lhs), op, resolveValue(rhs))
       case t => t
     }
 
@@ -93,10 +95,11 @@ private[sqltyped] object Ast {
       .map(ref => env.find(t => t.name == ref) getOrElse sys.error("Unknown table " + ref))
       .orElse(env.headOption))
 
-    def resolveValue(v: Value) = v match {
+    def resolveValue(v: Value): Value = v match {
       case col: Column => resolveColumn(col)
       case AllColumns(t, _) => resolveAllColumns(t)
       case f: Function => resolveFunc(f)
+      case ArithExpr(lhs, op, rhs) => ArithExpr(resolveValue(lhs), op, resolveValue(rhs))
       case x => x
     }
 
@@ -171,6 +174,8 @@ private[sqltyped] object Ast {
   def format(f: Function): String = f.name + "(" + (f.params map format).mkString(", ") + ")" + 
     f.alias.map(a => " as " + a).getOrElse("")
 
+  def format(a: ArithExpr): String = "(" + format(a.lhs) + " " + a.op + " " + format(a.rhs) + ")"
+
   def format(t: Table): String = t.name + t.alias.map(a => " as " + a).getOrElse("")
 
   def format(expr: Expr): String = expr match {
@@ -184,6 +189,7 @@ private[sqltyped] object Ast {
   def format(t: Term): String = t match {
     case Constant(tpe, v) => if (tpe == typeOf[String]) ("'" + v.toString + "'") else v.toString
     case col: Column => format(col)
+    case a: ArithExpr => format(a)
     case AllColumns(None, _) => "*"
     case AllColumns(Some(t), _) => "*." + t
     case f: Function => format(f)
@@ -194,6 +200,7 @@ private[sqltyped] object Ast {
   def format(v: Value): String = v match {
     case Constant(tpe, v) => if (tpe == typeOf[String]) ("'" + v.toString + "'") else v.toString
     case col: Column => format(col)
+    case a: ArithExpr => format(a)
     case AllColumns(None, _) => "*"
     case AllColumns(Some(t), _) => "*." + t
     case f: Function => format(f)

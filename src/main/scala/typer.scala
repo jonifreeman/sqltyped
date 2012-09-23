@@ -61,6 +61,18 @@ object Typer {
         val (tpe, inopt, outopt) = inferReturnType(schema, stmt, name, params)
         List(TypedValue(f.aname, tpe, if (inputArg) inopt else outopt, None))
       case c@Constant(tpe, _) => List(TypedValue("<constant>", tpe, false, None))
+      case ArithExpr(lhs, _, rhs) =>
+        val lval = typeValue(inputArg, useTags)(lhs).head
+        val rval = typeValue(inputArg, useTags)(rhs).head
+        (lval, rval) match {
+          case (col: Column, _) => List(col)
+          case (_, col: Column) => List(col)
+          case (c: Constant, _) if c.tpe == typeOf[Double] => List(c)
+          case (_, c: Constant) if c.tpe == typeOf[Double] => List(c)
+          case (c: Constant, _) => List(TypedValue("<constant>", typeOf[Int], false, None))
+          case (_, c: Constant) => List(TypedValue("<constant>", typeOf[Int], false, None))
+          case _ => typeValue(inputArg, useTags)(lhs)
+        }
     }
 
     def uniqueConstraints = 
