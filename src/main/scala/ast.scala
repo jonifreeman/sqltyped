@@ -16,6 +16,7 @@ private[sqltyped] object Ast {
   case class Constant(tpe: Type, value: Any) extends Value
   case class Column(name: String, table: Option[String], alias: Option[String] = None, 
                     resolvedTable: Option[Table] = None) extends Value with Aliased
+  case class AllColumns(table: Option[String], resolvedTable: Option[Table] = None) extends Value
   case class Function(name: String, params: List[Term], alias: Option[String] = None) extends Value with Aliased
 
   case object Input extends Term
@@ -73,6 +74,7 @@ private[sqltyped] object Ast {
   private class ResolveEnv(env: List[Table]) {
     def resolve(term: Term): Term = term match {
       case col: Column => resolveColumn(col)
+      case AllColumns(t, _) => resolveAllColumns(t)
       case f@Function(_, ps, _) => resolveFunc(f)
       case Subselect(select) => Subselect(resolveSelect(select)(select.tables ::: env))
       case t => t
@@ -87,8 +89,13 @@ private[sqltyped] object Ast {
         }
       } map(t => col.copy(resolvedTable = Some(t))) getOrElse sys.error("Column references unknown table " + col)
 
+    def resolveAllColumns(tableRef: Option[String]) = AllColumns(tableRef, tableRef
+      .map(ref => env.find(t => t.name == ref) getOrElse sys.error("Unknown table " + ref))
+      .orElse(env.headOption))
+
     def resolveValue(v: Value) = v match {
       case col: Column => resolveColumn(col)
+      case AllColumns(t, _) => resolveAllColumns(t)
       case f: Function => resolveFunc(f)
       case x => x
     }
@@ -177,6 +184,8 @@ private[sqltyped] object Ast {
   def format(t: Term): String = t match {
     case Constant(tpe, v) => if (tpe == typeOf[String]) ("'" + v.toString + "'") else v.toString
     case col: Column => format(col)
+    case AllColumns(None, _) => "*"
+    case AllColumns(Some(t), _) => "*." + t
     case f: Function => format(f)
     case Input => "?"
     case Subselect(select) => "(" + select.toSql + ")"
@@ -185,6 +194,8 @@ private[sqltyped] object Ast {
   def format(v: Value): String = v match {
     case Constant(tpe, v) => if (tpe == typeOf[String]) ("'" + v.toString + "'") else v.toString
     case col: Column => format(col)
+    case AllColumns(None, _) => "*"
+    case AllColumns(Some(t), _) => "*." + t
     case f: Function => format(f)
   }
 

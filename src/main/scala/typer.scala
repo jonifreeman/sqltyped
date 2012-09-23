@@ -48,14 +48,19 @@ object Typer {
       else findFK orElse None
     }
 
-    def typeValue(inputArg: Boolean, useTags: Boolean)(x: Value) = x match {
+    def typeValue(inputArg: Boolean, useTags: Boolean)(x: Value): List[TypedValue] = x match {
       case col: Column =>
         val (tpe, inopt, outopt) = inferColumnType(schema, stmt, col)
-        TypedValue(col.aname, tpe, if (inputArg) inopt else outopt, if (useTags) tag(col) else None)
+        List(TypedValue(col.aname, tpe, if (inputArg) inopt else outopt, if (useTags) tag(col) else None))
+      case cols@AllColumns(_, t) =>
+        val table = t getOrElse sys.error("Table not resolved for " + cols)
+        getTable(schema, table).getColumns.toList flatMap { c =>
+          typeValue(inputArg, useTags)(Column(c.getName, None, None, Some(table)))
+        }
       case f@Function(name, params, alias) =>
         val (tpe, inopt, outopt) = inferReturnType(schema, stmt, name, params)
-        TypedValue(f.aname, tpe, if (inputArg) inopt else outopt, None)
-      case c@Constant(tpe, _) => TypedValue("<constant>", tpe, false, None)
+        List(TypedValue(f.aname, tpe, if (inputArg) inopt else outopt, None))
+      case c@Constant(tpe, _) => List(TypedValue("<constant>", tpe, false, None))
     }
 
     def uniqueConstraints = 
@@ -79,8 +84,8 @@ object Typer {
         .map(c => TypedValue(c.getName, mkType(c.getType), false, tag(c)))
     }
 
-    TypedStatement(stmt.input(schema)  map typeValue(inputArg = true, useTags = useInputTags), 
-                   stmt.output map typeValue(inputArg = false, useTags = true), 
+    TypedStatement(stmt.input(schema) flatMap typeValue(inputArg = true, useTags = useInputTags), 
+                   stmt.output flatMap typeValue(inputArg = false, useTags = true), 
                    stmt, 
                    uniqueConstraints,
                    generatedKeyTypes(stmt.tables.head))

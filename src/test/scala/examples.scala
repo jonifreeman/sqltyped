@@ -10,7 +10,7 @@ class ExampleSuite extends FunSuite with BeforeAndAfterEach with matchers.Should
   object Tables { trait person; trait job_history }
   object Columns { object name; object age; object salary; object employer; object started
                    object resigned; object avg; object count; object person; object job;
-                   object img }
+                   object img; object id }
 
   implicit val c = Configuration(Tables, Columns)
   implicit def conn = DriverManager.getConnection("jdbc:mysql://localhost:3306/sqltyped", "root", "")
@@ -34,8 +34,11 @@ class ExampleSuite extends FunSuite with BeforeAndAfterEach with matchers.Should
   }
 
   test("Simple query") {
-    val q = sql("select name, age from person")
-    q().map(_.get(age)).sum should equal (50)
+    val q1 = sql("select name, age from person")
+    q1().map(_.get(age)).sum should equal (50)
+
+    val q2 = sql("select * from person")
+    q2().map(_.get(age)).sum should equal (50)
   }
 
   test("Query with input") {

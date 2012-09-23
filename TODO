@@ -2,7 +2,6 @@
 
 * Generic
 
-- select *
 - Arithmetic (update player set age=age+1)
 - Make parser case insensitive (keywords only)
 - Make built-in function mapping extensible
@@ -15,7 +14,7 @@
 - IFNULL
 - interval
 
-* PostreSQL
+* PostgreSQL
 
 - run tests
 

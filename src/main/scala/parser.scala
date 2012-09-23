@@ -7,7 +7,7 @@ import scala.reflect.runtime.universe.{Type, typeOf}
 object SqlParser extends StandardTokenParsers {
   import Ast._
 
-  lexical.delimiters ++= List("(", ")", ",", " ", "=", ">", "<", ">=", "<=", "?", "!=", ".")
+  lexical.delimiters ++= List("(", ")", ",", " ", "=", ">", "<", ">=", "<=", "?", "!=", ".", "*")
   lexical.reserved += ("select", "delete", "insert", "update", "from", "into", "where", "as", "and", 
                        "or", "join", "inner", "outer", "left", "right", "on", "group", "by", 
                        "having", "limit", "offset", "order", "asc", "desc", "distinct", "is", 
@@ -107,6 +107,7 @@ object SqlParser extends StandardTokenParsers {
     | numericLit ^^ (n => if (n.contains(".")) Constant(typeOf[Double], n.toDouble) else Constant(typeOf[Long], n.toInt))
     | function
     | column
+    | allColumns
   )
 
   def column = (
@@ -115,6 +116,8 @@ object SqlParser extends StandardTokenParsers {
     | ident ~ "as" ~ ident ^^ { case c ~ _ ~ a => Column(c, None, Some(a)) }
     | ident ^^ (c => Column(c, None, None))
   )
+
+  def allColumns = "*" ~ opt("." ~> ident) ^^ { case _ ~ t => AllColumns(t) }
 
   def function: Parser[Function] = 
     ident ~ "(" ~ repsep(term, ",") ~ ")" ~ opt("as" ~> ident) ^^ {
