@@ -2,7 +2,6 @@
 
 * Generic
 
-- Make parser case insensitive (keywords only)
 - Make built-in function mapping extensible
 - A mechanism to tranform or combine records
 - Improve error messages + handling

@@ -10,7 +10,7 @@ class ParserSuite extends FunSuite with matchers.ShouldMatchers {
     testParse("select name,age from person", 
               "select name, age from person")
 
-    testParse("select name,age from person where age > 10",
+    testParse("Select name,age frOm person WHERE age > 10",
               "select name, age from person where age > 10")
 
     testParse("select name,age from person where age = 10 order by age",
