@@ -1,12 +1,15 @@
 package sqltyped
 
 import java.sql._
+import schemacrawler.schema.Schema
 
 case class Configuration[A, B](tables: A, columns: B)
 
 object SqlMacro {
   import shapeless._
   import scala.reflect.makro._
+
+  private val schemaCache = new java.util.WeakHashMap[Context#Run, Schema]()
 
   def withResultSet[A](stmt: PreparedStatement)(f: ResultSet => A) = {
     var rs: ResultSet = null
@@ -64,7 +67,15 @@ object SqlMacro {
       err => sys.error("Parse failed: " + err),
       res => res
     )
-    val meta = Analyzer.refine(Typer.infer(stmt.resolveTables, useInputTags, url, driver, username, password))
+    val schema = {
+      val cached = schemaCache.get(c.currentRun)
+      if (cached != null) cached else {
+        val s = DbSchema.read(url, driver, username, password)
+        schemaCache.put(c.currentRun, s)
+        s 
+      }
+    }
+    val meta = Analyzer.refine(Typer.infer(schema, stmt.resolveTables, useInputTags))
 
     def rs(x: TypedValue, pos: Int) = 
       if (x.nullable) {

@@ -16,9 +16,8 @@ case class TypedStatement(
   , generatedKeyTypes: List[TypedValue]
   , multipleResults: Boolean = true)
 
-// FIXME add error handling
-object Typer {
-  def infer(stmt: Statement, useInputTags: Boolean, url: String, driver: String, username: String, password: String): TypedStatement = {
+object DbSchema {
+  def read(url: String, driver: String, username: String, password: String): Schema = {
     Class.forName(driver)
     val options = new SchemaCrawlerOptions
     val level = new SchemaInfoLevel
@@ -32,8 +31,16 @@ object Typer {
     options.setSchemaInclusionRule(new InclusionRule(schemaName, ""))
     val conn = getConnection(url, username, password)
     val database = SchemaCrawlerUtility.getDatabase(conn, options)
-    val schema = database.getSchema(schemaName)
+    database.getSchema(schemaName)
+  }
 
+  private def getConnection(url: String, username: String, password: String) =
+    java.sql.DriverManager.getConnection(url, username, password)
+}
+
+// FIXME add error handling
+object Typer {
+  def infer(schema: Schema, stmt: Statement, useInputTags: Boolean): TypedStatement = {
     def tag(col: Column) = {
       val table = col.resolvedTable getOrElse sys.error("Column's table not resolved " + col)
       val t = getTable(schema, table)
@@ -143,9 +150,6 @@ object Typer {
 
   private def getTable(schema: Schema, table: Table) =
     Option(schema.getTable(table.name)) getOrElse sys.error("Unknown table " + table.name)
-
-  private def getConnection(url: String, username: String, password: String) =
-    java.sql.DriverManager.getConnection(url, username, password)
 
   private def mkType(t: ColumnDataType): Type = t.getTypeClassName match {
     case "java.lang.String" => typeOf[String]
