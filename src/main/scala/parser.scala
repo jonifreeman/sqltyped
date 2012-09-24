@@ -6,7 +6,7 @@ import scala.reflect.runtime.universe.{Type, typeOf}
 object SqlParser extends RegexParsers {
   import Ast._
 
-  def parse(sql: String): Either[String, Statement] = parse(stmt, sql) match {
+  def parse(sql: String): Result[Statement] = parse(stmt, sql) match {
     case Success(r, q)  => Right(r)
     case err: NoSuccess => Left(err.msg)
   }

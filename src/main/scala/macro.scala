@@ -54,6 +54,7 @@ object SqlMacro {
   def sqlImpl0[A: c.TypeTag, B: c.TypeTag](c: Context, useInputTags: Boolean, keys: Boolean)
                                           (s: c.Expr[String])
                                           (config: c.Expr[Configuration[A, B]]): c.Expr[Any] = {
+
     import c.universe._
 
     val Literal(Constant(sql: String)) = s.tree
@@ -63,10 +64,6 @@ object SqlMacro {
     val username = System.getProperty("sqltyped.username")
     val password = System.getProperty("sqltyped.password")
 
-    val stmt = SqlParser.parse(sql) fold (
-      err => sys.error("Parse failed: " + err),
-      res => res
-    )
     val schema = {
       val cached = schemaCache.get(c.currentRun)
       if (cached != null) cached else {
@@ -75,7 +72,22 @@ object SqlMacro {
         s 
       }
     }
-    val meta = Analyzer.refine(Typer.infer(schema, stmt.resolveTables, useInputTags))
+
+    (for {
+      stmt  <- SqlParser.parse(sql)
+      typed <- Typer.infer(schema, stmt.resolveTables, useInputTags)
+      meta  <- Analyzer.refine(typed)
+    } yield meta) fold (
+      err => c.abort(c.enclosingPosition, err),
+      meta => codeGen(meta, sql, c, keys)(config)
+    )
+  }
+
+  def codeGen[A: c.TypeTag, B: c.TypeTag]
+    (meta: TypedStatement, sql: String, c: Context, keys: Boolean)
+    (config: c.Expr[Configuration[A, B]]): c.Expr[Any] = {
+
+    import c.universe._
 
     def rs(x: TypedValue, pos: Int) = 
       if (x.nullable) {

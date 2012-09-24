@@ -3,8 +3,8 @@ package sqltyped
 object Analyzer {
   import Ast._
 
-  def refine(stmt: TypedStatement): TypedStatement = 
-    if (returnsMultipleResults(stmt)) stmt else stmt.copy(multipleResults = false)
+  def refine(stmt: TypedStatement): Result[TypedStatement] = 
+    (if (returnsMultipleResults(stmt)) stmt else stmt.copy(multipleResults = false)).ok
 
   /**
    * Statement returns 0 - 1 results if,

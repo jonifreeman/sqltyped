@@ -40,7 +40,7 @@ object DbSchema {
 
 // FIXME add error handling
 object Typer {
-  def infer(schema: Schema, stmt: Statement, useInputTags: Boolean): TypedStatement = {
+  def infer(schema: Schema, stmt: Statement, useInputTags: Boolean): Result[TypedStatement] = {
     def tag(col: Column) = {
       val table = col.resolvedTable getOrElse sys.error("Column's table not resolved " + col)
       val t = getTable(schema, table)
@@ -107,7 +107,7 @@ object Typer {
                    stmt.output flatMap typeValue(inputArg = false, useTags = true), 
                    stmt, 
                    uniqueConstraints,
-                   generatedKeyTypes(stmt.tables.head))
+                   generatedKeyTypes(stmt.tables.head)).ok
   }
 
   def `a => a` = (schema: Schema, stmt: Statement, params: List[Term]) =>

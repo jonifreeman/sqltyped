@@ -20,4 +20,12 @@ package object sqltyped {
   type @@[T, U] = TypeOperators.@@[T, U]
 
   def tag[U] = TypeOperators.tag[U]
+
+  private[sqltyped] type Result[A] = Either[String, A]
+  private[sqltyped] def ok[A](a: A): Result[A] = Right(a)
+  private[sqltyped] def fail[A](s: String): Result[A] = Left(s)
+  private[sqltyped] implicit def rightBias[A](x: Result[A]): Either.RightProjection[String, A] = x.right
+  private[sqltyped] implicit class ResultOps[A](a: A) {
+    def ok = sqltyped.ok(a)
+  }
 }
