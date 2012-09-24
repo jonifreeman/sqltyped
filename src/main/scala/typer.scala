@@ -103,21 +103,21 @@ object Typer {
                    generatedKeyTypes(stmt.tables.head))
   }
 
-  def `a => a`(outopt: Boolean) = (schema: Schema, stmt: Statement, params: List[Term]) =>
+  def `a => a` = (schema: Schema, stmt: Statement, params: List[Term]) =>
     if (params.length != 1) sys.error("Expected 1 parameter " + params)
     else {
       val (tpe, inopt, _) = tpeOf(schema, stmt, params.head)
-      (tpe, inopt, outopt)
+      (tpe, inopt, true)
     }
 
   // FIXME make this extensible
   val knownFunctions = Map(
-      "abs"   -> `a => a`(true)
+      "abs"   -> `a => a`
     , "avg"   -> ((_: Schema, _: Statement, _: List[Term]) => (typeOf[Double], false, true))
     , "count" -> ((_: Schema, _: Statement, _: List[Term]) => (typeOf[Long], false, false))
-    , "min"   -> `a => a`(true)
-    , "max"   -> `a => a`(true)
-    , "sum"   -> `a => a`(true)
+    , "min"   -> `a => a`
+    , "max"   -> `a => a`
+    , "sum"   -> `a => a`
     , "upper" -> ((_: Schema, _: Statement, _: List[Term]) => (typeOf[String], false, true))
   )
 

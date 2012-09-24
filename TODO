@@ -8,8 +8,8 @@
 
 * MySQL
 
-- ON DUPLICATE KEY
 - IFNULL
+- ON DUPLICATE KEY
 - interval
 
 * PostgreSQL

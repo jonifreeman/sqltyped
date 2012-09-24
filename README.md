@@ -209,11 +209,6 @@ at compile time. The macro reads database schema and infers types and variable n
 results are returned as type safe records. Those type safe records are emulated by building on
 [Shapeless](https://github.com/milessabin/shapeless) HLists.
 
-* Full SQL syntax + SQL dialects 
-* Requiring a user to create a type for each used column is unncessary boilerplate once Scala macros can create public types
-* Benchmark the effect on compilation times and optimize as needed
-* ...
-
 How to try it?
 --------------
 
