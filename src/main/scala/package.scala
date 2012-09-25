@@ -28,4 +28,9 @@ package object sqltyped {
   private[sqltyped] implicit class ResultOps[A](a: A) {
     def ok = sqltyped.ok(a)
   }
+  private[sqltyped] implicit class ResultOptionOps[A](a: Option[A]) {
+    def resultOrFail(s: String) = a map sqltyped.ok getOrElse fail(s)
+  }
+  private[sqltyped] def sequence[A](rs: List[Result[A]]): Result[List[A]] = 
+    rs.foldRight(List[A]().ok) { (ra, ras) => for { as <- ras; a <- ra } yield a :: as }
 }
