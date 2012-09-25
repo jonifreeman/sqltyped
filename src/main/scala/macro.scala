@@ -9,7 +9,7 @@ object SqlMacro {
   import shapeless._
   import scala.reflect.makro._
 
-  private val schemaCache = new java.util.WeakHashMap[Context#Run, Schema]()
+  private val schemaCache = new java.util.WeakHashMap[Context#Run, Result[Schema]]()
 
   def withResultSet[A](stmt: PreparedStatement)(f: ResultSet => A) = {
     var rs: ResultSet = null
@@ -64,7 +64,7 @@ object SqlMacro {
     val username = System.getProperty("sqltyped.username")
     val password = System.getProperty("sqltyped.password")
 
-    val schema = {
+    val cachedSchema = {
       val cached = schemaCache.get(c.currentRun)
       if (cached != null) cached else {
         val s = DbSchema.read(url, driver, username, password)
@@ -74,9 +74,10 @@ object SqlMacro {
     }
 
     (for {
-      stmt  <- SqlParser.parse(sql)
-      typed <- Typer.infer(schema, stmt.resolveTables, useInputTags)
-      meta  <- Analyzer.refine(typed)
+      stmt   <- SqlParser.parse(sql)
+      schema <- cachedSchema
+      typed  <- Typer.infer(schema, stmt.resolveTables, useInputTags)
+      meta   <- Analyzer.refine(typed)
     } yield meta) fold (
       err => c.abort(c.enclosingPosition, err),
       meta => codeGen(meta, sql, c, keys)(config)

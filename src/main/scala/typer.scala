@@ -17,8 +17,7 @@ case class TypedStatement(
   , multipleResults: Boolean = true)
 
 object DbSchema {
-  // FIXME add error handling
-  def read(url: String, driver: String, username: String, password: String): Schema = {
+  def read(url: String, driver: String, username: String, password: String): Result[Schema] = try {
     Class.forName(driver)
     val options = new SchemaCrawlerOptions
     val level = new SchemaInfoLevel
@@ -32,7 +31,9 @@ object DbSchema {
     options.setSchemaInclusionRule(new InclusionRule(schemaName, ""))
     val conn = getConnection(url, username, password)
     val database = SchemaCrawlerUtility.getDatabase(conn, options)
-    database.getSchema(schemaName)
+    database.getSchema(schemaName).ok
+  } catch {
+    case e: Exception => fail(e.getMessage)
   }
 
   private def getConnection(url: String, username: String, password: String) =
