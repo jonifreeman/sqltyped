@@ -74,10 +74,11 @@ object SqlMacro {
     }
 
     (for {
-      stmt   <- SqlParser.parse(sql)
-      schema <- cachedSchema
-      typed  <- Typer.infer(schema, stmt.resolveTables, useInputTags)
-      meta   <- Analyzer.refine(typed)
+      stmt     <- SqlParser.parse(sql)
+      schema   <- cachedSchema
+      resolved <- stmt.resolveTables
+      typed    <- Typer.infer(schema, resolved, useInputTags)
+      meta     <- Analyzer.refine(typed)
     } yield meta) fold (
       err => c.abort(c.enclosingPosition, err),
       meta => codeGen(meta, sql, c, keys)(config)

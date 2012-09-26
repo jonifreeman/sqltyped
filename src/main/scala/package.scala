@@ -21,6 +21,7 @@ package object sqltyped {
 
   def tag[U] = TypeOperators.tag[U]
 
+  // Internally Result is used to denote computations that may fail.
   private[sqltyped] type Result[A] = Either[String, A]
   private[sqltyped] def ok[A](a: A): Result[A] = Right(a)
   private[sqltyped] def fail[A](s: String): Result[A] = Left(s)
@@ -33,4 +34,6 @@ package object sqltyped {
   }
   private[sqltyped] def sequence[A](rs: List[Result[A]]): Result[List[A]] = 
     rs.foldRight(List[A]().ok) { (ra, ras) => for { as <- ras; a <- ra } yield a :: as }
+  private[sqltyped] def sequenceO[A](rs: Option[Result[A]]): Result[Option[A]] = 
+    rs.foldRight(None.ok: Result[Option[A]]) { (ra, _) => for { a <- ra } yield Some(a) }
 }

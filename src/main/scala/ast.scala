@@ -69,17 +69,18 @@ private[sqltyped] object Ast {
     /**
      * Returns a Statement where all columns have their tables resolved.
      */
-    def resolveTables: Statement
+    def resolveTables: Result[Statement]
   }
 
   private class ResolveEnv(env: List[Table]) {
-    def resolve(term: Term): Term = term match {
+    def resolve(term: Term): Result[Term] = term match {
       case col: Column => resolveColumn(col)
       case AllColumns(t, _) => resolveAllColumns(t)
       case f@Function(_, ps, _) => resolveFunc(f)
-      case Subselect(select) => Subselect(resolveSelect(select)(select.tables ::: env))
-      case ArithExpr(lhs, op, rhs) => ArithExpr(resolveValue(lhs), op, resolveValue(rhs))
-      case t => t
+      case Subselect(select) => resolveSelect(select)(select.tables ::: env) map (s => Subselect(s))
+      case ArithExpr(lhs, op, rhs) => 
+        for { l <- resolveValue(lhs); r <- resolveValue(rhs) } yield ArithExpr(l, op, r)
+      case t => t.ok
     }
 
     def resolveColumn(col: Column) = 
@@ -89,59 +90,87 @@ private[sqltyped] object Ast {
           case (Some(ref), Some(a)) => t.name == ref || a == ref
           case (None, _) => true
         }
-      } map(t => col.copy(resolvedTable = Some(t))) getOrElse sys.error("Column references unknown table " + col)
+      } map (t => col.copy(resolvedTable = Some(t))) resultOrFail ("Column references unknown table " + col)
 
-    def resolveAllColumns(tableRef: Option[String]) = AllColumns(tableRef, tableRef
-      .map(ref => env.find(t => t.name == ref) getOrElse sys.error("Unknown table " + ref))
-      .orElse(env.headOption))
+    def resolveAllColumns(tableRef: Option[String]) = tableRef match {
+      case Some(ref) => 
+        (env.find(t => t.name == ref) resultOrFail ("Unknown table " + ref)) map (r => AllColumns(tableRef, Some(r)))
+      case None => 
+        AllColumns(tableRef, env.headOption).ok
+    }
 
-    def resolveValue(v: Value): Value = v match {
+    def resolveValue(v: Value): Result[Value] = v match {
       case col: Column => resolveColumn(col)
       case AllColumns(t, _) => resolveAllColumns(t)
       case f: Function => resolveFunc(f)
-      case ArithExpr(lhs, op, rhs) => ArithExpr(resolveValue(lhs), op, resolveValue(rhs))
-      case x => x
+      case ArithExpr(lhs, op, rhs) => 
+        for { l <- resolveValue(lhs); r <- resolveValue(rhs) } yield ArithExpr(l, op, r)
+      case x => x.ok
     }
 
-    def resolveFunc(f: Function) = f.copy(params = f.params map resolve)
-    def resolveProj(proj: List[Value]) = proj map resolveValue
-    def resolveFroms(from: List[From]) = from map resolveFrom
-    def resolveFrom(from: From) = from.copy(join = from.join map resolveJoin)
-    def resolveJoin(join: Join) = join.copy(expr = resolveExpr(join.expr))
-    def resolveWhere(where: Option[Where]) = where.map(w => Where(resolveExpr(w.expr)))
-    def resolveGroupBy(groupBy: Option[GroupBy]) = groupBy.map(g => GroupBy(resolveColumn(g.col), resolveHaving(g.having)))
-    def resolveHaving(having: Option[Having]) = having.map(h => Having(resolveExpr(h.expr)))
-    def resolveOrderBy(orderBy: Option[OrderBy]) = orderBy.map(o => o.copy(cols = o.cols map resolveColumn))
+    def resolveFunc(f: Function) = sequence(f.params map resolve) map (ps => f.copy(params = ps))
+    def resolveProj(proj: List[Value]) = sequence(proj map resolveValue)
+    def resolveFroms(from: List[From]) = sequence(from map resolveFrom)
+    def resolveFrom(from: From) = sequence(from.join map resolveJoin) map (j => from.copy(join = j))
+    def resolveJoin(join: Join) = resolveExpr(join.expr) map (e => join.copy(expr = e))
+    def resolveWhere(where: Where) = resolveExpr(where.expr) map Where.apply
+    def resolveWhereOpt(where: Option[Where]) = sequenceO(where map resolveWhere)
+    def resolveGroupBy(groupBy: GroupBy) = for {
+      c <- resolveColumn(groupBy.col)
+      h <- resolveHavingOpt(groupBy.having)
+    } yield groupBy.copy(col = c, having = h)
+    def resolveGroupByOpt(groupBy: Option[GroupBy]) = sequenceO(groupBy map resolveGroupBy)
+    def resolveHaving(having: Having) = resolveExpr(having.expr) map Having.apply
+    def resolveHavingOpt(having: Option[Having]) = sequenceO(having map resolveHaving)
+    def resolveOrderBy(orderBy: OrderBy) = sequence(orderBy.cols map resolveColumn) map (cs => orderBy.copy(cols = cs))
+    def resolveOrderByOpt(orderBy: Option[OrderBy]) = sequenceO(orderBy map resolveOrderBy)
 
-    def resolveExpr(e: Expr): Expr = e match {
-      case p@Predicate1(t1, op)         => p.copy(term = resolve(t1))
-      case p@Predicate2(t1, op, t2)     => p.copy(lhs = resolve(t1), rhs = resolve(t2))
-      case p@Predicate3(t1, op, t2, t3) => p.copy(t1 = resolve(t1), t2 = resolve(t2), t3 = resolve(t3))
-      case And(e1, e2)                  => And(resolveExpr(e1), resolveExpr(e2))
-      case Or(e1, e2)                   => Or(resolveExpr(e1), resolveExpr(e2))
+    def resolveExpr(e: Expr): Result[Expr] = e match {
+      case p@Predicate1(t1, op) => 
+        resolve(t1) map (t => p.copy(term = t))
+      case p@Predicate2(t1, op, t2) => 
+        for { l <- resolve(t1); r <- resolve(t2) } yield p.copy(lhs = l, rhs = r)
+      case p@Predicate3(t1, op, t2, t3) => 
+        for { r1 <- resolve(t1); r2 <- resolve(t2); r3 <- resolve(t3) } yield p.copy(t1 = r1, t2 = r2, t3 = r3)
+      case And(e1, e2) => 
+        for { r1 <- resolveExpr(e1); r2 <- resolveExpr(e2) } yield And(r1, r2)
+      case Or(e1, e2) =>
+        for { r1 <- resolveExpr(e1); r2 <- resolveExpr(e2) } yield Or(r1, r2)
     }
   }
 
-  private def resolveSelect(s: Select)(env: List[Table] = s.tables): Select = {
+  private def resolveSelect(s: Select)(env: List[Table] = s.tables): Result[Select] = {
     val r = new ResolveEnv(env)
-    s.copy(projection = r.resolveProj(s.projection), 
-           from = r.resolveFroms(s.from), 
-           where = r.resolveWhere(s.where), 
-           groupBy = r.resolveGroupBy(s.groupBy), 
-           orderBy = r.resolveOrderBy(s.orderBy))
+    for {
+      p <- r.resolveProj(s.projection)
+      f <- r.resolveFroms(s.from)
+      w <- r.resolveWhereOpt(s.where) 
+      g <- r.resolveGroupByOpt(s.groupBy) 
+      o <- r.resolveOrderByOpt(s.orderBy)
+    } yield s.copy(projection = p, from = f, where = w, groupBy = g, orderBy = o)
   }
 
-  private def resolveDelete(d: Delete)(env: List[Table] = d.tables): Delete = {
+  private def resolveDelete(d: Delete)(env: List[Table] = d.tables): Result[Delete] = {
     val r = new ResolveEnv(env)
-    d.copy(from = d.from.map(f => r.resolveFrom(f)), 
-           where = r.resolveWhere(d.where))
+    for {
+      f <- sequence(d.from.map(f => r.resolveFrom(f)))
+      w <- r.resolveWhereOpt(d.where)
+    } yield d.copy(from = f, where = w)
   }
 
-  private def resolveUpdate(u: Update)(env: List[Table] = u.tables): Update = {
+  private def resolveUpdate(u: Update)(env: List[Table] = u.tables): Result[Update] = {
     val r = new ResolveEnv(env)
-    u.copy(set = u.set map { case (c, t) => (r.resolveColumn(c), r.resolve(t)) },
-           where = r.resolveWhere(u.where),
-           orderBy = r.resolveOrderBy(u.orderBy))
+
+    def resolveSet(c: Column, t: Term) = for { 
+      rc <- r.resolveColumn(c)
+      rt <- r.resolve(t) 
+    } yield (rc, rt)
+
+    for {
+      s <- sequence(u.set map { case (c, t) => resolveSet(c, t) })
+      w <- r.resolveWhereOpt(u.where)
+      o <- r.resolveOrderByOpt(u.orderBy)
+    } yield u.copy(set = s, where = w, orderBy = o)
   }
 
   def params(e: Expr): List[Value] = e match {
@@ -260,10 +289,10 @@ private[sqltyped] object Ast {
 
     def output = Nil
     def tables = table :: Nil
-    def resolveTables = copy(insertInput = insertInput match {
-      case SelectedInput(select) => SelectedInput(select.resolveTables)
-      case i => i
-    })
+    def resolveTables = (insertInput match {
+      case SelectedInput(select) => select.resolveTables map SelectedInput.apply
+      case i => i.ok
+    }) map(i => copy(insertInput = i))
 
     def toSql = 
       "insert into " + table.name + colNames.map(" (" + _.mkString(", ") + ")").getOrElse("") 
@@ -275,7 +304,12 @@ private[sqltyped] object Ast {
     def tables = left.tables ::: right.tables
     def input(schema: Schema) = left.input(schema) ::: right.input(schema) ::: limitParams(limit)
     def output = left.output
-    def resolveTables = Union(left.resolveTables, right.resolveTables, orderBy, limit)
+
+    def resolveTables = for {
+      l <- left.resolveTables
+      r <- right.resolveTables
+    } yield Union(l, r, orderBy, limit)
+
     override def isQuery = true
 
     def toSql = 
@@ -304,7 +338,7 @@ private[sqltyped] object Ast {
     def input(schema: Schema) = Nil
     def output = Nil
     def tables = Nil
-    def resolveTables = this
+    def resolveTables = this.ok
     def toSql = "create"      
   }
 
