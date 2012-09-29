@@ -76,7 +76,7 @@ object SqlMacro {
     (for {
       stmt     <- SqlParser.parse(sql)
       schema   <- cachedSchema
-      resolved <- stmt.resolveTables
+      resolved <- Ast.resolveTables(stmt)
       typed    <- Typer.infer(schema, resolved, useInputTags)
       meta     <- Analyzer.refine(typed)
     } yield meta) fold (

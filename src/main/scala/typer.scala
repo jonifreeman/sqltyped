@@ -11,8 +11,8 @@ case class TypedValue(name: String, tpe: Type, nullable: Boolean, tag: Option[St
 case class TypedStatement(
     input: List[TypedValue]
   , output: List[TypedValue]
-  , stmt: Statement
-  , uniqueConstraints: Map[Table, List[List[Column]]]
+  , stmt: Statement[Table]
+  , uniqueConstraints: Map[Table, List[List[Column[Table]]]]
   , generatedKeyTypes: List[TypedValue]
   , multipleResults: Boolean = true)
 
@@ -41,32 +41,30 @@ object DbSchema {
 }
 
 object Typer {
-  def infer(schema: Schema, stmt: Statement, useInputTags: Boolean): Result[TypedStatement] = {
-    def tag(col: Column) = {
-      val table = col.resolvedTable getOrElse sys.error("Column's table not resolved " + col)
-      getTable(schema, table) map { t =>
+  def infer(schema: Schema, stmt: Statement[Table], useInputTags: Boolean): Result[TypedStatement] = {
+    def tag(col: Column[Table]) = {
+      getTable(schema, col.table) map { t =>
         def findFK = t.getForeignKeys
           .flatMap(_.getColumnPairs.map(_.getForeignKeyColumn))
           .find(_.getName == col.name)
           .map(_.getReferencedColumn.getParent.getName)
 
         if (t.getPrimaryKey != null && t.getPrimaryKey.getColumns.exists(_.getName == col.name))
-          Some(table.name)
+          Some(col.table.name)
         else findFK orElse None
       }
     }
 
-    def typeValue(inputArg: Boolean, useTags: Boolean)(x: Value): Result[List[TypedValue]] = x match {
-      case col: Column => 
+    def typeValue(inputArg: Boolean, useTags: Boolean)(x: Value[Table]): Result[List[TypedValue]] = x match {
+      case col@Column(_, _, _) => 
         for {
           (tpe, inopt, outopt) <- inferColumnType(schema, stmt, col)
           t <- tag(col)
         } yield List(TypedValue(col.aname, tpe, if (inputArg) inopt else outopt, if (useTags) t else None))
-      case cols@AllColumns(_, t) =>
-        val table = t getOrElse sys.error("Table not resolved for " + cols)
+      case cols@AllColumns(t) =>
         for {
-          tbl <- getTable(schema, table)
-          cs  <- sequence(tbl.getColumns.toList map { c => typeValue(inputArg, useTags)(Column(c.getName, None, None, Some(table))) })
+          tbl <- getTable(schema, t)
+          cs  <- sequence(tbl.getColumns.toList map { c => typeValue(inputArg, useTags)(Column(c.getName, t, None)) })
         } yield cs.flatten
       case f@Function(name, params, alias) =>
         inferReturnType(schema, stmt, name, params) map { case (tpe, inopt, outopt) =>
@@ -76,14 +74,14 @@ object Typer {
       case ArithExpr(lhs, _, rhs) => for {
         lval <- typeValue(inputArg, useTags)(lhs)
         rval <- typeValue(inputArg, useTags)(rhs)
-      } yield
-        (lval.head, rval.head) match {
-          case (col: Column, _) => List(col)
-          case (_, col: Column) => List(col)
-          case (c: Constant, _) if c.tpe == typeOf[Double] => List(c)
-          case (_, c: Constant) if c.tpe == typeOf[Double] => List(c)
-          case (c: Constant, _) => List(TypedValue("<constant>", typeOf[Int], false, None))
-          case (_, c: Constant) => List(TypedValue("<constant>", typeOf[Int], false, None))
+      } yield 
+        (lhs, rhs) match {
+          case (Column(_, _,_ ), _) => lval
+          case (_, Column(_, _,_ )) => rval
+          case (Constant(tpe, _), _) if tpe == typeOf[Double] => lval
+          case (_, Constant(tpe, _)) if tpe == typeOf[Double] => rval
+          case (Constant(_, _), _) => List(TypedValue("<constant>", typeOf[Int], false, None))
+          case (_, Constant(_, _)) => List(TypedValue("<constant>", typeOf[Int], false, None))
           case _ => lval
         }
     }
@@ -93,13 +91,13 @@ object Typer {
         getTable(schema, t) map { table =>
           val indices = Option(table.getPrimaryKey).map(List(_)).getOrElse(Nil) ::: table.getIndices.toList
           val uniques = indices filter (_.isUnique) map { i =>
-            i.getColumns.toList.map(col => Column(col.getName, Some(t.name), None, Some(t)))
+            i.getColumns.toList.map(col => Column(col.getName, t, None))
           }
           (t, uniques)
         }
       })
 
-      constraints map (cs => Map[Table, List[List[Column]]]().withDefault(_ => Nil) ++ cs)
+      constraints map (cs => Map[Table, List[List[Column[Table]]]]().withDefault(_ => Nil) ++ cs)
     }
 
     def generatedKeyTypes(table: Table) = for {
@@ -114,49 +112,49 @@ object Typer {
     }
 
     for {
-      in  <- sequence(stmt.input(schema) map typeValue(inputArg = true, useTags = useInputTags))
-      out <- sequence(stmt.output map typeValue(inputArg = false, useTags = true))
+      in  <- sequence(input(schema, stmt) map typeValue(inputArg = true, useTags = useInputTags))
+      out <- sequence(output(stmt) map typeValue(inputArg = false, useTags = true))
       ucs <- uniqueConstraints
       key <- generatedKeyTypes(stmt.tables.head)
     } yield TypedStatement(in.flatten, out.flatten, stmt, ucs, key)
   }
 
-  def `a => a` = (schema: Schema, stmt: Statement, params: List[Term]) =>
+  def `a => a` = (schema: Schema, stmt: Statement[Table], params: List[Term[Table]]) =>
     if (params.length != 1) fail("Expected 1 parameter " + params)
     else 
       tpeOf(schema, stmt, params.head) map { case (tpe, inopt, _) => (tpe, inopt, true) }
 
+  def `_ => ?`(tpe: Type, inopt: Boolean, outopt: Boolean) = 
+    (schema: Schema, stmt: Statement[Table], params: List[Term[Table]]) => (tpe, inopt, outopt).ok
+
   // FIXME make this extensible
   val knownFunctions = Map(
       "abs"   -> `a => a`
-    , "avg"   -> ((_: Schema, _: Statement, _: List[Term]) => (typeOf[Double], false, true).ok)
-    , "count" -> ((_: Schema, _: Statement, _: List[Term]) => (typeOf[Long], false, false).ok)
+    , "avg"   -> `_ => ?`(typeOf[Double], false, true)
+    , "count" -> `_ => ?`(typeOf[Long], false, false)
     , "min"   -> `a => a`
     , "max"   -> `a => a`
     , "sum"   -> `a => a`
-    , "upper" -> ((_: Schema, _: Statement, _: List[Term]) => (typeOf[String], false, true).ok)
+    , "upper" -> `_ => ?`(typeOf[String], false, true)
   )
 
-  def tpeOf(schema: Schema, stmt: Statement, e: Term): Result[(Type, Boolean, Boolean)] = e match {
+  def tpeOf(schema: Schema, stmt: Statement[Table], e: Term[Table]): Result[(Type, Boolean, Boolean)] = e match {
     case Constant(tpe, _)       => (tpe, false, false).ok
-    case col: Column            => inferColumnType(schema, stmt, col)
+    case col@Column(_, _, _)    => inferColumnType(schema, stmt, col)
     case Function(n, params, _) => inferReturnType(schema, stmt, n, params)
     case x                      => sys.error("Term " + x + " not supported")
   }
 
-  def inferReturnType(schema: Schema, stmt: Statement, fname: String, params: List[Term]) = 
+  def inferReturnType(schema: Schema, stmt: Statement[Table], fname: String, params: List[Term[Table]]) = 
     knownFunctions.get(fname.toLowerCase) match {
       case Some(f) => f(schema, stmt, params)
       case None => (typeOf[AnyRef], true, true).ok
     }
 
-  def inferColumnType(schema: Schema, stmt: Statement, col: Column) = {
-    val table = col.resolvedTable getOrElse sys.error("Table not resolved for " + col)
-    for {
-      t <- getTable(schema, table)
-      c <- Option(t.getColumn(col.name)) resultOrFail ("No such column " + col)
-    } yield (mkType(c.getType), c.isNullable, c.isNullable)
-  }
+  def inferColumnType(schema: Schema, stmt: Statement[Table], col: Column[Table]) = for {
+    t <- getTable(schema, col.table)
+    c <- Option(t.getColumn(col.name)) resultOrFail ("No such column " + col)
+  } yield (mkType(c.getType), c.isNullable, c.isNullable)
 
   private def getTable(schema: Schema, table: Table) =
     Option(schema.getTable(table.name)) resultOrFail ("Unknown table " + table.name)

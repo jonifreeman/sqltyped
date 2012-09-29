@@ -2,7 +2,6 @@
 
 * Generic
 
-- Improve error messages + handling
 - Make built-in function mapping extensible
 - A mechanism to tranform or combine records
 
@@ -11,6 +10,7 @@
 - IFNULL
 - ON DUPLICATE KEY
 - interval
+- IGNORE, insert + update
 
 * PostgreSQL
 

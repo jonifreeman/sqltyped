@@ -6,7 +6,9 @@ import scala.reflect.runtime.universe.{Type, typeOf}
 object SqlParser extends RegexParsers {
   import Ast._
 
-  def parse(sql: String): Result[Statement] = parse(stmt, sql) match {
+  type Val = Value[Option[String]]
+
+  def parse(sql: String): Result[Statement[Option[String]]] = parse(stmt, sql) match {
     case Success(r, q)  => Right(r)
     case err: NoSuccess => Left(err.msg)
   }
@@ -41,11 +43,11 @@ object SqlParser extends RegexParsers {
     case _ ~ f ~ w => Delete(f, w)
   }
 
-  lazy val createStmt = "create".i ^^^ Create
+  lazy val createStmt = "create".i ^^^ Create[Option[String]]()
 
-  lazy val select: Parser[List[Value]] = "select".i ~> repsep((opt("distinct".i) ~> value), ",")
+  lazy val select = "select".i ~> repsep((opt("distinct".i) ~> value), ",")
 
-  lazy val from: Parser[List[From]] = "from".i ~> rep1sep(join, ",")
+  lazy val from = "from".i ~> rep1sep(join, ",")
 
   lazy val join = table ~ rep(joinSpec) ^^ { case t ~ j => From(t, j) }
 
@@ -58,14 +60,14 @@ object SqlParser extends RegexParsers {
 
   lazy val where = "where".i ~> expr ^^ Where.apply
 
-  lazy val expr: Parser[Expr] = (predicate | parens)* (
-      "and".i ^^^ { (e1: Expr, e2: Expr) => And(e1, e2) } 
-    | "or".i  ^^^ { (e1: Expr, e2: Expr) => Or(e1, e2) } 
+  lazy val expr: Parser[Expr[Option[String]]] = (predicate | parens)* (
+      "and".i ^^^ { (e1: Expr[Option[String]], e2: Expr[Option[String]]) => And(e1, e2) } 
+    | "or".i  ^^^ { (e1: Expr[Option[String]], e2: Expr[Option[String]]) => Or(e1, e2) } 
   )
 
-  lazy val parens: Parser[Expr] = "(" ~> expr  <~ ")"
+  lazy val parens: Parser[Expr[Option[String]]] = "(" ~> expr  <~ ")"
 
-  lazy val predicate: Parser[Predicate] = (
+  lazy val predicate: Parser[Predicate[Option[String]]] = (
       term ~ "="  ~ (term | subselect)       ^^ { case lhs ~ _ ~ rhs => Predicate2(lhs, Eq, rhs) }
     | term ~ "!=" ~ (term | subselect)       ^^ { case lhs ~ _ ~ rhs => Predicate2(lhs, Neq, rhs) }
     | term ~ "<"  ~ (term | subselect)       ^^ { case lhs ~ _ ~ rhs => Predicate2(lhs, Lt, rhs) }
@@ -82,46 +84,47 @@ object SqlParser extends RegexParsers {
 
   lazy val term = (arith | simpleTerm)
 
-  lazy val simpleTerm: Parser[Term] = (
-      boolean    ^^ (b => Constant(typeOf[Boolean], b))
-    | stringLit  ^^ (s => Constant(typeOf[String], s))
-    | numericLit ^^ (n => if (n.contains(".")) Constant(typeOf[Double], n.toDouble) else Constant(typeOf[Long], n.toInt))
+  lazy val simpleTerm: Parser[Term[Option[String]]] = (
+      boolean    ^^ constB
+    | stringLit  ^^ constS
+    | numericLit ^^ (n => if (n.contains(".")) constD(n.toDouble) else constL(n.toLong))
     | function
     | column
-    | "?"        ^^^ Input
+    | "?"        ^^^ Input[Option[String]]()
   )
 
   lazy val value = (arith | simpleValue)
 
-  lazy val simpleValue: Parser[Value] = (
-      boolean    ^^ (b => Constant(typeOf[Boolean], b))
-    | stringLit  ^^ (s => Constant(typeOf[String], s))
-    | numericLit ^^ (n => if (n.contains(".")) Constant(typeOf[Double], n.toDouble) else Constant(typeOf[Long], n.toInt))
+  lazy val simpleValue: Parser[Val] = (
+      boolean    ^^ constB
+    | stringLit  ^^ constS
+    | numericLit ^^ (n => if (n.contains(".")) constD(n.toDouble) else constL(n.toLong))
     | function
     | column
     | allColumns
   )
 
   lazy val column = (
-      ident ~ "." ~ ident ~ "as".i ~ ident ^^ { case t ~ _ ~ c ~ _ ~ a => Column(c, Some(t), Some(a)) }
-    | ident ~ "." ~ ident ^^ { case t ~ _ ~ c => Column(c, Some(t), None) }
-    | ident ~ "as".i ~ ident ^^ { case c ~ _ ~ a => Column(c, None, Some(a)) }
-    | ident ^^ (c => Column(c, None, None))
+      ident ~ "." ~ ident ~ "as".i ~ ident ^^ { case t ~ _ ~ c ~ _ ~ a => col(c, Some(t), Some(a)) }
+    | ident ~ "." ~ ident ^^ { case t ~ _ ~ c => col(c, Some(t), None) }
+    | ident ~ "as".i ~ ident ^^ { case c ~ _ ~ a => col(c, None, Some(a)) }
+    | ident ^^ (c => col(c, None, None))
   )
 
-  lazy val allColumns = "*" ~ opt("." ~> ident) ^^ { case _ ~ t => AllColumns(t) }
+  lazy val allColumns = 
+    "*" ~ opt("." ~> ident) ^^ { case _ ~ t => AllColumns(t) }
 
-  lazy val function: Parser[Function] = 
+  lazy val function: Parser[Function[Option[String]]] = 
     ident ~ "(" ~ repsep(term, ",") ~ ")" ~ opt("as".i ~> ident) ^^ {
       case name ~ _ ~ params ~ _ ~ alias => Function(name, params, alias)
     }
 
-  lazy val arith: Parser[Value] = (simpleValue | arithParens)* (
-      "+" ^^^ { (lhs: Value, rhs: Value) => ArithExpr(lhs, "+", rhs) }
-    | "-" ^^^ { (lhs: Value, rhs: Value) => ArithExpr(lhs, "-", rhs) }
-    | "*" ^^^ { (lhs: Value, rhs: Value) => ArithExpr(lhs, "*", rhs) }
-    | "/" ^^^ { (lhs: Value, rhs: Value) => ArithExpr(lhs, "/", rhs) }
-    | "%" ^^^ { (lhs: Value, rhs: Value) => ArithExpr(lhs, "%", rhs) }
+  lazy val arith: Parser[Val] = (simpleValue | arithParens)* (
+      "+" ^^^ { (lhs: Val, rhs: Val) => ArithExpr(lhs, "+", rhs) }
+    | "-" ^^^ { (lhs: Val, rhs: Val) => ArithExpr(lhs, "-", rhs) }
+    | "*" ^^^ { (lhs: Val, rhs: Val) => ArithExpr(lhs, "*", rhs) }
+    | "/" ^^^ { (lhs: Val, rhs: Val) => ArithExpr(lhs, "/", rhs) }
+    | "%" ^^^ { (lhs: Val, rhs: Val) => ArithExpr(lhs, "%", rhs) }
   )
 
   lazy val arithParens = "(" ~> arith <~ ")"
@@ -143,7 +146,7 @@ object SqlParser extends RegexParsers {
   }
 
   lazy val intOrInput = (
-      "?" ^^^ Right(Input)
+      "?" ^^^ Right(Input[Option[String]]())
     | numericLit ^^ (n => Left(n.toInt))
   )
 
@@ -151,6 +154,14 @@ object SqlParser extends RegexParsers {
       "(" ~> p <~ ")"
     | p
   )
+
+  private def col(name: String, table: Option[String], alias: Option[String]) = 
+    Column(name, table, alias)
+
+  private def constB(b: Boolean) = Constant[Option[String]](typeOf[Boolean], b)
+  private def constS(s: String)  = Constant[Option[String]](typeOf[String], s)
+  private def constD(d: Double)  = Constant[Option[String]](typeOf[Double], d)
+  private def constL(l: Long)    = Constant[Option[String]](typeOf[Long], l)
 
   val reserved = 
     ("select".i | "delete".i | "insert".i | "update".i | "from".i | "into".i | "where".i | "as".i | 

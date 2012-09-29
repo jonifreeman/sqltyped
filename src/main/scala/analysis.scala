@@ -15,15 +15,15 @@ object Analyzer {
    * - It has LIMIT 1 clause
    */
   private def returnsMultipleResults(stmt: TypedStatement): Boolean = {
-    def hasNoOrExprs(s: Select) = 
-      s.where.map(w => !w.expr.find { case e: Or => true; case _ => false }.isDefined).getOrElse(false)
+    def hasNoOrExprs(s: Select[Table]) = 
+      s.where.map(w => !w.expr.find { case Or(_, _) => true; case _ => false }.isDefined).getOrElse(false)
 
-    def inWhereClause(s: Select, cols: List[Column]) = {
-      def inExpr(e: Expr, col: Column): Boolean = e match {
+    def inWhereClause(s: Select[Table], cols: List[Column[Table]]) = {
+      def inExpr(e: Expr[Table], col: Column[Table]): Boolean = e match {
         // note, column comparision works since we only examine statements with one table
         case Predicate1(_, _)                      => false
-        case Predicate2(Column(n, _, _, _), Eq, _) => col.name == n 
-        case Predicate2(_, Eq, Column(n, _, _, _)) => col.name == n
+        case Predicate2(Column(n, _, _), Eq, _) => col.name == n 
+        case Predicate2(_, Eq, Column(n, _, _)) => col.name == n
         case Predicate2(_, _, _)                   => false
         case Predicate3(_, _, _, _)                => false
         case And(e1, e2)                           => inExpr(e1, col) || inExpr(e2, col)
@@ -32,7 +32,7 @@ object Analyzer {
       s.where.map(w => cols.map(col => inExpr(w.expr, col)).forall(identity)).getOrElse(false)
     }
 
-    def hasLimit1(s: Select) = s.limit.map {
+    def hasLimit1(s: Select[Table]) = s.limit.map {
       _.count match {
         case Left(x) => x == 1
         case _ => false
@@ -40,9 +40,9 @@ object Analyzer {
     } getOrElse false
 
     stmt.stmt match {
-      case s: Select => 
-        if ((s.from.length == 1 && s.from.head.join.length == 0 && 
-             s.where.isDefined && hasNoOrExprs(s) && 
+      case s@Select(_, from, where, _, _, _) => 
+        if ((from.length == 1 && from.head.join.length == 0 && 
+             where.isDefined && hasNoOrExprs(s) && 
              stmt.uniqueConstraints(s.from.head.table).exists(c => inWhereClause(s, c))) || 
             hasLimit1(s))
           false
@@ -50,9 +50,9 @@ object Analyzer {
           true
       case Insert(_, _, SelectedInput(s)) => returnsMultipleResults(stmt.copy(stmt = s))
       case Insert(_, _, _) => false
-      case _: Update => false
-      case _: Delete => false
-      case Create => false
+      case Update(_, _, _, _, _) => false
+      case Delete(_, _) => false
+      case Create() => false
       case Union(s1, s2, _, _) => 
         returnsMultipleResults(stmt.copy(stmt = s1)) && returnsMultipleResults(stmt.copy(stmt = s2))
     }

@@ -4,8 +4,8 @@ import schemacrawler.schema.Schema
 import scala.reflect.runtime.universe.{Type, typeOf}
 
 private[sqltyped] object Ast {
-  sealed trait Term
-  sealed trait Value extends Term
+  sealed trait Term[T]
+  sealed trait Value[T] extends Term[T]
 
   trait Aliased {
     def name: String
@@ -13,15 +13,14 @@ private[sqltyped] object Ast {
     def aname = alias getOrElse name
   }
 
-  case class Constant(tpe: Type, value: Any) extends Value
-  case class Column(name: String, table: Option[String], alias: Option[String] = None, 
-                    resolvedTable: Option[Table] = None) extends Value with Aliased
-  case class AllColumns(table: Option[String], resolvedTable: Option[Table] = None) extends Value
-  case class Function(name: String, params: List[Term], alias: Option[String] = None) extends Value with Aliased
-  case class ArithExpr(lhs: Value, op: String, rhs: Value) extends Value
+  case class Constant[T](tpe: Type, value: Any) extends Value[T]
+  case class Column[T](name: String, table: T, alias: Option[String] = None) extends Value[T] with Aliased
+  case class AllColumns[T](table: T) extends Value[T]
+  case class Function[T](name: String, params: List[Term[T]], alias: Option[String] = None) extends Value[T] with Aliased
+  case class ArithExpr[T](lhs: Value[T], op: String, rhs: Value[T]) extends Value[T]
   
-  case object Input extends Term
-  case class Subselect(select: Select) extends Term
+  case class Input[T] extends Term[T]
+  case class Subselect[T](select: Select[T]) extends Term[T]
 
   case class Table(name: String, alias: Option[String])
 
@@ -41,91 +40,142 @@ private[sqltyped] object Ast {
   sealed trait Operator3
   case object Between extends Operator3
 
-  sealed trait Expr {
-    def find(p: Expr => Boolean): Option[Expr] = 
+  sealed trait Expr[T] {
+    def find(p: Expr[T] => Boolean): Option[Expr[T]] = 
       if (p(this)) Some(this)
       else this match {
         case And(e1, e2)  => e1.find(p) orElse e2.find(p)
         case Or(e1, e2)   => e1.find(p) orElse e2.find(p)
-        case _: Predicate => None
+        case _: Predicate[T] => None
       }
   }
 
-  sealed trait Predicate extends Expr
+  sealed trait Predicate[T] extends Expr[T]
 
-  case class Predicate1(term: Term, op: Operator1) extends Predicate
-  case class Predicate2(lhs: Term, op: Operator2, rhs: Term) extends Predicate
-  case class Predicate3(t1: Term, op: Operator3, t2: Term, t3: Term) extends Predicate
-  case class And(e1: Expr, e2: Expr) extends Expr
-  case class Or(e1: Expr, e2: Expr) extends Expr
+  case class Predicate1[T](term: Term[T], op: Operator1) extends Predicate[T]
+  case class Predicate2[T](lhs: Term[T], op: Operator2, rhs: Term[T]) extends Predicate[T]
+  case class Predicate3[T](t1: Term[T], op: Operator3, t2: Term[T], t3: Term[T]) extends Predicate[T]
+  case class And[T](e1: Expr[T], e2: Expr[T]) extends Expr[T]
+  case class Or[T](e1: Expr[T], e2: Expr[T]) extends Expr[T]
 
-  sealed trait Statement {
-    def input(schema: Schema): List[Value]
-    def output: List[Value]
+  // Parametrized by Table type (Option[String] or Table)
+  sealed trait Statement[T] {
     def tables: List[Table]
     def isQuery = false
-    def toSql: String
+  }
 
-    /**
-     * Returns a Statement where all columns have their tables resolved.
-     */
-    def resolveTables: Result[Statement]
+  def input(schema: Schema, stmt: Statement[Table]): List[Value[Table]] = stmt match {
+    case Delete(from, where) => where.map(w => params(w.expr)).getOrElse(Nil)
+
+    case Insert(table, colNames, insertInput) =>
+      def colNamesFromSchema = schema.getTable(table.name).getColumns.toList.map(_.getName)
+
+      insertInput match {
+        case ListedInput(values) => 
+          colNames getOrElse colNamesFromSchema zip values collect {
+            case (name, Input()) => Column(name, table, None)
+          }
+        case SelectedInput(select) => input(schema, select)
+      }
+
+    case Union(left, right, orderBy, limit) => 
+      input(schema, left) ::: input(schema, right) ::: limitParams(limit)
+
+    case Update(tables, set, where, orderBy, limit) => 
+      set.collect { case (col, Input()) => col } :::
+      where.map(w => params(w.expr)).getOrElse(Nil) ::: 
+      limitParams(limit)
+
+    case Create() => Nil
+
+    case Select(projection, from, where, groupBy, orderBy, limit) =>
+      where.map(w => params(w.expr)).getOrElse(Nil) ::: 
+      groupBy.flatMap(g => g.having.map(h => params(h.expr))).getOrElse(Nil) :::
+      limitParams(limit)
+  }
+
+  def output(stmt: Statement[Table]): List[Value[Table]] = stmt match {
+    case Delete(_, _) => Nil
+    case Insert(_, _, _) => Nil
+    case Union(left, _, _, _) => output(left)
+    case Update(_, _, _, _, _) => Nil
+    case Create() => Nil
+    case Select(projection, _, _, _, _, _) => projection
+  }
+
+  /**
+   * Returns a Statement where all columns have their tables resolved.
+   */
+  def resolveTables(stmt: Statement[Option[String]]): Result[Statement[Table]] = stmt match {
+    case s@Select(_, _, _, _, _, _) => resolveSelect(s)()
+    case d@Delete(_, _) => resolveDelete(d)()
+    case u@Update(_, _, _, _, _) => resolveUpdate(u)()
+    case Create() => Create[Table]().ok
+    case i@Insert(_, _, _) => resolveInsert(i)()
+    case u@Union(_, _, _, _) => resolveUnion(u)()
   }
 
   private class ResolveEnv(env: List[Table]) {
-    def resolve(term: Term): Result[Term] = term match {
-      case col: Column => resolveColumn(col)
-      case AllColumns(t, _) => resolveAllColumns(t)
+    def resolve(term: Term[Option[String]]): Result[Term[Table]] = term match {
+      case col@Column(_, _, _) => resolveColumn(col)
+      case AllColumns(t) => resolveAllColumns(t)
       case f@Function(_, ps, _) => resolveFunc(f)
       case Subselect(select) => resolveSelect(select)(select.tables ::: env) map (s => Subselect(s))
       case ArithExpr(lhs, op, rhs) => 
         for { l <- resolveValue(lhs); r <- resolveValue(rhs) } yield ArithExpr(l, op, r)
-      case t => t.ok
+      case Constant(tpe, value) => Constant[Table](tpe, value).ok
+      case Input() => Input[Table]().ok
     }
 
-    def resolveColumn(col: Column) = 
+    def resolveColumn(col: Column[Option[String]]) = 
       env find { t => 
         (col.table, t.alias) match {
           case (Some(ref), None) => t.name == ref
           case (Some(ref), Some(a)) => t.name == ref || a == ref
           case (None, _) => true
         }
-      } map (t => col.copy(resolvedTable = Some(t))) resultOrFail ("Column references unknown table " + col)
+      } map (t => col.copy(table = t)) resultOrFail ("Column references unknown table " + col)
 
     def resolveAllColumns(tableRef: Option[String]) = tableRef match {
       case Some(ref) => 
-        (env.find(t => t.name == ref) resultOrFail ("Unknown table " + ref)) map (r => AllColumns(tableRef, Some(r)))
+        (env.find(t => t.name == ref) resultOrFail ("Unknown table " + ref)) map (r => AllColumns(r))
       case None => 
-        AllColumns(tableRef, env.headOption).ok
+        AllColumns(env.head).ok
     }
 
-    def resolveValue(v: Value): Result[Value] = v match {
-      case col: Column => resolveColumn(col)
-      case AllColumns(t, _) => resolveAllColumns(t)
-      case f: Function => resolveFunc(f)
+    def resolveValue(v: Value[Option[String]]): Result[Value[Table]] = v match {
+      case col@Column(_, _, _) => resolveColumn(col)
+      case AllColumns(t) => resolveAllColumns(t)
+      case f@Function(_, _, _) => resolveFunc(f)
       case ArithExpr(lhs, op, rhs) => 
         for { l <- resolveValue(lhs); r <- resolveValue(rhs) } yield ArithExpr(l, op, r)
-      case x => x.ok
+      case Constant(tpe, value) => Constant[Table](tpe, value).ok
     }
 
-    def resolveFunc(f: Function) = sequence(f.params map resolve) map (ps => f.copy(params = ps))
-    def resolveProj(proj: List[Value]) = sequence(proj map resolveValue)
-    def resolveFroms(from: List[From]) = sequence(from map resolveFrom)
-    def resolveFrom(from: From) = sequence(from.join map resolveJoin) map (j => from.copy(join = j))
-    def resolveJoin(join: Join) = resolveExpr(join.expr) map (e => join.copy(expr = e))
-    def resolveWhere(where: Where) = resolveExpr(where.expr) map Where.apply
-    def resolveWhereOpt(where: Option[Where]) = sequenceO(where map resolveWhere)
-    def resolveGroupBy(groupBy: GroupBy) = for {
+    def resolveFunc(f: Function[Option[String]]) = sequence(f.params map resolve) map (ps => f.copy(params = ps))
+    def resolveProj(proj: List[Value[Option[String]]]) = sequence(proj map resolveValue)
+    def resolveFroms(from: List[From[Option[String]]]) = sequence(from map resolveFrom)
+    def resolveFrom(from: From[Option[String]]) = sequence(from.join map resolveJoin) map (j => from.copy(join = j))
+    def resolveJoin(join: Join[Option[String]]) = resolveExpr(join.expr) map (e => join.copy(expr = e))
+    def resolveWhere(where: Where[Option[String]]) = resolveExpr(where.expr) map Where.apply
+    def resolveWhereOpt(where: Option[Where[Option[String]]]) = sequenceO(where map resolveWhere)
+    def resolveGroupBy(groupBy: GroupBy[Option[String]]) = for {
       c <- resolveColumn(groupBy.col)
       h <- resolveHavingOpt(groupBy.having)
     } yield groupBy.copy(col = c, having = h)
-    def resolveGroupByOpt(groupBy: Option[GroupBy]) = sequenceO(groupBy map resolveGroupBy)
-    def resolveHaving(having: Having) = resolveExpr(having.expr) map Having.apply
-    def resolveHavingOpt(having: Option[Having]) = sequenceO(having map resolveHaving)
-    def resolveOrderBy(orderBy: OrderBy) = sequence(orderBy.cols map resolveColumn) map (cs => orderBy.copy(cols = cs))
-    def resolveOrderByOpt(orderBy: Option[OrderBy]) = sequenceO(orderBy map resolveOrderBy)
+    def resolveGroupByOpt(groupBy: Option[GroupBy[Option[String]]]) = sequenceO(groupBy map resolveGroupBy)
+    def resolveHaving(having: Having[Option[String]]) = resolveExpr(having.expr) map Having.apply
+    def resolveHavingOpt(having: Option[Having[Option[String]]]) = sequenceO(having map resolveHaving)
+    def resolveOrderBy(orderBy: OrderBy[Option[String]]) = sequence(orderBy.cols map resolveColumn) map (cs => orderBy.copy(cols = cs))
+    def resolveOrderByOpt(orderBy: Option[OrderBy[Option[String]]]) = sequenceO(orderBy map resolveOrderBy)
+    def resolveLimit(limit: Limit[Option[String]]) = 
+      Limit[Table](
+        limit.count.right map (_ => Input[Table]()),
+        limit.offset.map(_.right map (_ => Input[Table]()))
+      ).ok
+    def resolveLimitOpt(limit: Option[Limit[Option[String]]]) = sequenceO(limit map resolveLimit)
 
-    def resolveExpr(e: Expr): Result[Expr] = e match {
+    def resolveExpr(e: Expr[Option[String]]): Result[Expr[Table]] = e match {
       case p@Predicate1(t1, op) => 
         resolve(t1) map (t => p.copy(term = t))
       case p@Predicate2(t1, op, t2) => 
@@ -139,7 +189,7 @@ private[sqltyped] object Ast {
     }
   }
 
-  private def resolveSelect(s: Select)(env: List[Table] = s.tables): Result[Select] = {
+  private def resolveSelect(s: Select[Option[String]])(env: List[Table] = s.tables): Result[Select[Table]] = {
     val r = new ResolveEnv(env)
     for {
       p <- r.resolveProj(s.projection)
@@ -147,10 +197,29 @@ private[sqltyped] object Ast {
       w <- r.resolveWhereOpt(s.where) 
       g <- r.resolveGroupByOpt(s.groupBy) 
       o <- r.resolveOrderByOpt(s.orderBy)
-    } yield s.copy(projection = p, from = f, where = w, groupBy = g, orderBy = o)
+      l <- r.resolveLimitOpt(s.limit)
+    } yield s.copy(projection = p, from = f, where = w, groupBy = g, orderBy = o, limit = l)
   }
 
-  private def resolveDelete(d: Delete)(env: List[Table] = d.tables): Result[Delete] = {
+  private def resolveInsert(i: Insert[Option[String]])(env: List[Table] = i.tables): Result[Insert[Table]] = {
+    val r = new ResolveEnv(env)
+    (i.insertInput match {
+      case SelectedInput(select) => resolveSelect(select)() map SelectedInput.apply
+      case ListedInput(vals) => sequence(vals map r.resolve) map ListedInput.apply
+    }) map (in => i.copy(insertInput = in))
+  }
+
+  private def resolveUnion(u: Union[Option[String]])(env: List[Table] = u.tables): Result[Union[Table]] = {
+    val r = new ResolveEnv(env)
+    for {
+      le <- resolveTables(u.left)
+      ri <- resolveTables(u.right)
+      o  <- r.resolveOrderByOpt(u.orderBy)
+      l  <- r.resolveLimitOpt(u.limit)
+    } yield Union(le, ri, o, l)
+  }
+
+  private def resolveDelete(d: Delete[Option[String]])(env: List[Table] = d.tables): Result[Delete[Table]] = {
     val r = new ResolveEnv(env)
     for {
       f <- sequence(d.from.map(f => r.resolveFrom(f)))
@@ -158,10 +227,10 @@ private[sqltyped] object Ast {
     } yield d.copy(from = f, where = w)
   }
 
-  private def resolveUpdate(u: Update)(env: List[Table] = u.tables): Result[Update] = {
+  private def resolveUpdate(u: Update[Option[String]])(env: List[Table] = u.tables): Result[Update[Table]] = {
     val r = new ResolveEnv(env)
 
-    def resolveSet(c: Column, t: Term) = for { 
+    def resolveSet(c: Column[Option[String]], t: Term[Option[String]]) = for { 
       rc <- r.resolveColumn(c)
       rt <- r.resolve(t) 
     } yield (rc, rt)
@@ -170,223 +239,87 @@ private[sqltyped] object Ast {
       s <- sequence(u.set map { case (c, t) => resolveSet(c, t) })
       w <- r.resolveWhereOpt(u.where)
       o <- r.resolveOrderByOpt(u.orderBy)
-    } yield u.copy(set = s, where = w, orderBy = o)
+      l <- r.resolveLimitOpt(u.limit)
+    } yield u.copy(set = s, where = w, orderBy = o, limit = l)
   }
 
-  def params(e: Expr): List[Value] = e match {
-    case Predicate1(_, _)                => Nil
-    case Predicate2(Input, op, x)        => termToValue(x) :: Nil
-    case Predicate2(x, op, Input)        => termToValue(x) :: Nil
-    case Predicate2(_, op, Subselect(s)) => s.where.map(w => params(w.expr)).getOrElse(Nil) // FIXME groupBy
-    case Predicate2(_, op, _)            => Nil
-    case Predicate3(x, op, Input, Input) => termToValue(x) :: termToValue(x) :: Nil
-    case Predicate3(x, op, Input, _)     => termToValue(x) :: Nil
-    case Predicate3(x, op, _, Input)     => termToValue(x) :: Nil
-    case Predicate3(_, op, _, _)         => Nil
-    case And(e1, e2)                     => params(e1) ::: params(e2)
-    case Or(e1, e2)                      => params(e1) ::: params(e2)
+  def params[T](e: Expr[T]): List[Value[T]] = e match {
+    case Predicate1(_, _)                    => Nil
+    case Predicate2(Input(), op, x)          => termToValue(x) :: Nil
+    case Predicate2(x, op, Input())          => termToValue(x) :: Nil
+    case Predicate2(_, op, Subselect(s))     => s.where.map(w => params(w.expr)).getOrElse(Nil) // FIXME groupBy
+    case Predicate2(_, op, _)                => Nil
+    case Predicate3(x, op, Input(), Input()) => termToValue(x) :: termToValue(x) :: Nil
+    case Predicate3(x, op, Input(), _)       => termToValue(x) :: Nil
+    case Predicate3(x, op, _, Input())       => termToValue(x) :: Nil
+    case Predicate3(_, op, _, _)             => Nil
+    case And(e1, e2)                         => params(e1) ::: params(e2)
+    case Or(e1, e2)                          => params(e1) ::: params(e2)
   }
 
-  def limitParams(limit: Option[Limit]) =
+  def limitParams[T](limit: Option[Limit[T]]) =
     limit.map(l => l.count.right.toSeq.toList ::: l.offset.map(_.right.toSeq.toList).getOrElse(Nil))
-      .getOrElse(Nil).map(_ => Constant(typeOf[Long], None))
+      .getOrElse(Nil).map(_ => Constant[T](typeOf[Long], None))
 
   // FIXME clean this
-  def termToValue(x: Term) = x match {
-    case v: Value => v
+  def termToValue[T](x: Term[T]) = x match {
+    case v: Value[T] => v
     case _ => sys.error("Invalid value " + x)
   }
 
-  def format(col: Column): String = col.table.map(t => t + ".").getOrElse("") +
-    col.name + col.alias.map(a => " as " + a).getOrElse("")
-  
-  def format(f: Function): String = f.name + "(" + (f.params map format).mkString(", ") + ")" + 
-    f.alias.map(a => " as " + a).getOrElse("")
-
-  def format(a: ArithExpr): String = "(" + format(a.lhs) + " " + a.op + " " + format(a.rhs) + ")"
-
-  def format(t: Table): String = t.name + t.alias.map(a => " as " + a).getOrElse("")
-
-  def format(expr: Expr): String = expr match {
-    case Predicate1(t, a)           => format(t) + " " + format(a)
-    case Predicate2(t1, op, t2)     => format(t1) + " " + format(op) + " " + format(t2)
-    case Predicate3(t1, op, t2, t3) => format(t1) + " " + format(op) + " " + format(t2) + " and " + format(t3)
-    case And(e1, e2)                => "(" + format(e1) + " and " + format(e2) + ")"
-    case Or(e1, e2)                 => "(" + format(e1) + " or " + format(e2) + ")"
-  }
-
-  def format(t: Term): String = t match {
-    case Constant(tpe, v) => if (tpe == typeOf[String]) ("'" + v.toString + "'") else v.toString
-    case col: Column => format(col)
-    case a: ArithExpr => format(a)
-    case AllColumns(None, _) => "*"
-    case AllColumns(Some(t), _) => "*." + t
-    case f: Function => format(f)
-    case Input => "?"
-    case Subselect(select) => "(" + select.toSql + ")"
-  }
-
-  def format(v: Value): String = v match {
-    case Constant(tpe, v) => if (tpe == typeOf[String]) ("'" + v.toString + "'") else v.toString
-    case col: Column => format(col)
-    case a: ArithExpr => format(a)
-    case AllColumns(None, _) => "*"
-    case AllColumns(Some(t), _) => "*." + t
-    case f: Function => format(f)
-  }
-
-  def format(op: Operator1) = op match {
-    case IsNull    => "is null"
-    case IsNotNull => "is not null"
-  }
-
-  def format(op: Operator2) = op match {
-    case Eq       => "="
-    case Neq      => "!="
-    case Lt       => "<"
-    case Gt       => ">"
-    case Le       => "<="
-    case Ge       => ">="
-    case In       => "in"
-  }
-
-  def format(op: Operator3) = op match {
-    case Between  => "between"
-  }
-
-  def format(o: Order) = o match {
-    case Asc  => "asc"
-    case Desc => "desc"
-  }
-
-  case class Delete(from: List[From], where: Option[Where]) extends Statement {
-    def input(schema: Schema) = where.map(w => params(w.expr)).getOrElse(Nil)
-    def output = Nil
+  case class Delete[T](from: List[From[T]], where: Option[Where[T]]) extends Statement[T] {
     def tables = from.map(_.table)
-    def resolveTables = resolveDelete(this)()
-
-    def toSql = 
-      "delete from " + from.map(_.table.name).mkString(",") + 
-      where.map(w => " where " + format(w.expr)).getOrElse("")
   }
 
-  sealed trait InsertInput
-  case class ListedInput(values: List[Term]) extends InsertInput
-  case class SelectedInput(select: Select) extends InsertInput
+  sealed trait InsertInput[T]
+  case class ListedInput[T](values: List[Term[T]]) extends InsertInput[T]
+  case class SelectedInput[T](select: Select[T]) extends InsertInput[T]
 
-  case class Insert(table: Table, colNames: Option[List[String]], insertInput: InsertInput) extends Statement {
-    def input(schema: Schema) = {
-      def colNamesFromSchema = schema.getTable(table.name).getColumns.toList.map(_.getName)
-
-      insertInput match {
-        case ListedInput(values) => 
-          colNames getOrElse colNamesFromSchema zip values collect {
-            case (name, Input) => Column(name, None, None, Some(table))
-          }
-        case SelectedInput(select) => select.input(schema)
-      }
-    }
-
+  case class Insert[T](table: Table, colNames: Option[List[String]], insertInput: InsertInput[T]) extends Statement[T] {
     def output = Nil
     def tables = table :: Nil
-    def resolveTables = (insertInput match {
-      case SelectedInput(select) => select.resolveTables map SelectedInput.apply
-      case i => i.ok
-    }) map(i => copy(insertInput = i))
-
-    def toSql = 
-      "insert into " + table.name + colNames.map(" (" + _.mkString(", ") + ")").getOrElse("") 
-    //  " values (" + (values map format) + ")"
   }
 
-  case class Union(left: Statement, right: Statement, 
-                   orderBy: Option[OrderBy], limit: Option[Limit]) extends Statement {
+  case class Union[T](left: Statement[T], right: Statement[T], 
+                      orderBy: Option[OrderBy[T]], limit: Option[Limit[T]]) extends Statement[T] {
     def tables = left.tables ::: right.tables
-    def input(schema: Schema) = left.input(schema) ::: right.input(schema) ::: limitParams(limit)
-    def output = left.output
-
-    def resolveTables = for {
-      l <- left.resolveTables
-      r <- right.resolveTables
-    } yield Union(l, r, orderBy, limit)
-
     override def isQuery = true
-
-    def toSql = 
-      "(" + left.toSql + ") union (" + right.toSql + ")" +
-      orderBy.map(o => " order by " + (o.cols map format).mkString(", ") + o.order.map(ord => " " + format(ord)).getOrElse("")).getOrElse("")
   }
 
-  case class Update(tables: List[Table], set: List[(Column, Term)], where: Option[Where], 
-                    orderBy: Option[OrderBy], limit: Option[Limit]) extends Statement {
-    def input(schema: Schema) = 
-      set.collect { case (col, Input) => col } :::
-      where.map(w => params(w.expr)).getOrElse(Nil) ::: 
-      limitParams(limit)
+  case class Update[T](tables: List[Table], set: List[(Column[T], Term[T])], where: Option[Where[T]], 
+                       orderBy: Option[OrderBy[T]], limit: Option[Limit[T]]) extends Statement[T]
 
-    def output = Nil
-    def resolveTables = resolveUpdate(this)()
-
-    def toSql = 
-      "update " + tables.map(_.name).mkString(", ") + " set " + 
-      (set.map { case (c, v) => format(c) + "=" + format(v) }).mkString(", ") +
-      where.map(w => " where " + format(w.expr)).getOrElse("") +
-      orderBy.map(o => " order by " + (o.cols map format).mkString(", ") + o.order.map(ord => " " + format(ord)).getOrElse("")).getOrElse("")
-  }
-
-  case object Create extends Statement {
-    def input(schema: Schema) = Nil
-    def output = Nil
+  case class Create[T] extends Statement[T] {
     def tables = Nil
-    def resolveTables = this.ok
-    def toSql = "create"      
   }
 
-  case class Select(projection: List[Value], 
-                    from: List[From], // should be NonEmptyList
-                    where: Option[Where], 
-                    groupBy: Option[GroupBy],
-                    orderBy: Option[OrderBy],
-                    limit: Option[Limit]) extends Statement {
-
-    def input(schema: Schema) = 
-      where.map(w => params(w.expr)).getOrElse(Nil) ::: 
-      groupBy.flatMap(g => g.having.map(h => params(h.expr))).getOrElse(Nil) :::
-      limitParams(limit)
-
-    def output = projection
+  case class Select[T](projection: List[Value[T]], 
+                       from: List[From[T]], // should be NonEmptyList
+                       where: Option[Where[T]], 
+                       groupBy: Option[GroupBy[T]],
+                       orderBy: Option[OrderBy[T]],
+                       limit: Option[Limit[T]]) extends Statement[T] {
     def tables = from flatMap (_.tables)
-    def resolveTables = resolveSelect(this)()
     override def isQuery = true
-
-    def toSql = 
-      "select " + (projection map format).mkString(", ") + " from " + 
-      (from map (f => format(f.table) + 
-                 f.join.map(j => " " + j.joinSpec + " " + format(j.table) + " on " + format(j.expr)).mkString(" "))).mkString(", ") +
-      where.map(w => " where " + format(w.expr)).getOrElse("") +
-      groupBy.map(g => 
-        " group by " + format(g.col) + 
-        (g.having.map(h => " having " + format(h.expr)).getOrElse(""))).getOrElse("") +
-      orderBy.map(o => " order by " + (o.cols map format).mkString(", ") + o.order.map(ord => " " + format(ord)).getOrElse("")).getOrElse("")
   }
 
-  case class From(table: Table, join: List[Join]) {
+  case class From[T](table: Table, join: List[Join[T]]) {
     def tables = table :: join.map(_.table)
   }
 
-  case class Where(expr: Expr)
+  case class Where[T](expr: Expr[T])
 
-  case class Join(table: Table, expr: Expr, joinSpec: String)
+  case class Join[T](table: Table, expr: Expr[T], joinSpec: String)
 
-  case class GroupBy(col: Column, having: Option[Having])
+  case class GroupBy[T](col: Column[T], having: Option[Having[T]])
 
-  case class Having(expr: Expr)
+  case class Having[T](expr: Expr[T])
 
-  case class OrderBy(cols: List[Column], order: Option[Order])
+  case class OrderBy[T](cols: List[Column[T]], order: Option[Order])
 
   sealed trait Order
   case object Asc extends Order
   case object Desc extends Order
 
-  case class Limit(count: Either[Int, Input.type], offset: Option[Either[Int, Input.type]])
+  case class Limit[T](count: Either[Int, Input[T]], offset: Option[Either[Int, Input[T]]])
 }
