@@ -8,7 +8,7 @@ object SqlParser extends RegexParsers {
 
   type Val = Value[Option[String]]
 
-  def parse(sql: String): Result[Statement[Option[String]]] = parse(stmt, sql) match {
+  def parse(sql: String): ?[Statement[Option[String]]] = parse(stmt, sql) match {
     case Success(r, q)  => Right(r)
     case err: NoSuccess => Left(err.msg)
   }
@@ -84,7 +84,7 @@ object SqlParser extends RegexParsers {
 
   lazy val term = (arith | simpleTerm)
 
-  lazy val simpleTerm: Parser[Term[Option[String]]] = (
+  lazy val simpleTerm = (
       boolean    ^^ constB
     | stringLit  ^^ constS
     | numericLit ^^ (n => if (n.contains(".")) constD(n.toDouble) else constL(n.toLong))

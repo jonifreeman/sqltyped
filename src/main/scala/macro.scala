@@ -9,7 +9,7 @@ object SqlMacro {
   import shapeless._
   import scala.reflect.makro._
 
-  private val schemaCache = new java.util.WeakHashMap[Context#Run, Result[Schema]]()
+  private val schemaCache = new java.util.WeakHashMap[Context#Run, ?[Schema]]()
 
   def withResultSet[A](stmt: PreparedStatement)(f: ResultSet => A) = {
     var rs: ResultSet = null

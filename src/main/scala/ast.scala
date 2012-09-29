@@ -104,7 +104,7 @@ private[sqltyped] object Ast {
   /**
    * Returns a Statement where all columns have their tables resolved.
    */
-  def resolveTables(stmt: Statement[Option[String]]): Result[Statement[Table]] = stmt match {
+  def resolveTables(stmt: Statement[Option[String]]): ?[Statement[Table]] = stmt match {
     case s@Select(_, _, _, _, _, _) => resolveSelect(s)()
     case d@Delete(_, _) => resolveDelete(d)()
     case u@Update(_, _, _, _, _) => resolveUpdate(u)()
@@ -114,7 +114,7 @@ private[sqltyped] object Ast {
   }
 
   private class ResolveEnv(env: List[Table]) {
-    def resolve(term: Term[Option[String]]): Result[Term[Table]] = term match {
+    def resolve(term: Term[Option[String]]): ?[Term[Table]] = term match {
       case col@Column(_, _) => resolveColumn(col)
       case AllColumns(t) => resolveAllColumns(t)
       case f@Function(_, ps) => resolveFunc(f)
@@ -141,7 +141,7 @@ private[sqltyped] object Ast {
         AllColumns(env.head).ok
     }
 
-    def resolveValue(v: Value[Option[String]]): Result[Value[Table]] = v match {
+    def resolveValue(v: Value[Option[String]]): ?[Value[Table]] = v match {
       case col@Column(_, _) => resolveColumn(col)
       case AllColumns(t) => resolveAllColumns(t)
       case f@Function(_, _) => resolveFunc(f)
@@ -174,7 +174,7 @@ private[sqltyped] object Ast {
       ).ok
     def resolveLimitOpt(limit: Option[Limit[Option[String]]]) = sequenceO(limit map resolveLimit)
 
-    def resolveExpr(e: Expr[Option[String]]): Result[Expr[Table]] = e match {
+    def resolveExpr(e: Expr[Option[String]]): ?[Expr[Table]] = e match {
       case p@Predicate1(t1, op) => 
         resolve(t1) map (t => p.copy(term = t))
       case p@Predicate2(t1, op, t2) => 
@@ -188,7 +188,7 @@ private[sqltyped] object Ast {
     }
   }
 
-  private def resolveSelect(s: Select[Option[String]])(env: List[Table] = s.tables): Result[Select[Table]] = {
+  private def resolveSelect(s: Select[Option[String]])(env: List[Table] = s.tables): ?[Select[Table]] = {
     val r = new ResolveEnv(env)
     for {
       p <- r.resolveProj(s.projection)
@@ -200,7 +200,7 @@ private[sqltyped] object Ast {
     } yield s.copy(projection = p, from = f, where = w, groupBy = g, orderBy = o, limit = l)
   }
 
-  private def resolveInsert(i: Insert[Option[String]])(env: List[Table] = i.tables): Result[Insert[Table]] = {
+  private def resolveInsert(i: Insert[Option[String]])(env: List[Table] = i.tables): ?[Insert[Table]] = {
     val r = new ResolveEnv(env)
     (i.insertInput match {
       case SelectedInput(select) => resolveSelect(select)() map SelectedInput.apply
@@ -208,7 +208,7 @@ private[sqltyped] object Ast {
     }) map (in => i.copy(insertInput = in))
   }
 
-  private def resolveUnion(u: Union[Option[String]])(env: List[Table] = u.tables): Result[Union[Table]] = {
+  private def resolveUnion(u: Union[Option[String]])(env: List[Table] = u.tables): ?[Union[Table]] = {
     val r = new ResolveEnv(env)
     for {
       le <- resolveTables(u.left)
@@ -218,7 +218,7 @@ private[sqltyped] object Ast {
     } yield Union(le, ri, o, l)
   }
 
-  private def resolveDelete(d: Delete[Option[String]])(env: List[Table] = d.tables): Result[Delete[Table]] = {
+  private def resolveDelete(d: Delete[Option[String]])(env: List[Table] = d.tables): ?[Delete[Table]] = {
     val r = new ResolveEnv(env)
     for {
       f <- sequence(d.from.map(f => r.resolveFrom(f)))
@@ -226,7 +226,7 @@ private[sqltyped] object Ast {
     } yield d.copy(from = f, where = w)
   }
 
-  private def resolveUpdate(u: Update[Option[String]])(env: List[Table] = u.tables): Result[Update[Table]] = {
+  private def resolveUpdate(u: Update[Option[String]])(env: List[Table] = u.tables): ?[Update[Table]] = {
     val r = new ResolveEnv(env)
 
     def resolveSet(c: Column[Option[String]], t: Term[Option[String]]) = for { 

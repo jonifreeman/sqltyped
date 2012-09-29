@@ -17,7 +17,7 @@ case class TypedStatement(
   , multipleResults: Boolean = true)
 
 object DbSchema {
-  def read(url: String, driver: String, username: String, password: String): Result[Schema] = try {
+  def read(url: String, driver: String, username: String, password: String): ?[Schema] = try {
     Class.forName(driver)
     val options = new SchemaCrawlerOptions
     val level = new SchemaInfoLevel
@@ -41,7 +41,7 @@ object DbSchema {
 }
 
 object Typer {
-  def infer(schema: Schema, stmt: Statement[Table], useInputTags: Boolean): Result[TypedStatement] = {
+  def infer(schema: Schema, stmt: Statement[Table], useInputTags: Boolean): ?[TypedStatement] = {
     def tag(col: Column[Table]) = {
       getTable(schema, col.table) map { t =>
         def findFK = t.getForeignKeys
@@ -55,7 +55,7 @@ object Typer {
       }
     }
 
-    def typeValue(inputArg: Boolean, useTags: Boolean)(x: Named[Table]): Result[List[TypedValue]] = x.value match {
+    def typeValue(inputArg: Boolean, useTags: Boolean)(x: Named[Table]): ?[List[TypedValue]] = x.value match {
       case col@Column(_, _) => 
         for {
           (tpe, inopt, outopt) <- inferColumnType(schema, stmt, col)
@@ -135,7 +135,7 @@ object Typer {
     , "upper" -> `_ => ?`(typeOf[String], false, true)
   )
 
-  def tpeOf(schema: Schema, stmt: Statement[Table], e: Term[Table]): Result[(Type, Boolean, Boolean)] = e match {
+  def tpeOf(schema: Schema, stmt: Statement[Table], e: Term[Table]): ?[(Type, Boolean, Boolean)] = e match {
     case Constant(tpe, _)    => (tpe, false, false).ok
     case col@Column(_, _)    => inferColumnType(schema, stmt, col)
     case Function(n, params) => inferReturnType(schema, stmt, n, params)

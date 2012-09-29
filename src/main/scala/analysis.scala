@@ -3,7 +3,7 @@ package sqltyped
 object Analyzer {
   import Ast._
 
-  def refine(stmt: TypedStatement): Result[TypedStatement] = 
+  def refine(stmt: TypedStatement): ?[TypedStatement] = 
     (if (returnsMultipleResults(stmt)) stmt else stmt.copy(multipleResults = false)).ok
 
   /**
