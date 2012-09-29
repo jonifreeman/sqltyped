@@ -4,6 +4,39 @@ import schemacrawler.schema.Schema
 import scala.reflect.runtime.universe.{Type, typeOf}
 
 private[sqltyped] object Ast {
+  // Types used for AST when references to tables are not yet resolved 
+  // (table is optional string reference).
+  trait Unresolved {
+    type Expr      = Ast.Expr[Option[String]]
+    type Term      = Ast.Term[Option[String]]
+    type Value     = Ast.Value[Option[String]]
+    type Named     = Ast.Named[Option[String]]
+    type Statement = Ast.Statement[Option[String]]
+    type ArithExpr = Ast.ArithExpr[Option[String]]
+    type Predicate = Ast.Predicate[Option[String]]
+    type Column    = Ast.Column[Option[String]]
+    type Function  = Ast.Function[Option[String]]
+    type Constant  = Ast.Constant[Option[String]]
+    type Select    = Ast.Select[Option[String]]
+    type Where     = Ast.Where[Option[String]]
+  }
+
+  // Types used for AST when references to tables are resolved 
+  trait Resolved {
+    type Expr      = Ast.Expr[Table]
+    type Term      = Ast.Term[Table]
+    type Value     = Ast.Value[Table]
+    type Named     = Ast.Named[Table]
+    type Statement = Ast.Statement[Table]
+    type ArithExpr = Ast.ArithExpr[Table]
+    type Predicate = Ast.Predicate[Table]
+    type Column    = Ast.Column[Table]
+    type Function  = Ast.Function[Table]
+    type Constant  = Ast.Constant[Table]
+    type Select    = Ast.Select[Table]
+    type Where     = Ast.Where[Table]
+  }
+
   sealed trait Term[T]
   sealed trait Value[T] extends Term[T]
 

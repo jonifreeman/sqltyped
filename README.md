@@ -76,7 +76,7 @@ Input parameters are parsed and typed too.
     res4: List[String] = List(joe)
 ```
 
-Nullable columns are inferred to be Scala Option's.
+Nullable columns are inferred to be Scala Options.
 
 ```scala
     scala> val q = sql("""select p.name, j.name as employer, j.started, j.resigned 

@@ -3,12 +3,10 @@ package sqltyped
 import scala.util.parsing.combinator._
 import scala.reflect.runtime.universe.{Type, typeOf}
 
-object SqlParser extends RegexParsers {
+object SqlParser extends RegexParsers with Ast.Unresolved {
   import Ast._
 
-  type Val = Value[Option[String]]
-
-  def parse(sql: String): ?[Statement[Option[String]]] = parse(stmt, sql) match {
+  def parse(sql: String): ?[Statement] = parse(stmt, sql) match {
     case Success(r, q)  => Right(r)
     case err: NoSuccess => Left(err.msg)
   }
@@ -60,14 +58,14 @@ object SqlParser extends RegexParsers {
 
   lazy val where = "where".i ~> expr ^^ Where.apply
 
-  lazy val expr: Parser[Expr[Option[String]]] = (predicate | parens)* (
-      "and".i ^^^ { (e1: Expr[Option[String]], e2: Expr[Option[String]]) => And(e1, e2) } 
-    | "or".i  ^^^ { (e1: Expr[Option[String]], e2: Expr[Option[String]]) => Or(e1, e2) } 
+  lazy val expr: Parser[Expr] = (predicate | parens)* (
+      "and".i ^^^ { (e1: Expr, e2: Expr) => And(e1, e2) } 
+    | "or".i  ^^^ { (e1: Expr, e2: Expr) => Or(e1, e2) } 
   )
 
-  lazy val parens: Parser[Expr[Option[String]]] = "(" ~> expr  <~ ")"
+  lazy val parens: Parser[Expr] = "(" ~> expr  <~ ")"
 
-  lazy val predicate: Parser[Predicate[Option[String]]] = (
+  lazy val predicate: Parser[Predicate] = (
       term ~ "="  ~ (term | subselect)       ^^ { case lhs ~ _ ~ rhs => Predicate2(lhs, Eq, rhs) }
     | term ~ "!=" ~ (term | subselect)       ^^ { case lhs ~ _ ~ rhs => Predicate2(lhs, Neq, rhs) }
     | term ~ "<"  ~ (term | subselect)       ^^ { case lhs ~ _ ~ rhs => Predicate2(lhs, Lt, rhs) }
@@ -101,7 +99,7 @@ object SqlParser extends RegexParsers {
     case (e@ArithExpr(_, _, _)) ~ a => Named("<constant>", a, e)
   }
 
-  lazy val simpleValue: Parser[Val] = (
+  lazy val simpleValue: Parser[Value] = (
       boolean    ^^ constB
     | stringLit  ^^ constS
     | numericLit ^^ (n => if (n.contains(".")) constD(n.toDouble) else constL(n.toLong))
@@ -118,17 +116,17 @@ object SqlParser extends RegexParsers {
   lazy val allColumns = 
     "*" ~ opt("." ~> ident) ^^ { case _ ~ t => AllColumns(t) }
 
-  lazy val function: Parser[Function[Option[String]]] = 
+  lazy val function: Parser[Function] = 
     ident ~ "(" ~ repsep(term, ",") ~ ")" ^^ {
       case name ~ _ ~ params ~ _ => Function(name, params)
     }
 
-  lazy val arith: Parser[Val] = (simpleValue | arithParens)* (
-      "+" ^^^ { (lhs: Val, rhs: Val) => ArithExpr(lhs, "+", rhs) }
-    | "-" ^^^ { (lhs: Val, rhs: Val) => ArithExpr(lhs, "-", rhs) }
-    | "*" ^^^ { (lhs: Val, rhs: Val) => ArithExpr(lhs, "*", rhs) }
-    | "/" ^^^ { (lhs: Val, rhs: Val) => ArithExpr(lhs, "/", rhs) }
-    | "%" ^^^ { (lhs: Val, rhs: Val) => ArithExpr(lhs, "%", rhs) }
+  lazy val arith: Parser[Value] = (simpleValue | arithParens)* (
+      "+" ^^^ { (lhs: Value, rhs: Value) => ArithExpr(lhs, "+", rhs) }
+    | "-" ^^^ { (lhs: Value, rhs: Value) => ArithExpr(lhs, "-", rhs) }
+    | "*" ^^^ { (lhs: Value, rhs: Value) => ArithExpr(lhs, "*", rhs) }
+    | "/" ^^^ { (lhs: Value, rhs: Value) => ArithExpr(lhs, "/", rhs) }
+    | "%" ^^^ { (lhs: Value, rhs: Value) => ArithExpr(lhs, "%", rhs) }
   )
 
   lazy val arithParens = "(" ~> arith <~ ")"

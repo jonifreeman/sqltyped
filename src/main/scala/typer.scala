@@ -40,9 +40,9 @@ object DbSchema {
     java.sql.DriverManager.getConnection(url, username, password)
 }
 
-object Typer {
-  def infer(schema: Schema, stmt: Statement[Table], useInputTags: Boolean): ?[TypedStatement] = {
-    def tag(col: Column[Table]) = {
+object Typer extends Ast.Resolved {
+  def infer(schema: Schema, stmt: Statement, useInputTags: Boolean): ?[TypedStatement] = {
+    def tag(col: Column) = {
       getTable(schema, col.table) map { t =>
         def findFK = t.getForeignKeys
           .flatMap(_.getColumnPairs.map(_.getForeignKeyColumn))
@@ -55,7 +55,7 @@ object Typer {
       }
     }
 
-    def typeValue(inputArg: Boolean, useTags: Boolean)(x: Named[Table]): ?[List[TypedValue]] = x.value match {
+    def typeValue(inputArg: Boolean, useTags: Boolean)(x: Named): ?[List[TypedValue]] = x.value match {
       case col@Column(_, _) => 
         for {
           (tpe, inopt, outopt) <- inferColumnType(schema, stmt, col)
@@ -94,7 +94,7 @@ object Typer {
         }
       })
 
-      constraints map (cs => Map[Table, List[List[Column[Table]]]]().withDefault(_ => Nil) ++ cs)
+      constraints map (cs => Map[Table, List[List[Column]]]().withDefault(_ => Nil) ++ cs)
     }
 
     def generatedKeyTypes(table: Table) = for {
@@ -116,13 +116,13 @@ object Typer {
     } yield TypedStatement(in.flatten, out.flatten, stmt, ucs, key)
   }
 
-  def `a => a` = (schema: Schema, stmt: Statement[Table], params: List[Term[Table]]) =>
+  def `a => a` = (schema: Schema, stmt: Statement, params: List[Term]) =>
     if (params.length != 1) fail("Expected 1 parameter " + params)
     else 
       tpeOf(schema, stmt, params.head) map { case (tpe, inopt, _) => (tpe, inopt, true) }
 
   def `_ => ?`(tpe: Type, inopt: Boolean, outopt: Boolean) = 
-    (schema: Schema, stmt: Statement[Table], params: List[Term[Table]]) => (tpe, inopt, outopt).ok
+    (schema: Schema, stmt: Statement, params: List[Term]) => (tpe, inopt, outopt).ok
 
   // FIXME make this extensible
   val knownFunctions = Map(
@@ -135,20 +135,20 @@ object Typer {
     , "upper" -> `_ => ?`(typeOf[String], false, true)
   )
 
-  def tpeOf(schema: Schema, stmt: Statement[Table], e: Term[Table]): ?[(Type, Boolean, Boolean)] = e match {
+  def tpeOf(schema: Schema, stmt: Statement, e: Term): ?[(Type, Boolean, Boolean)] = e match {
     case Constant(tpe, _)    => (tpe, false, false).ok
     case col@Column(_, _)    => inferColumnType(schema, stmt, col)
     case Function(n, params) => inferReturnType(schema, stmt, n, params)
     case x                   => sys.error("Term " + x + " not supported")
   }
 
-  def inferReturnType(schema: Schema, stmt: Statement[Table], fname: String, params: List[Term[Table]]) = 
+  def inferReturnType(schema: Schema, stmt: Statement, fname: String, params: List[Term]) = 
     knownFunctions.get(fname.toLowerCase) match {
       case Some(f) => f(schema, stmt, params)
       case None => (typeOf[AnyRef], true, true).ok
     }
 
-  def inferColumnType(schema: Schema, stmt: Statement[Table], col: Column[Table]) = for {
+  def inferColumnType(schema: Schema, stmt: Statement, col: Column) = for {
     t <- getTable(schema, col.table)
     c <- Option(t.getColumn(col.name)) resultOrFail ("No such column " + col)
   } yield (mkType(c.getType), c.isNullable, c.isNullable)
