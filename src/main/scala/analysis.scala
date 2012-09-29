@@ -22,8 +22,8 @@ object Analyzer {
       def inExpr(e: Expr[Table], col: Column[Table]): Boolean = e match {
         // note, column comparision works since we only examine statements with one table
         case Predicate1(_, _)                      => false
-        case Predicate2(Column(n, _, _), Eq, _) => col.name == n 
-        case Predicate2(_, Eq, Column(n, _, _)) => col.name == n
+        case Predicate2(Column(n, _), Eq, _)       => col.name == n 
+        case Predicate2(_, Eq, Column(n, _))       => col.name == n
         case Predicate2(_, _, _)                   => false
         case Predicate3(_, _, _, _)                => false
         case And(e1, e2)                           => inExpr(e1, col) || inExpr(e2, col)

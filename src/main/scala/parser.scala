@@ -93,7 +93,13 @@ object SqlParser extends RegexParsers {
     | "?"        ^^^ Input[Option[String]]()
   )
 
-  lazy val value = (arith | simpleValue)
+  lazy val value = (arith | simpleValue) ~ opt(opt("as".i) ~> ident) ^^ {
+    case (c@Constant(_, _)) ~ a     => Named("<constant>", a, c)
+    case (f@Function(n, _)) ~ a     => Named(n, a, f)
+    case (c@Column(n, _)) ~ a       => Named(n, a, c)
+    case (c@AllColumns(_)) ~ a      => Named("*", a, c)
+    case (e@ArithExpr(_, _, _)) ~ a => Named("<constant>", a, e)
+  }
 
   lazy val simpleValue: Parser[Val] = (
       boolean    ^^ constB
@@ -105,18 +111,16 @@ object SqlParser extends RegexParsers {
   )
 
   lazy val column = (
-      ident ~ "." ~ ident ~ "as".i ~ ident ^^ { case t ~ _ ~ c ~ _ ~ a => col(c, Some(t), Some(a)) }
-    | ident ~ "." ~ ident ^^ { case t ~ _ ~ c => col(c, Some(t), None) }
-    | ident ~ "as".i ~ ident ^^ { case c ~ _ ~ a => col(c, None, Some(a)) }
-    | ident ^^ (c => col(c, None, None))
+      ident ~ "." ~ ident ^^ { case t ~ _ ~ c => col(c, Some(t)) }
+    | ident ^^ (c => col(c, None))
   )
 
   lazy val allColumns = 
     "*" ~ opt("." ~> ident) ^^ { case _ ~ t => AllColumns(t) }
 
   lazy val function: Parser[Function[Option[String]]] = 
-    ident ~ "(" ~ repsep(term, ",") ~ ")" ~ opt("as".i ~> ident) ^^ {
-      case name ~ _ ~ params ~ _ ~ alias => Function(name, params, alias)
+    ident ~ "(" ~ repsep(term, ",") ~ ")" ^^ {
+      case name ~ _ ~ params ~ _ => Function(name, params)
     }
 
   lazy val arith: Parser[Val] = (simpleValue | arithParens)* (
@@ -155,8 +159,7 @@ object SqlParser extends RegexParsers {
     | p
   )
 
-  private def col(name: String, table: Option[String], alias: Option[String]) = 
-    Column(name, table, alias)
+  private def col(name: String, table: Option[String]) = Column(name, table)
 
   private def constB(b: Boolean) = Constant[Option[String]](typeOf[Boolean], b)
   private def constS(s: String)  = Constant[Option[String]](typeOf[String], s)

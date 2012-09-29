@@ -55,34 +55,31 @@ object Typer {
       }
     }
 
-    def typeValue(inputArg: Boolean, useTags: Boolean)(x: Value[Table]): Result[List[TypedValue]] = x match {
-      case col@Column(_, _, _) => 
+    def typeValue(inputArg: Boolean, useTags: Boolean)(x: Named[Table]): Result[List[TypedValue]] = x.value match {
+      case col@Column(_, _) => 
         for {
           (tpe, inopt, outopt) <- inferColumnType(schema, stmt, col)
           t <- tag(col)
-        } yield List(TypedValue(col.aname, tpe, if (inputArg) inopt else outopt, if (useTags) t else None))
+        } yield List(TypedValue(x.aname, tpe, if (inputArg) inopt else outopt, if (useTags) t else None))
       case cols@AllColumns(t) =>
         for {
           tbl <- getTable(schema, t)
-          cs  <- sequence(tbl.getColumns.toList map { c => typeValue(inputArg, useTags)(Column(c.getName, t, None)) })
+          cs  <- sequence(tbl.getColumns.toList map { c => typeValue(inputArg, useTags)(Named(c.getName, None, Column(c.getName, t))) })
         } yield cs.flatten
-      case f@Function(name, params, alias) =>
+      case f@Function(name, params) =>
         inferReturnType(schema, stmt, name, params) map { case (tpe, inopt, outopt) =>
-          List(TypedValue(f.aname, tpe, if (inputArg) inopt else outopt, None))
+          List(TypedValue(x.aname, tpe, if (inputArg) inopt else outopt, None))
         }
-      case c@Constant(tpe, _) => List(TypedValue("<constant>", tpe, false, None)).ok
-      case ArithExpr(lhs, _, rhs) => for {
-        lval <- typeValue(inputArg, useTags)(lhs)
-        rval <- typeValue(inputArg, useTags)(rhs)
-      } yield 
+      case c@Constant(tpe, _) => List(TypedValue(x.aname, tpe, false, None)).ok
+      case ArithExpr(lhs, _, rhs) => 
         (lhs, rhs) match {
-          case (Column(_, _,_ ), _) => lval
-          case (_, Column(_, _,_ )) => rval
-          case (Constant(tpe, _), _) if tpe == typeOf[Double] => lval
-          case (_, Constant(tpe, _)) if tpe == typeOf[Double] => rval
-          case (Constant(_, _), _) => List(TypedValue("<constant>", typeOf[Int], false, None))
-          case (_, Constant(_, _)) => List(TypedValue("<constant>", typeOf[Int], false, None))
-          case _ => lval
+          case (c@Column(_, _), _) => typeValue(inputArg, useTags)(Named(c.name, x.alias, c))
+          case (_, c@Column(_, _)) => typeValue(inputArg, useTags)(Named(c.name, x.alias, c))
+          case (Constant(tpe, _), _) if tpe == typeOf[Double] => typeValue(inputArg, useTags)(Named(x.name, x.alias, lhs))
+          case (_, Constant(tpe, _)) if tpe == typeOf[Double] => typeValue(inputArg, useTags)(Named(x.name, x.alias, lhs))
+          case (c@Constant(_, _), _) => List(TypedValue(x.aname, typeOf[Int], false, None)).ok
+          case (_, c@Constant(_, _)) => List(TypedValue(x.aname, typeOf[Int], false, None)).ok
+          case _ => typeValue(inputArg, useTags)(Named(x.name, x.alias, lhs))
         }
     }
 
@@ -91,7 +88,7 @@ object Typer {
         getTable(schema, t) map { table =>
           val indices = Option(table.getPrimaryKey).map(List(_)).getOrElse(Nil) ::: table.getIndices.toList
           val uniques = indices filter (_.isUnique) map { i =>
-            i.getColumns.toList.map(col => Column(col.getName, t, None))
+            i.getColumns.toList.map(col => Column(col.getName, t))
           }
           (t, uniques)
         }
@@ -139,10 +136,10 @@ object Typer {
   )
 
   def tpeOf(schema: Schema, stmt: Statement[Table], e: Term[Table]): Result[(Type, Boolean, Boolean)] = e match {
-    case Constant(tpe, _)       => (tpe, false, false).ok
-    case col@Column(_, _, _)    => inferColumnType(schema, stmt, col)
-    case Function(n, params, _) => inferReturnType(schema, stmt, n, params)
-    case x                      => sys.error("Term " + x + " not supported")
+    case Constant(tpe, _)    => (tpe, false, false).ok
+    case col@Column(_, _)    => inferColumnType(schema, stmt, col)
+    case Function(n, params) => inferReturnType(schema, stmt, n, params)
+    case x                   => sys.error("Term " + x + " not supported")
   }
 
   def inferReturnType(schema: Schema, stmt: Statement[Table], fname: String, params: List[Term[Table]]) = 

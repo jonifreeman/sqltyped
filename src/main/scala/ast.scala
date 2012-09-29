@@ -7,19 +7,17 @@ private[sqltyped] object Ast {
   sealed trait Term[T]
   sealed trait Value[T] extends Term[T]
 
-  trait Aliased {
-    def name: String
-    def alias: Option[String]
+  case class Named[T](name: String, alias: Option[String], value: Value[T]) {
     def aname = alias getOrElse name
   }
 
   case class Constant[T](tpe: Type, value: Any) extends Value[T]
-  case class Column[T](name: String, table: T, alias: Option[String] = None) extends Value[T] with Aliased
+  case class Column[T](name: String, table: T) extends Value[T]
   case class AllColumns[T](table: T) extends Value[T]
-  case class Function[T](name: String, params: List[Term[T]], alias: Option[String] = None) extends Value[T] with Aliased
+  case class Function[T](name: String, params: List[Term[T]]) extends Value[T]
   case class ArithExpr[T](lhs: Value[T], op: String, rhs: Value[T]) extends Value[T]
   
-  case class Input[T] extends Term[T]
+  case class Input[T]() extends Term[T]
   case class Subselect[T](select: Select[T]) extends Term[T]
 
   case class Table(name: String, alias: Option[String])
@@ -64,7 +62,7 @@ private[sqltyped] object Ast {
     def isQuery = false
   }
 
-  def input(schema: Schema, stmt: Statement[Table]): List[Value[Table]] = stmt match {
+  def input(schema: Schema, stmt: Statement[Table]): List[Named[Table]] = stmt match {
     case Delete(from, where) => where.map(w => params(w.expr)).getOrElse(Nil)
 
     case Insert(table, colNames, insertInput) =>
@@ -73,7 +71,7 @@ private[sqltyped] object Ast {
       insertInput match {
         case ListedInput(values) => 
           colNames getOrElse colNamesFromSchema zip values collect {
-            case (name, Input()) => Column(name, table, None)
+            case (name, Input()) => Named(name, None, Column(name, table))
           }
         case SelectedInput(select) => input(schema, select)
       }
@@ -82,7 +80,7 @@ private[sqltyped] object Ast {
       input(schema, left) ::: input(schema, right) ::: limitParams(limit)
 
     case Update(tables, set, where, orderBy, limit) => 
-      set.collect { case (col, Input()) => col } :::
+      set.collect { case (col, Input()) => Named(col.name, None, col) } :::
       where.map(w => params(w.expr)).getOrElse(Nil) ::: 
       limitParams(limit)
 
@@ -94,7 +92,7 @@ private[sqltyped] object Ast {
       limitParams(limit)
   }
 
-  def output(stmt: Statement[Table]): List[Value[Table]] = stmt match {
+  def output(stmt: Statement[Table]): List[Named[Table]] = stmt match {
     case Delete(_, _) => Nil
     case Insert(_, _, _) => Nil
     case Union(left, _, _, _) => output(left)
@@ -117,9 +115,9 @@ private[sqltyped] object Ast {
 
   private class ResolveEnv(env: List[Table]) {
     def resolve(term: Term[Option[String]]): Result[Term[Table]] = term match {
-      case col@Column(_, _, _) => resolveColumn(col)
+      case col@Column(_, _) => resolveColumn(col)
       case AllColumns(t) => resolveAllColumns(t)
-      case f@Function(_, ps, _) => resolveFunc(f)
+      case f@Function(_, ps) => resolveFunc(f)
       case Subselect(select) => resolveSelect(select)(select.tables ::: env) map (s => Subselect(s))
       case ArithExpr(lhs, op, rhs) => 
         for { l <- resolveValue(lhs); r <- resolveValue(rhs) } yield ArithExpr(l, op, r)
@@ -144,16 +142,17 @@ private[sqltyped] object Ast {
     }
 
     def resolveValue(v: Value[Option[String]]): Result[Value[Table]] = v match {
-      case col@Column(_, _, _) => resolveColumn(col)
+      case col@Column(_, _) => resolveColumn(col)
       case AllColumns(t) => resolveAllColumns(t)
-      case f@Function(_, _, _) => resolveFunc(f)
+      case f@Function(_, _) => resolveFunc(f)
       case ArithExpr(lhs, op, rhs) => 
         for { l <- resolveValue(lhs); r <- resolveValue(rhs) } yield ArithExpr(l, op, r)
       case Constant(tpe, value) => Constant[Table](tpe, value).ok
     }
 
+    def resolveNamed(n: Named[Option[String]]) = resolveValue(n.value) map (v => n.copy(value = v))
     def resolveFunc(f: Function[Option[String]]) = sequence(f.params map resolve) map (ps => f.copy(params = ps))
-    def resolveProj(proj: List[Value[Option[String]]]) = sequence(proj map resolveValue)
+    def resolveProj(proj: List[Named[Option[String]]]) = sequence(proj map resolveNamed)
     def resolveFroms(from: List[From[Option[String]]]) = sequence(from map resolveFrom)
     def resolveFrom(from: From[Option[String]]) = sequence(from.join map resolveJoin) map (j => from.copy(join = j))
     def resolveJoin(join: Join[Option[String]]) = resolveExpr(join.expr) map (e => join.copy(expr = e))
@@ -243,7 +242,7 @@ private[sqltyped] object Ast {
     } yield u.copy(set = s, where = w, orderBy = o, limit = l)
   }
 
-  def params[T](e: Expr[T]): List[Value[T]] = e match {
+  def params[T](e: Expr[T]): List[Named[T]] = e match {
     case Predicate1(_, _)                    => Nil
     case Predicate2(Input(), op, x)          => termToValue(x) :: Nil
     case Predicate2(x, op, Input())          => termToValue(x) :: Nil
@@ -259,11 +258,14 @@ private[sqltyped] object Ast {
 
   def limitParams[T](limit: Option[Limit[T]]) =
     limit.map(l => l.count.right.toSeq.toList ::: l.offset.map(_.right.toSeq.toList).getOrElse(Nil))
-      .getOrElse(Nil).map(_ => Constant[T](typeOf[Long], None))
+      .getOrElse(Nil).map(_ => Named("<constant>", None, Constant[T](typeOf[Long], None)))
 
-  // FIXME clean this
+  // FIXME clean this (see parser.value)
   def termToValue[T](x: Term[T]) = x match {
-    case v: Value[T] => v
+    case c@Constant(_, _) => Named("<constant>", None, c)
+    case f@Function(n, _) => Named(n, None, f)
+    case c@Column(n, _)   => Named(n, None, c)
+    case c@AllColumns(_)  => Named("*", None, c)
     case _ => sys.error("Invalid value " + x)
   }
 
@@ -289,11 +291,11 @@ private[sqltyped] object Ast {
   case class Update[T](tables: List[Table], set: List[(Column[T], Term[T])], where: Option[Where[T]], 
                        orderBy: Option[OrderBy[T]], limit: Option[Limit[T]]) extends Statement[T]
 
-  case class Create[T] extends Statement[T] {
+  case class Create[T]() extends Statement[T] {
     def tables = Nil
   }
 
-  case class Select[T](projection: List[Value[T]], 
+  case class Select[T](projection: List[Named[T]], 
                        from: List[From[T]], // should be NonEmptyList
                        where: Option[Where[T]], 
                        groupBy: Option[GroupBy[T]],
