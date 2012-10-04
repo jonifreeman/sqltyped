@@ -86,10 +86,10 @@ trait SqlParser extends RegexParsers with Ast.Unresolved {
       boolean    ^^ constB
     | stringLit  ^^ constS
     | numericLit ^^ (n => if (n.contains(".")) constD(n.toDouble) else constL(n.toLong))
+    | extraValues
     | function
     | column
     | "?"        ^^^ Input[Option[String]]()
-    | extraValues
   )
 
   lazy val value = (arith | simpleValue) ~ opt(opt("as".i) ~> ident) ^^ {
@@ -105,9 +105,9 @@ trait SqlParser extends RegexParsers with Ast.Unresolved {
     | stringLit  ^^ constS
     | numericLit ^^ (n => if (n.contains(".")) constD(n.toDouble) else constL(n.toLong))
     | function
+    | extraValues
     | column
     | allColumns
-    | extraValues
   )
 
   def extraValues: Parser[Value] = failure("no extra values")
