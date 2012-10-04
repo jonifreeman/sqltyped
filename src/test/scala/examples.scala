@@ -4,7 +4,7 @@ import java.sql._
 import org.scalatest._
 import shapeless._
 
-class ExampleSuite extends FunSuite with BeforeAndAfterEach with matchers.ShouldMatchers {
+trait Example extends FunSuite with BeforeAndAfterEach with matchers.ShouldMatchers {
   Class.forName("com.mysql.jdbc.Driver")
 
   object Tables { trait person; trait job_history }
@@ -14,9 +14,6 @@ class ExampleSuite extends FunSuite with BeforeAndAfterEach with matchers.Should
 
   implicit val c = Configuration(Tables, Columns)
   implicit def conn = DriverManager.getConnection("jdbc:mysql://localhost:3306/sqltyped", "root", "")
-
-  import Tables._
-  import Columns._
 
   override def beforeEach() {
     val newPerson  = sql("insert into person(id, name, age, salary) values (?, ?, ?, ?)")
@@ -32,6 +29,16 @@ class ExampleSuite extends FunSuite with BeforeAndAfterEach with matchers.Should
     jobHistory.apply(1, "IBM", date("2004-07-13 11:00:00.0"), None)
     jobHistory.apply(2, "IBM", date("2005-08-10 11:00:00.0"), None)
   }
+
+  def date(s: String) = 
+    new java.sql.Timestamp(new java.text.SimpleDateFormat("yyyy-MM-dd hh:mm:ss.S").parse(s).getTime)
+
+  def year(y: Int) = date(y + "-01-01 00:00:00.0")
+}
+
+class ExampleSuite extends Example {
+  import Tables._
+  import Columns._
 
   test("Simple query") {
     val q1 = sql("select name, age from person")
@@ -228,9 +235,4 @@ class ExampleSuite extends FunSuite with BeforeAndAfterEach with matchers.Should
     sql("select age - 1, age, age * 2, (age % 10) - 1 as age from person order by age").apply.tuples should 
       equal(List((14, 15, 30, 4), (36, 37, 74, 6)))
   }
-
-  def date(s: String) = 
-    new java.sql.Timestamp(new java.text.SimpleDateFormat("yyyy-MM-dd hh:mm:ss.S").parse(s).getTime)
-
-  def year(y: Int) = date(y + "-01-01 00:00:00.0")
 }

@@ -3,7 +3,7 @@ package sqltyped
 import scala.util.parsing.combinator._
 import scala.reflect.runtime.universe.{Type, typeOf}
 
-object SqlParser extends RegexParsers with Ast.Unresolved {
+trait SqlParser extends RegexParsers with Ast.Unresolved {
   import Ast._
 
   def parse(sql: String): ?[Statement] = parse(stmt, sql) match {
@@ -89,6 +89,7 @@ object SqlParser extends RegexParsers with Ast.Unresolved {
     | function
     | column
     | "?"        ^^^ Input[Option[String]]()
+    | extraValues
   )
 
   lazy val value = (arith | simpleValue) ~ opt(opt("as".i) ~> ident) ^^ {
@@ -106,7 +107,10 @@ object SqlParser extends RegexParsers with Ast.Unresolved {
     | function
     | column
     | allColumns
+    | extraValues
   )
+
+  def extraValues: Parser[Value] = failure("no extra values")
 
   lazy val column = (
       ident ~ "." ~ ident ^^ { case t ~ _ ~ c => col(c, Some(t)) }
@@ -157,13 +161,6 @@ object SqlParser extends RegexParsers with Ast.Unresolved {
     | p
   )
 
-  private def col(name: String, table: Option[String]) = Column(name, table)
-
-  private def constB(b: Boolean) = Constant[Option[String]](typeOf[Boolean], b)
-  private def constS(s: String)  = Constant[Option[String]](typeOf[String], s)
-  private def constD(d: Double)  = Constant[Option[String]](typeOf[Double], d)
-  private def constL(l: Long)    = Constant[Option[String]](typeOf[Long], l)
-
   val reserved = 
     ("select".i | "delete".i | "insert".i | "update".i | "from".i | "into".i | "where".i | "as".i | 
      "and".i | "or".i | "join".i | "inner".i | "outer".i | "left".i | "right".i | "on".i | "group".i |
@@ -171,7 +168,15 @@ object SqlParser extends RegexParsers with Ast.Unresolved {
      "is".i | "not".i | "null".i | "between".i | "in".i | "exists".i | "values".i | "create".i | 
      "set".i | "union".i)
 
-  private implicit class KeywordOps(kw: String) {
+  private def col(name: String, table: Option[String]) = Column(name, table)
+
+  def constB(b: Boolean)       = const(typeOf[Boolean], b)
+  def constS(s: String)        = const(typeOf[String], s)
+  def constD(d: Double)        = const(typeOf[Double], d)
+  def constL(l: Long)          = const(typeOf[Long], l)
+  def const(tpe: Type, x: Any) = Constant[Option[String]](tpe, x)
+
+  implicit class KeywordOps(kw: String) {
     def i = keyword(kw)
   }
 

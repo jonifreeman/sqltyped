@@ -61,16 +61,16 @@ object Typer extends Ast.Resolved {
           (tpe, inopt, outopt) <- inferColumnType(schema, stmt, col)
           t <- tag(col)
         } yield List(TypedValue(x.aname, tpe, if (inputArg) inopt else outopt, if (useTags) t else None))
-      case cols@AllColumns(t) =>
+      case AllColumns(t) =>
         for {
           tbl <- getTable(schema, t)
           cs  <- sequence(tbl.getColumns.toList map { c => typeValue(inputArg, useTags)(Named(c.getName, None, Column(c.getName, t))) })
         } yield cs.flatten
-      case f@Function(name, params) =>
+      case Function(name, params) =>
         inferReturnType(schema, stmt, name, params) map { case (tpe, inopt, outopt) =>
           List(TypedValue(x.aname, tpe, if (inputArg) inopt else outopt, None))
         }
-      case c@Constant(tpe, _) => List(TypedValue(x.aname, tpe, false, None)).ok
+      case Constant(tpe, _) => List(TypedValue(x.aname, tpe, false, None)).ok
       case ArithExpr(lhs, _, rhs) => 
         (lhs, rhs) match {
           case (c@Column(_, _), _) => typeValue(inputArg, useTags)(Named(c.name, x.alias, c))
@@ -150,11 +150,11 @@ object Typer extends Ast.Resolved {
 
   def inferColumnType(schema: Schema, stmt: Statement, col: Column) = for {
     t <- getTable(schema, col.table)
-    c <- Option(t.getColumn(col.name)) resultOrFail ("No such column " + col)
+    c <- Option(t.getColumn(col.name)) orFail ("No such column " + col)
   } yield (mkType(c.getType), c.isNullable, c.isNullable)
 
   private def getTable(schema: Schema, table: Table) =
-    Option(schema.getTable(table.name)) resultOrFail ("Unknown table " + table.name)
+    Option(schema.getTable(table.name)) orFail ("Unknown table " + table.name)
 
   private def mkType(t: ColumnDataType): Type = t.getTypeClassName match {
     case "java.lang.String" => typeOf[String]

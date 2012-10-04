@@ -8,6 +8,8 @@ scalaVersion := "2.10.0-M6"
 
 scalacOptions ++= Seq("-unchecked", "-deprecation")
 
+parallelExecution in Test := false
+
 resolvers ++= Seq(
   "Sonatype OSS Releases" at "http://oss.sonatype.org/content/repositories/releases/",
   "Sonatype OSS Snapshots" at "http://oss.sonatype.org/content/repositories/snapshots/"

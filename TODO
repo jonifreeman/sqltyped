@@ -8,9 +8,8 @@
 * MySQL
 
 - IFNULL
-- ON DUPLICATE KEY
-- interval
 - IGNORE, insert + update
+- ON DUPLICATE KEY
 
 * PostgreSQL
 

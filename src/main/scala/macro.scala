@@ -57,13 +57,14 @@ object SqlMacro {
 
     import c.universe._
 
-    val Literal(Constant(sql: String)) = s.tree
-    
-    val url = System.getProperty("sqltyped.url")
+    val Literal(Constant(sql: String)) = s.tree // FIXME err handling
+
+    val url = System.getProperty("sqltyped.url") // FIXME err handling
     val driver = System.getProperty("sqltyped.driver")
     val username = System.getProperty("sqltyped.username")
     val password = System.getProperty("sqltyped.password")
-
+    val dialect = Dialect.choose(driver)
+                                            
     val cachedSchema = {
       val cached = schemaCache.get(c.currentRun)
       if (cached != null) cached else {
@@ -74,7 +75,7 @@ object SqlMacro {
     }
 
     (for {
-      stmt     <- SqlParser.parse(sql)
+      stmt     <- dialect.parser.parse(sql)
       schema   <- cachedSchema
       resolved <- Ast.resolveTables(stmt)
       typed    <- Typer.infer(schema, resolved, useInputTags)

@@ -165,11 +165,11 @@ private[sqltyped] object Ast {
           case (Some(ref), Some(a)) => t.name == ref || a == ref
           case (None, _) => true
         }
-      } map (t => col.copy(table = t)) resultOrFail ("Column references unknown table " + col)
+      } map (t => col.copy(table = t)) orFail ("Column references unknown table " + col)
 
     def resolveAllColumns(tableRef: Option[String]) = tableRef match {
       case Some(ref) => 
-        (env.find(t => t.name == ref) resultOrFail ("Unknown table " + ref)) map (r => AllColumns(r))
+        (env.find(t => t.name == ref) orFail ("Unknown table " + ref)) map (r => AllColumns(r))
       case None => 
         AllColumns(env.head).ok
     }
