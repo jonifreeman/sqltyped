@@ -40,10 +40,10 @@ object DbSchema {
     java.sql.DriverManager.getConnection(url, username, password)
 }
 
-object Typer extends Ast.Resolved {
-  def infer(schema: Schema, stmt: Statement, useInputTags: Boolean): ?[TypedStatement] = {
+class Typer(schema: Schema, stmt: Ast.Statement[Table]) extends Ast.Resolved {
+  def infer(useInputTags: Boolean): ?[TypedStatement] = {
     def tag(col: Column) = {
-      getTable(schema, col.table) map { t =>
+      getTable(col.table) map { t =>
         def findFK = t.getForeignKeys
           .flatMap(_.getColumnPairs.map(_.getForeignKeyColumn))
           .find(_.getName == col.name)
@@ -58,16 +58,16 @@ object Typer extends Ast.Resolved {
     def typeValue(useTags: Boolean)(x: Named): ?[List[TypedValue]] = x.value match {
       case col@Column(_, _) => 
         for {
-          (tpe, opt) <- inferColumnType(schema, stmt, col)
+          (tpe, opt) <- inferColumnType(col)
           t <- tag(col)
         } yield List(TypedValue(x.aname, tpe, opt, if (useTags) t else None))
       case AllColumns(t) =>
         for {
-          tbl <- getTable(schema, t)
+          tbl <- getTable(t)
           cs  <- sequence(tbl.getColumns.toList map { c => typeValue(useTags)(Named(c.getName, None, Column(c.getName, t))) })
         } yield cs.flatten
       case Function(name, params) =>
-        inferReturnType(schema, stmt, name, params) map { case (tpe, opt) =>
+        inferReturnType(name, params) map { case (tpe, opt) =>
           List(TypedValue(x.aname, tpe, opt, None))
         }
       case Constant(tpe, _) => List(TypedValue(x.aname, tpe, false, None)).ok
@@ -85,7 +85,7 @@ object Typer extends Ast.Resolved {
 
     def uniqueConstraints = {
       val constraints = sequence(stmt.tables map { t =>
-        getTable(schema, t) map { table =>
+        getTable(t) map { table =>
           val indices = Option(table.getPrimaryKey).map(List(_)).getOrElse(Nil) ::: table.getIndices.toList
           val uniques = indices filter (_.isUnique) map { i =>
             i.getColumns.toList.map(col => Column(col.getName, t))
@@ -98,7 +98,7 @@ object Typer extends Ast.Resolved {
     }
 
     def generatedKeyTypes(table: Table) = for {
-      t <- getTable(schema, table)
+      t <- getTable(table)
     } yield {
       def tag(c: schemacrawler.schema.Column) = 
         Option(t.getPrimaryKey).flatMap(_.getColumns.find(_.getName == c.getName)).map(_ => t.getName)
@@ -119,7 +119,7 @@ object Typer extends Ast.Resolved {
   def `a => a` = (schema: Schema, stmt: Statement, fname: String, params: List[Term]) =>
     if (params.length != 1) fail("Expected 1 parameter " + params)
     else 
-      tpeOf(schema, stmt, params.head) map { case (tpe, opt) => (tpe, isAggregate(fname) || opt) }
+      tpeOf(params.head) map { case (tpe, opt) => (tpe, isAggregate(fname) || opt) }
 
   def `_ => ?`(tpe: Type, opt: Boolean) = 
     (schema: Schema, stmt: Statement, fname: String, params: List[Term]) => (tpe, opt).ok
@@ -142,25 +142,25 @@ object Typer extends Ast.Resolved {
 
   val knownFunctions = aggregateFunctions ++ scalarFunctions
 
-  def tpeOf(schema: Schema, stmt: Statement, e: Term): ?[(Type, Boolean)] = e match {
+  def tpeOf(e: Term): ?[(Type, Boolean)] = e match {
     case Constant(tpe, _)    => (tpe, false).ok
-    case col@Column(_, _)    => inferColumnType(schema, stmt, col)
-    case Function(n, params) => inferReturnType(schema, stmt, n, params)
+    case col@Column(_, _)    => inferColumnType(col)
+    case Function(n, params) => inferReturnType(n, params)
     case x                   => sys.error("Term " + x + " not supported")
   }
 
-  def inferReturnType(schema: Schema, stmt: Statement, fname: String, params: List[Term]) = 
+  def inferReturnType(fname: String, params: List[Term]) = 
     knownFunctions.get(fname.toLowerCase) match {
       case Some(f) => f(schema, stmt, fname, params)
       case None => (typeOf[AnyRef], true).ok
     }
 
-  def inferColumnType(schema: Schema, stmt: Statement, col: Column) = for {
-    t <- getTable(schema, col.table)
+  def inferColumnType(col: Column) = for {
+    t <- getTable(col.table)
     c <- Option(t.getColumn(col.name)) orFail ("No such column " + col)
   } yield (mkType(c.getType), c.isNullable)
 
-  private def getTable(schema: Schema, table: Table) =
+  private def getTable(table: Table) =
     Option(schema.getTable(table.name)) orFail ("Unknown table " + table.name)
 
   private def mkType(t: ColumnDataType): Type = t.getTypeClassName match {

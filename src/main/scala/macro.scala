@@ -78,7 +78,7 @@ object SqlMacro {
       stmt     <- dialect.parser.parse(sql)
       schema   <- cachedSchema
       resolved <- Ast.resolveTables(stmt)
-      typed    <- Typer.infer(schema, resolved, useInputTags)
+      typed    <- new Typer(schema, resolved).infer(useInputTags)
       meta     <- Analyzer.refine(typed)
     } yield meta) fold (
       err => c.abort(c.enclosingPosition, err),
