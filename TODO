@@ -22,3 +22,4 @@
 - Generate meta types http://stackoverflow.com/questions/12295971/will-it-be-possible-to-generate-several-top-level-classes-with-one-macro-invocat
 - in operator
 - Infer function types from schema
+- Improve names of input arguments

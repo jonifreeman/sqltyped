@@ -17,11 +17,12 @@ object GenericDialect extends Dialect {
 }
 
 object MysqlDialect extends Dialect {
-/*  val functions = Map(
-      "ifnull"   -> `(a,a) => a`
-    , "coalesce" -> `(a,a) => a`
+  val functions = Map(
+//      "datediff"  -> Func[(Date, Date), Int]
+//      "ifnull"   -> `(a,a) => a`
+//    , "coalesce" -> `(a,a) => a`
   )
-*/
+
   def parser = MysqlParser
 
   object MysqlParser extends SqlParser {

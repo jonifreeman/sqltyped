@@ -55,31 +55,31 @@ object Typer extends Ast.Resolved {
       }
     }
 
-    def typeValue(inputArg: Boolean, useTags: Boolean)(x: Named): ?[List[TypedValue]] = x.value match {
+    def typeValue(useTags: Boolean)(x: Named): ?[List[TypedValue]] = x.value match {
       case col@Column(_, _) => 
         for {
-          (tpe, inopt, outopt) <- inferColumnType(schema, stmt, col)
+          (tpe, opt) <- inferColumnType(schema, stmt, col)
           t <- tag(col)
-        } yield List(TypedValue(x.aname, tpe, if (inputArg) inopt else outopt, if (useTags) t else None))
+        } yield List(TypedValue(x.aname, tpe, opt, if (useTags) t else None))
       case AllColumns(t) =>
         for {
           tbl <- getTable(schema, t)
-          cs  <- sequence(tbl.getColumns.toList map { c => typeValue(inputArg, useTags)(Named(c.getName, None, Column(c.getName, t))) })
+          cs  <- sequence(tbl.getColumns.toList map { c => typeValue(useTags)(Named(c.getName, None, Column(c.getName, t))) })
         } yield cs.flatten
       case Function(name, params) =>
-        inferReturnType(schema, stmt, name, params) map { case (tpe, inopt, outopt) =>
-          List(TypedValue(x.aname, tpe, if (inputArg) inopt else outopt, None))
+        inferReturnType(schema, stmt, name, params) map { case (tpe, opt) =>
+          List(TypedValue(x.aname, tpe, opt, None))
         }
       case Constant(tpe, _) => List(TypedValue(x.aname, tpe, false, None)).ok
       case ArithExpr(lhs, _, rhs) => 
         (lhs, rhs) match {
-          case (c@Column(_, _), _) => typeValue(inputArg, useTags)(Named(c.name, x.alias, c))
-          case (_, c@Column(_, _)) => typeValue(inputArg, useTags)(Named(c.name, x.alias, c))
-          case (Constant(tpe, _), _) if tpe == typeOf[Double] => typeValue(inputArg, useTags)(Named(x.name, x.alias, lhs))
-          case (_, Constant(tpe, _)) if tpe == typeOf[Double] => typeValue(inputArg, useTags)(Named(x.name, x.alias, lhs))
+          case (c@Column(_, _), _) => typeValue(useTags)(Named(c.name, x.alias, c))
+          case (_, c@Column(_, _)) => typeValue(useTags)(Named(c.name, x.alias, c))
+          case (Constant(tpe, _), _) if tpe == typeOf[Double] => typeValue(useTags)(Named(x.name, x.alias, lhs))
+          case (_, Constant(tpe, _)) if tpe == typeOf[Double] => typeValue(useTags)(Named(x.name, x.alias, lhs))
           case (c@Constant(_, _), _) => List(TypedValue(x.aname, typeOf[Int], false, None)).ok
           case (_, c@Constant(_, _)) => List(TypedValue(x.aname, typeOf[Int], false, None)).ok
-          case _ => typeValue(inputArg, useTags)(Named(x.name, x.alias, lhs))
+          case _ => typeValue(useTags)(Named(x.name, x.alias, lhs))
         }
     }
 
@@ -109,34 +109,41 @@ object Typer extends Ast.Resolved {
     }
 
     for {
-      in  <- sequence(input(schema, stmt) map typeValue(inputArg = true, useTags = useInputTags))
-      out <- sequence(output(stmt) map typeValue(inputArg = false, useTags = true))
+      in  <- sequence(input(schema, stmt) map typeValue(useTags = useInputTags))
+      out <- sequence(output(stmt) map typeValue(useTags = true))
       ucs <- uniqueConstraints
       key <- generatedKeyTypes(stmt.tables.head)
     } yield TypedStatement(in.flatten, out.flatten, stmt, ucs, key)
   }
 
-  def `a => a` = (schema: Schema, stmt: Statement, params: List[Term]) =>
+  def `a => a` = (schema: Schema, stmt: Statement, fname: String, params: List[Term]) =>
     if (params.length != 1) fail("Expected 1 parameter " + params)
     else 
-      tpeOf(schema, stmt, params.head) map { case (tpe, inopt, _) => (tpe, inopt, true) }
+      tpeOf(schema, stmt, params.head) map { case (tpe, opt) => (tpe, isAggregate(fname) || opt) }
 
-  def `_ => ?`(tpe: Type, inopt: Boolean, outopt: Boolean) = 
-    (schema: Schema, stmt: Statement, params: List[Term]) => (tpe, inopt, outopt).ok
+  def `_ => ?`(tpe: Type, opt: Boolean) = 
+    (schema: Schema, stmt: Statement, fname: String, params: List[Term]) => (tpe, opt).ok
 
-  // FIXME make this extensible
-  val knownFunctions = Map(
-      "abs"   -> `a => a`
-    , "avg"   -> `_ => ?`(typeOf[Double], false, true)
-    , "count" -> `_ => ?`(typeOf[Long], false, false)
+  def isAggregate(fname: String): Boolean = aggregateFunctions.contains(fname)
+
+  val aggregateFunctions = Map(
+      "avg"   -> `_ => ?`(typeOf[Double], true)
+    , "count" -> `_ => ?`(typeOf[Long], false)
     , "min"   -> `a => a`
     , "max"   -> `a => a`
     , "sum"   -> `a => a`
-    , "upper" -> `_ => ?`(typeOf[String], false, true)
   )
 
-  def tpeOf(schema: Schema, stmt: Statement, e: Term): ?[(Type, Boolean, Boolean)] = e match {
-    case Constant(tpe, _)    => (tpe, false, false).ok
+  val scalarFunctions = Map(
+      "abs"   -> `a => a`
+    , "lower" -> `_ => ?`(typeOf[String], true) // FIXME optionality depends on params
+    , "upper" -> `_ => ?`(typeOf[String], true)
+  )
+
+  val knownFunctions = aggregateFunctions ++ scalarFunctions
+
+  def tpeOf(schema: Schema, stmt: Statement, e: Term): ?[(Type, Boolean)] = e match {
+    case Constant(tpe, _)    => (tpe, false).ok
     case col@Column(_, _)    => inferColumnType(schema, stmt, col)
     case Function(n, params) => inferReturnType(schema, stmt, n, params)
     case x                   => sys.error("Term " + x + " not supported")
@@ -144,14 +151,14 @@ object Typer extends Ast.Resolved {
 
   def inferReturnType(schema: Schema, stmt: Statement, fname: String, params: List[Term]) = 
     knownFunctions.get(fname.toLowerCase) match {
-      case Some(f) => f(schema, stmt, params)
-      case None => (typeOf[AnyRef], true, true).ok
+      case Some(f) => f(schema, stmt, fname, params)
+      case None => (typeOf[AnyRef], true).ok
     }
 
   def inferColumnType(schema: Schema, stmt: Statement, col: Column) = for {
     t <- getTable(schema, col.table)
     c <- Option(t.getColumn(col.name)) orFail ("No such column " + col)
-  } yield (mkType(c.getType), c.isNullable, c.isNullable)
+  } yield (mkType(c.getType), c.isNullable)
 
   private def getTable(schema: Schema, table: Table) =
     Option(schema.getTable(table.name)) orFail ("Unknown table " + table.name)
