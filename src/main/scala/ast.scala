@@ -19,6 +19,7 @@ private[sqltyped] object Ast {
     type Constant  = Ast.Constant[Option[String]]
     type Select    = Ast.Select[Option[String]]
     type Where     = Ast.Where[Option[String]]
+    type Limit     = Ast.Limit[Option[String]]
   }
 
   // Types used for AST when references to tables are resolved 
@@ -35,6 +36,7 @@ private[sqltyped] object Ast {
     type Constant  = Ast.Constant[Table]
     type Select    = Ast.Select[Table]
     type Where     = Ast.Where[Table]
+    type Limit     = Ast.Limit[Table]
   }
 
   sealed trait Term[T]
@@ -93,52 +95,6 @@ private[sqltyped] object Ast {
   sealed trait Statement[T] {
     def tables: List[Table]
     def isQuery = false
-  }
-
-  def input(schema: Schema, stmt: Statement[Table]): List[Named[Table]] = stmt match {
-    case Delete(from, where) => where.map(w => params(w.expr)).getOrElse(Nil)
-
-    case Insert(table, colNames, insertInput) =>
-      def colNamesFromSchema = schema.getTable(table.name).getColumns.toList.map(_.getName)
-
-      insertInput match {
-        case ListedInput(values) => 
-          colNames getOrElse colNamesFromSchema zip values collect {
-            case (name, Input()) => Named(name, None, Column(name, table))
-          }
-        case SelectedInput(select) => input(schema, select)
-      }
-
-    case Union(left, right, orderBy, limit) => 
-      input(schema, left) ::: input(schema, right) ::: limitParams(limit)
-
-    case Update(tables, set, where, orderBy, limit) => 
-      set.collect { case (col, Input()) => Named(col.name, None, col) } :::
-      where.map(w => params(w.expr)).getOrElse(Nil) ::: 
-      limitParams(limit)
-
-    case Create() => Nil
-
-    case Select(projection, from, where, groupBy, orderBy, limit) =>
-      projection.collect { case Named(n, a, f@Function(_, _)) => input(f) }.flatten :::
-      where.map(w => params(w.expr)).getOrElse(Nil) ::: 
-      groupBy.flatMap(g => g.having.map(h => params(h.expr))).getOrElse(Nil) :::
-      limitParams(limit)
-  }
-
-  def input(f: Function[Table]): List[Named[Table]] = f.params flatMap {
-    case Input() => Named("<farg>", None, Constant[Table](typeOf[AnyRef], ())) :: Nil // FIXME can be typed
-    case f2@Function(_, _) => input(f2)
-    case _ => Nil
-  }
-
-  def output(stmt: Statement[Table]): List[Named[Table]] = stmt match {
-    case Delete(_, _) => Nil
-    case Insert(_, _, _) => Nil
-    case Union(left, _, _, _) => output(left)
-    case Update(_, _, _, _, _) => Nil
-    case Create() => Nil
-    case Select(projection, _, _, _, _, _) => projection
   }
 
   /**
@@ -281,24 +237,6 @@ private[sqltyped] object Ast {
       l <- r.resolveLimitOpt(u.limit)
     } yield u.copy(set = s, where = w, orderBy = o, limit = l)
   }
-
-  def params[T](e: Expr[T]): List[Named[T]] = e match {
-    case Predicate1(_, _)                    => Nil
-    case Predicate2(Input(), op, x)          => termToValue(x) :: Nil
-    case Predicate2(x, op, Input())          => termToValue(x) :: Nil
-    case Predicate2(_, op, Subselect(s))     => s.where.map(w => params(w.expr)).getOrElse(Nil) // FIXME groupBy
-    case Predicate2(_, op, _)                => Nil
-    case Predicate3(x, op, Input(), Input()) => termToValue(x) :: termToValue(x) :: Nil
-    case Predicate3(x, op, Input(), _)       => termToValue(x) :: Nil
-    case Predicate3(x, op, _, Input())       => termToValue(x) :: Nil
-    case Predicate3(_, op, _, _)             => Nil
-    case And(e1, e2)                         => params(e1) ::: params(e2)
-    case Or(e1, e2)                          => params(e1) ::: params(e2)
-  }
-
-  def limitParams[T](limit: Option[Limit[T]]) =
-    limit.map(l => l.count.right.toSeq.toList ::: l.offset.map(_.right.toSeq.toList).getOrElse(Nil))
-      .getOrElse(Nil).map(_ => Named("<constant>", None, Constant[T](typeOf[Long], None)))
 
   // FIXME clean this (see parser.value)
   def termToValue[T](x: Term[T]) = x match {
