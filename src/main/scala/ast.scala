@@ -120,9 +120,16 @@ private[sqltyped] object Ast {
     case Create() => Nil
 
     case Select(projection, from, where, groupBy, orderBy, limit) =>
+      projection.collect { case Named(n, a, f@Function(_, _)) => input(f) }.flatten :::
       where.map(w => params(w.expr)).getOrElse(Nil) ::: 
       groupBy.flatMap(g => g.having.map(h => params(h.expr))).getOrElse(Nil) :::
       limitParams(limit)
+  }
+
+  def input(f: Function[Table]): List[Named[Table]] = f.params flatMap {
+    case Input() => Named("<farg>", None, Constant[Table](typeOf[AnyRef], ())) :: Nil // FIXME can be typed
+    case f2@Function(_, _) => input(f2)
+    case _ => Nil
   }
 
   def output(stmt: Statement[Table]): List[Named[Table]] = stmt match {

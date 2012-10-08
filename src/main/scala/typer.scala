@@ -14,7 +14,13 @@ case class TypedStatement(
   , stmt: Statement[Table]
   , uniqueConstraints: Map[Table, List[List[Column[Table]]]]
   , generatedKeyTypes: List[TypedValue]
-  , multipleResults: Boolean = true)
+  , numOfResults: NumOfResults.NumOfResults = NumOfResults.Many)
+
+
+object NumOfResults extends Enumeration {
+  type NumOfResults = Value
+  val ZeroOrOne, One, Many = Value
+}
 
 object DbSchema {
   def read(url: String, driver: String, username: String, password: String): ?[Schema] = try {
@@ -116,28 +122,38 @@ class Typer(schema: Schema, stmt: Ast.Statement[Table]) extends Ast.Resolved {
     } yield TypedStatement(in.flatten, out.flatten, stmt, ucs, key)
   }
 
-  def `a => a` = (schema: Schema, stmt: Statement, fname: String, params: List[Term]) =>
+  def `a => a` = (fname: String, params: List[Term]) =>
     if (params.length != 1) fail("Expected 1 parameter " + params)
     else 
       tpeOf(params.head) map { case (tpe, opt) => (tpe, isAggregate(fname) || opt) }
 
-  def `_ => ?`(tpe: Type, opt: Boolean) = 
-    (schema: Schema, stmt: Statement, fname: String, params: List[Term]) => (tpe, opt).ok
+  def `_ => opt `(tpe: Type) = (fname: String, params: List[Term]) => (tpe, true).ok
+  def `_ => `(tpe: Type) = (fname: String, params: List[Term]) => (tpe, false).ok
+  
+/*  case class f[A: Typed](a: A) {
+    def ->[B: Typed](b: B) = (fname: String, params: List[Term]) =>
+      if (params.length != 1) fail("Expected 1 parameter " + params)
+      else implicitly[Typed[B]].tpe(fname, params.head)
+  }
+
+  trait Typed[A] {
+    def tpe(fname: String, 
+  } */
 
   def isAggregate(fname: String): Boolean = aggregateFunctions.contains(fname)
 
   val aggregateFunctions = Map(
-      "avg"   -> `_ => ?`(typeOf[Double], true)
-    , "count" -> `_ => ?`(typeOf[Long], false)
-    , "min"   -> `a => a`
+      "avg"   -> `_ => opt `(typeOf[Double])  // f(_) -> option(long)
+    , "count" -> `_ => `(typeOf[Long])        // f(_) -> long
+    , "min"   -> `a => a`  // (f(a) -> a)   // "min"   :: f(a) -> a
     , "max"   -> `a => a`
     , "sum"   -> `a => a`
   )
 
   val scalarFunctions = Map(
       "abs"   -> `a => a`
-    , "lower" -> `_ => ?`(typeOf[String], true) // FIXME optionality depends on params
-    , "upper" -> `_ => ?`(typeOf[String], true)
+    , "lower" -> `a => a`
+    , "upper" -> `a => a`
   )
 
   val knownFunctions = aggregateFunctions ++ scalarFunctions
@@ -146,12 +162,13 @@ class Typer(schema: Schema, stmt: Ast.Statement[Table]) extends Ast.Resolved {
     case Constant(tpe, _)    => (tpe, false).ok
     case col@Column(_, _)    => inferColumnType(col)
     case Function(n, params) => inferReturnType(n, params)
+    case Input()             => (typeOf[AnyRef], false).ok
     case x                   => sys.error("Term " + x + " not supported")
   }
 
   def inferReturnType(fname: String, params: List[Term]) = 
     knownFunctions.get(fname.toLowerCase) match {
-      case Some(f) => f(schema, stmt, fname, params)
+      case Some(f) => f(fname, params)
       case None => (typeOf[AnyRef], true).ok
     }
 

@@ -2,6 +2,7 @@ package sqltyped
 
 import java.sql._
 import schemacrawler.schema.Schema
+import NumOfResults._
 
 case class Configuration[A, B](tables: A, columns: B)
 
@@ -79,7 +80,7 @@ object SqlMacro {
       schema   <- cachedSchema
       resolved <- Ast.resolveTables(stmt)
       typed    <- new Typer(schema, resolved).infer(useInputTags)
-      meta     <- Analyzer.refine(typed)
+      meta     <- new Analyzer(new Typer(schema, resolved)).refine(typed)
     } yield meta) fold (
       err => c.abort(c.enclosingPosition, err),
       meta => codeGen(meta, sql, c, keys)(config)
@@ -156,10 +157,11 @@ object SqlMacro {
       else returnTypeSigRecord
 
     def resultTypeSig =
-      if (keys && !meta.multipleResults) scalaType(meta.generatedKeyTypes.head)
+      if (keys && (meta.numOfResults != Many)) scalaType(meta.generatedKeyTypes.head)
       else if (keys) AppliedTypeTree(Ident(newTypeName("List")), List(scalaType(meta.generatedKeyTypes.head)))
-      else if (meta.output.length == 0) returnTypeSig.head
-      else AppliedTypeTree(Ident(newTypeName(if (meta.multipleResults) "List" else "Option")), returnTypeSig)
+      else if (meta.output.length == 0 || meta.numOfResults == One) returnTypeSig.head
+      else if (meta.numOfResults == ZeroOrOne) AppliedTypeTree(Ident(newTypeName("Option")), returnTypeSig)
+      else AppliedTypeTree(Ident(newTypeName("List")), returnTypeSig)
 
     def appendRow = 
       if (meta.output.length == 1) appendRowScalar 
@@ -219,11 +221,13 @@ object SqlMacro {
                     Block(List(Apply(Select(Ident(newTermName("rows")), newTermName("append")), appendRow)), 
                           Apply(Ident(newTermName("while$1")), List())), Literal(Constant(())))))
 
-    val returnRows = 
-      if (meta.multipleResults)
+    val returnRows =
+      if (meta.numOfResults == Many)
         Select(Ident(newTermName("rows")), newTermName("toList"))
-      else
+      else if (meta.numOfResults == ZeroOrOne)
         Select(Select(Ident(newTermName("rows")), newTermName("toList")), newTermName("headOption"))
+      else
+        Select(Select(Ident(newTermName("rows")), newTermName("toList")), newTermName("head"))
 
     def processStmt =
       if (meta.stmt.isQuery) {
@@ -231,7 +235,7 @@ object SqlMacro {
           Apply(Select(Select(Ident("sqltyped"), newTermName("SqlMacro")), newTermName("withResultSet")), List(Ident(newTermName("stmt")))), 
           List(Function(List(ValDef(Modifiers(Flag.PARAM), newTermName("rs"), TypeTree(), EmptyTree)), 
                         Block(readRows, returnRows))))
-      } else if (keys && meta.multipleResults) {
+      } else if (keys && meta.numOfResults == Many) {
         processStmtWithKeys(meta.generatedKeyTypes.head)
       } else if (keys) {
         Select(processStmtWithKeys(meta.generatedKeyTypes.head), newTermName("head"))

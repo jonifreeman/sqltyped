@@ -3,7 +3,8 @@
 * Generic
 
 - Make built-in function mapping extensible
-- A mechanism to tranform or combine records
+- Use generic name if not found in Columns
+- Examples how records can be used
 
 * MySQL
 
@@ -23,3 +24,4 @@
 - in operator
 - Infer function types from schema
 - Improve names of input arguments
+- A mechanism to tranform or combine records

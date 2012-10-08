@@ -1,21 +1,27 @@
 package sqltyped
 
 import Ast._
+import NumOfResults._
 
-object Analyzer extends Ast.Resolved {
-
+class Analyzer(typer: Typer) extends Ast.Resolved {
   def refine(stmt: TypedStatement): ?[TypedStatement] = 
-    (if (returnsMultipleResults(stmt)) stmt else stmt.copy(multipleResults = false)).ok
+    stmt.copy(numOfResults = analyzeResults(stmt)).ok
 
   /**
-   * Statement returns 0 - 1 results if,
+   * Statement returns 0 - 1 rows if,
    * 
    * - It is SQL insert
    * - It has no joins and it contains only 'and' expressions in its where clause and at least one of
    *   those targets unique constraint with '=' operator
    * - It has LIMIT 1 clause
+   *
+   * Statement returns 1 row if,
+   *
+   * - The projection contains aggregate function and there's no group by
    */
-  private def returnsMultipleResults(stmt: TypedStatement): Boolean = {
+  private def analyzeResults(stmt: TypedStatement): NumOfResults = {
+    import scala.math.Ordering.Implicits._
+
     def hasNoOrExprs(s: Select) = 
       s.where.map(w => !w.expr.find { case Or(_, _) => true; case _ => false }.isDefined).getOrElse(false)
 
@@ -40,22 +46,26 @@ object Analyzer extends Ast.Resolved {
       }
     } getOrElse false
 
+    def hasAggregate(projection: List[Named]) = 
+      projection collect { case Named(_, _, Function(n, _)) => n } exists (n => typer.isAggregate(n))
+
     stmt.stmt match {
+      case s@Select(projection, _, _, None, _, _) if hasAggregate(projection) => One
       case s@Select(_, from, where, _, _, _) => 
         if ((from.length == 1 && from.head.join.length == 0 && 
              where.isDefined && hasNoOrExprs(s) && 
              stmt.uniqueConstraints(s.from.head.table).exists(c => inWhereClause(s, c))) || 
             hasLimit1(s))
-          false
+          ZeroOrOne
         else 
-          true
-      case Insert(_, _, SelectedInput(s)) => returnsMultipleResults(stmt.copy(stmt = s))
-      case Insert(_, _, _) => false
-      case Update(_, _, _, _, _) => false
-      case Delete(_, _) => false
-      case Create() => false
+          Many
+      case Insert(_, _, SelectedInput(s)) => analyzeResults(stmt.copy(stmt = s))
+      case Insert(_, _, _) => One
+      case Update(_, _, _, _, _) => One
+      case Delete(_, _) => One
+      case Create() => One
       case Union(s1, s2, _, _) => 
-        returnsMultipleResults(stmt.copy(stmt = s1)) && returnsMultipleResults(stmt.copy(stmt = s2))
+        analyzeResults(stmt.copy(stmt = s1)) max analyzeResults(stmt.copy(stmt = s2))
     }
   }
 }

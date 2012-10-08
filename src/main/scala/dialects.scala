@@ -18,8 +18,8 @@ object GenericDialect extends Dialect {
 
 object MysqlDialect extends Dialect {
   val functions = Map(
-//      "datediff"  -> Func[(Date, Date), Int]
-//      "ifnull"   -> `(a,a) => a`
+//      "datediff"  -> f(date, date) -> int
+//      "ifnull"    -> f(a, a) -> a
 //    , "coalesce" -> `(a,a) => a`
   )
 
