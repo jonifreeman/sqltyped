@@ -188,38 +188,23 @@ class Typer(schema: Schema, stmt: Ast.Statement[Table]) extends Ast.Resolved {
     } yield TypedStatement(in.flatten, out.flatten, stmt, ucs, key)
   }
 
-  def `a => a` = (fname: String, params: List[Term]) =>
-    if (params.length != 1) fail("Expected 1 parameter " + params)
-    else 
-      tpeOf(params.head) map { case (tpe, opt) => (tpe, isAggregate(fname) || opt) }
-
-  def `_ => opt `(tpe: Type) = (fname: String, params: List[Term]) => (tpe, true).ok
-  def `_ => `(tpe: Type) = (fname: String, params: List[Term]) => (tpe, false).ok
-  
-/*  case class f[A: Typed](a: A) {
-    def ->[B: Typed](b: B) = (fname: String, params: List[Term]) =>
-      if (params.length != 1) fail("Expected 1 parameter " + params)
-      else implicitly[Typed[B]].tpe(fname, params.head)
-  }
-
-  trait Typed[A] {
-    def tpe(fname: String, 
-  } */
-
   def isAggregate(fname: String): Boolean = aggregateFunctions.contains(fname)
 
+  val dsl = new TypeSigDSL(this)
+  import dsl._
+
   val aggregateFunctions = Map(
-      "avg"   -> `_ => opt `(typeOf[Double])  // f(_) -> option(long)
-    , "count" -> `_ => `(typeOf[Long])        // f(_) -> long
-    , "min"   -> `a => a`  // (f(a) -> a)   // "min"   :: f(a) -> a
-    , "max"   -> `a => a`
-    , "sum"   -> `a => a`
+      "avg"   -> (f(a) -> option(double))
+    , "count" -> (f(a) -> long)
+    , "min"   -> (f(a) -> a)
+    , "max"   -> (f(a) -> a)
+    , "sum"   -> (f(a) -> a)
   )
 
   val scalarFunctions = Map(
-      "abs"   -> `a => a`
-    , "lower" -> `a => a`
-    , "upper" -> `a => a`
+      "abs"   -> (f(a) -> a)
+    , "lower" -> (f(a) -> a)
+    , "upper" -> (f(a) -> a)
   )
 
   val knownFunctions = aggregateFunctions ++ scalarFunctions

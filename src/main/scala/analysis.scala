@@ -47,7 +47,7 @@ class Analyzer(typer: Typer) extends Ast.Resolved {
     } getOrElse false
 
     def hasAggregate(projection: List[Named]) = 
-      projection collect { case Named(_, _, Function(n, _)) => n } exists (n => typer.isAggregate(n))
+      projection collect { case Named(_, _, Function(n, _)) => n } exists typer.isAggregate
 
     stmt.stmt match {
       case s@Select(projection, _, _, None, _, _) if hasAggregate(projection) => One
