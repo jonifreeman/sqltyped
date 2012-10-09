@@ -199,15 +199,18 @@ class Typer(schema: Schema, stmt: Ast.Statement[Table]) extends Ast.Resolved {
     , "min"   -> (f(a) -> a)
     , "max"   -> (f(a) -> a)
     , "sum"   -> (f(a) -> a)
-  )
+  ) ++ extraAggregateFunctions
 
   val scalarFunctions = Map(
       "abs"   -> (f(a) -> a)
     , "lower" -> (f(a) -> a)
     , "upper" -> (f(a) -> a)
-  )
+  ) ++ extraScalarFunctions
 
   val knownFunctions = aggregateFunctions ++ scalarFunctions
+
+  def extraAggregateFunctions: Map[String, (String, List[Term]) => ?[(Type, Boolean)]] = Map()
+  def extraScalarFunctions: Map[String, (String, List[Term]) => ?[(Type, Boolean)]] = Map()
 
   def tpeOf(e: Term): ?[(Type, Boolean)] = e match {
     case Constant(tpe, _)    => (tpe, false).ok

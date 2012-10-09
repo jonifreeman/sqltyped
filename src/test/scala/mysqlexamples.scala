@@ -14,11 +14,11 @@ class MySQLExamples extends Example {
   }
 
   test("Functions") {
-//    val date = sql("select datediff(resigned, '2010-10-10') from job_history where resigned IS NOT NULL").apply.head
-//    date.map(d => math.abs(d)) should equal(Some(2301))
+    val date = sql("select datediff(resigned, '2010-10-10') from job_history where resigned IS NOT NULL").apply.head
+    date.map(d => math.abs(d)) === Some(2301)
 
 //    val resignedQ = sql("select name from job_history where datediff(resigned, ?) < ?")
-//    resignedQ.apply(date("2004-08-13 11:00:00.0"), 60) equal(List("Enron"))
+//    resignedQ.apply(date("2004-08-13 11:00:00.0"), 60) === List("Enron")
 
 /*
     sql("select coalesce(resigned, '1990-01-01 12:00:00') from job_history order by resigned").apply should

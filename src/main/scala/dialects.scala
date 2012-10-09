@@ -1,8 +1,10 @@
 package sqltyped
 
+import schemacrawler.schema.Schema
+
 trait Dialect {
-//  type T <: Typer
   def parser: SqlParser
+  def typer(schema: Schema, stmt: Ast.Resolved.Statement): Typer // FIXME cleanup, remove params
 }
 
 object Dialect {
@@ -13,17 +15,22 @@ object Dialect {
 }
 
 object GenericDialect extends Dialect {
-  def parser = new SqlParser {}
+  val parser = new SqlParser {}
+  def typer(schema: Schema, stmt: Ast.Resolved.Statement) = new Typer(schema, stmt)
 }
 
 object MysqlDialect extends Dialect {
-  val functions = Map(
-//      "datediff"  -> f(date, date) -> int
+  def typer(schema: Schema, stmt: Ast.Resolved.Statement) = new Typer(schema, stmt) {
+    import dsl._
+
+    override def extraScalarFunctions = Map(
+      "datediff"  -> (f2(date, date) -> option(int))
 //      "ifnull"    -> f(a, a) -> a
 //    , "coalesce" -> `(a,a) => a`
-  )
+    )
+  }
 
-  def parser = MysqlParser
+  val parser = MysqlParser
 
   object MysqlParser extends SqlParser {
     import scala.reflect.runtime.universe.typeOf

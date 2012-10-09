@@ -21,6 +21,7 @@ private[sqltyped] object Ast {
     type Where     = Ast.Where[Option[String]]
     type Limit     = Ast.Limit[Option[String]]
   }
+  object Unresolved extends Unresolved
 
   // Types used for AST when references to tables are resolved 
   trait Resolved {
@@ -38,6 +39,7 @@ private[sqltyped] object Ast {
     type Where     = Ast.Where[Table]
     type Limit     = Ast.Limit[Table]
   }
+  object Resolved extends Resolved
 
   sealed trait Term[T]
   sealed trait Value[T] extends Term[T]

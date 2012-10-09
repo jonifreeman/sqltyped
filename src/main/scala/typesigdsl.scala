@@ -1,12 +1,19 @@
 package sqltyped
 
 import scala.reflect.runtime.universe.{Type, typeOf}
+import Ast.Resolved._
 
-class TypeSigDSL(typer: Typer) extends Ast.Resolved {
+class TypeSigDSL(typer: Typer) {
   case class f[A: Typed](a: A) {
-    def ->[B: Typed](b: B) = (fname: String, params: List[Term]) =>
+    def ->[R: Typed](r: R) = (fname: String, params: List[Term]) =>
       if (params.length != 1) fail("Expected 1 parameter " + params)
-      else implicitly[Typed[B]].tpe(fname, params.head) 
+      else implicitly[Typed[R]].tpe(fname, params.head) 
+  }
+
+  case class f2[A: Typed, B: Typed](a: A, b: B) {
+    def ->[R: Typed](r: R) = (fname: String, params: List[Term]) =>
+      if (params.length != 2) fail("Expected 2 parameters " + params)
+      else implicitly[Typed[R]].tpe(fname, params.head) 
   }
 
   trait Typed[A] {
@@ -22,6 +29,7 @@ class TypeSigDSL(typer: Typer) extends Ast.Resolved {
   object int
   object long
   object double
+  object date
   case class option[A: Typed](a: A)
 
   implicit def optionTyped[A: Typed]: Typed[option[A]] = new Typed[option[A]] {
@@ -39,6 +47,7 @@ class TypeSigDSL(typer: Typer) extends Ast.Resolved {
   implicit def intTyped: Typed[int.type] = new Const[int.type](typeOf[Int])
   implicit def longTyped: Typed[long.type] = new Const[long.type](typeOf[Long])
   implicit def doubleTyped: Typed[double.type] = new Const[double.type](typeOf[Double])
+  implicit def dateTyped: Typed[date.type] = new Const[date.type](typeOf[java.util.Date])
 
   class Const[A](tpe: Type) extends Typed[A] {
     def tpe(fname: String, e: Term) = (tpe, false).ok
