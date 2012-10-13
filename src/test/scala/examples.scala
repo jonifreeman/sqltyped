@@ -8,9 +8,7 @@ trait Example extends FunSuite with BeforeAndAfterEach with matchers.ShouldMatch
   Class.forName("com.mysql.jdbc.Driver")
 
   object Tables { trait person; trait job_history }
-  object Columns { object name; object age; object salary; object employer; object started
-                   object resigned; object avg; object count; object person; object job;
-                   object img; object id }
+  object Columns { object name; object age; object salary; object count; object avg }
 
   implicit val c = Configuration(Tables, Columns)
   implicit def conn = DriverManager.getConnection("jdbc:mysql://localhost:3306/sqltyped", "root", "")

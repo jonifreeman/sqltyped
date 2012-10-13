@@ -24,7 +24,7 @@ Start console: ```sbt test:console```
     import sqltyped._
     Class.forName("com.mysql.jdbc.Driver")
     object Tables { trait person; trait job_history }
-    object Columns { object name; object age; object salary; object employer; object started; object resigned; object avg; object count }
+    object Columns { object name; object age; object salary; }
     implicit val c = Configuration(Tables, Columns)
     implicit def conn = DriverManager.getConnection("jdbc:mysql://localhost:3306/sqltyped", "root", "")
     import Tables._

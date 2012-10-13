@@ -125,7 +125,12 @@ object SqlMacro {
       ) getOrElse baseType
     }
 
-    def colKey(name: String) = Select(Select(config.tree, "columns"), name)
+    def colKey(name: String) = 
+      try {
+        c.typeCheck(Select(Select(config.tree, "columns"), name))
+        Select(Select(config.tree, "columns"), name)
+      } catch { case c.TypeError(_, _) => Select(config.tree, "columns") }
+
     def tagType(tag: String) = SelectFromTypeTree(Select(config.tree, "tables"), tag)
     def stmtSetterName(x: TypedValue) = "set" + javaName(x)
     def rsGetterName(x: TypedValue)   = "get" + javaName(x)
