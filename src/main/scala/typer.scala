@@ -213,11 +213,12 @@ class Typer(schema: Schema, stmt: Ast.Statement[Table]) extends Ast.Resolved {
   def extraScalarFunctions: Map[String, (String, List[Term]) => ?[(Type, Boolean)]] = Map()
 
   def tpeOf(e: Term): ?[(Type, Boolean)] = e match {
-    case Constant(tpe, _)    => (tpe, false).ok
-    case col@Column(_, _)    => inferColumnType(col)
-    case Function(n, params) => inferReturnType(n, params)
-    case Input()             => (typeOf[AnyRef], false).ok
-    case x                   => sys.error("Term " + x + " not supported")
+    case Constant(tpe, x) if x == null => (tpe, true).ok
+    case Constant(tpe, _)              => (tpe, false).ok
+    case col@Column(_, _)              => inferColumnType(col)
+    case Function(n, params)           => inferReturnType(n, params)
+    case Input()                       => (typeOf[AnyRef], false).ok
+    case x                             => sys.error("Term " + x + " not supported")
   }
 
   def inferReturnType(fname: String, params: List[Term]) = 

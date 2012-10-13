@@ -31,7 +31,7 @@ trait Example extends FunSuite with BeforeAndAfterEach with matchers.ShouldMatch
   }
 
   def date(s: String) = 
-    new java.sql.Timestamp(new java.text.SimpleDateFormat("yyyy-MM-dd hh:mm:ss.S").parse(s).getTime)
+    new java.sql.Timestamp(new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss.S").parse(s).getTime)
 
   def year(y: Int) = date(y + "-01-01 00:00:00.0")
 

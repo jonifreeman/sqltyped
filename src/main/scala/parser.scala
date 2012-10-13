@@ -102,6 +102,7 @@ trait SqlParser extends RegexParsers with Ast.Unresolved {
 
   lazy val simpleValue: Parser[Value] = (
       boolean    ^^ constB
+    | nullLit    ^^^ constNull
     | stringLit  ^^ constS
     | numericLit ^^ (n => if (n.contains(".")) constD(n.toDouble) else constL(n.toLong))
     | function
@@ -136,6 +137,8 @@ trait SqlParser extends RegexParsers with Ast.Unresolved {
   lazy val arithParens = "(" ~> arith <~ ")"
 
   lazy val boolean = ("true".i ^^^ true | "false".i ^^^ false)
+
+  lazy val nullLit = "null".i
 
   lazy val orderBy = "order".i ~> "by".i ~> repsep(column, ",") ~ opt("asc".i ^^^ Asc | "desc".i ^^^ Desc) ^^ {
     case cols ~ order => OrderBy(cols, order)
@@ -174,6 +177,7 @@ trait SqlParser extends RegexParsers with Ast.Unresolved {
   def constS(s: String)        = const(typeOf[String], s)
   def constD(d: Double)        = const(typeOf[Double], d)
   def constL(l: Long)          = const(typeOf[Long], l)
+  def constNull                = const(typeOf[AnyRef], null)
   def const(tpe: Type, x: Any) = Constant[Option[String]](tpe, x)
 
   implicit class KeywordOps(kw: String) {
