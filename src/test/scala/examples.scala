@@ -6,12 +6,14 @@ import shapeless._
 
 trait Example extends FunSuite with BeforeAndAfterEach with matchers.ShouldMatchers {
   Class.forName("com.mysql.jdbc.Driver")
+//  Class.forName("org.postgresql.Driver")
 
   object Tables { trait person; trait job_history }
   object Columns { object name; object age; object salary; object count; object avg }
 
   implicit val c = Configuration(Tables, Columns)
-  implicit def conn = DriverManager.getConnection("jdbc:mysql://localhost:3306/sqltyped", "root", "")
+  implicit val conn = DriverManager.getConnection("jdbc:mysql://localhost:3306/sqltyped", "root", "")
+//  implicit val conn = DriverManager.getConnection("jdbc:postgresql://localhost/sqltyped", "sqltypedtest", "secret")
 
   override def beforeEach() {
     val newPerson  = sql("insert into person(id, name, age, salary) values (?, ?, ?, ?)")

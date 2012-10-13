@@ -20,10 +20,15 @@ libraryDependencies ++= Seq(
   "org.scala-lang" % "scala-reflect" % "2.10.0-M6",
   "net.sourceforge.schemacrawler" % "schemacrawler" % "8.17",
   "org.scalatest" % "scalatest_2.10.0-M6" % "1.9-2.10.0-M6-B2" % "test",
-  "mysql" % "mysql-connector-java" % "5.1.21" % "test"
+  "mysql" % "mysql-connector-java" % "5.1.21" % "test",
+  "postgresql" % "postgresql" % "9.1-901.jdbc4" % "test"
 )
 
 initialize ~= { _ =>
+//  System.setProperty("sqltyped.url", "jdbc:postgresql://localhost/sqltyped")
+//  System.setProperty("sqltyped.driver", "org.postgresql.Driver")
+//  System.setProperty("sqltyped.username", "sqltypedtest")
+//  System.setProperty("sqltyped.password", "secret")
   System.setProperty("sqltyped.url", "jdbc:mysql://localhost:3306/sqltyped")
   System.setProperty("sqltyped.driver", "com.mysql.jdbc.Driver")
   System.setProperty("sqltyped.username", "root")

@@ -37,7 +37,7 @@ object DbSchema {
     options.setSchemaInclusionRule(new InclusionRule(schemaName, ""))
     val conn = getConnection(url, username, password)
     val database = SchemaCrawlerUtility.getDatabase(conn, options)
-    database.getSchema(schemaName).ok
+    Option(database.getSchema(schemaName)).orFail("Can't read schema '" + schemaName + "'")
   } catch {
     case e: Exception => fail(e.getMessage)
   }

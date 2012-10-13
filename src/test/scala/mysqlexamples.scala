@@ -55,3 +55,4 @@ class MySQLExamples extends Example {
       Some(("tommy", 37, 2000))
   }
 }
+

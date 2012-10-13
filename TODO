@@ -4,14 +4,9 @@
 
 - Examples how records can be used
 
-* PostgreSQL
-
-- run tests
-
 
 ======== 0.2 ========
 
-- apply(10) vs (10) ?
 - Generate meta types http://stackoverflow.com/questions/12295971/will-it-be-possible-to-generate-several-top-level-classes-with-one-macro-invocat
 - runtime querybuilding
 - in operator
