@@ -21,8 +21,10 @@ trait SqlParser extends RegexParsers with Ast.Unresolved {
     case s1 ~ _ ~ s2 ~ o ~ l => Union(s1, s2, o, l)
   }
 
-  lazy val insertStmt = insert ~ "into".i ~ table ~ opt(colNames) ~ (listValues | selectValues) ^^ {
-    case _ ~ _ ~ t ~ cols ~ vals => Insert(t, cols, vals)
+  lazy val insertSyntax = insert ~> "into".i ~> table ~ opt(colNames) ~ (listValues | selectValues)
+
+  lazy val insertStmt: Parser[Statement] = insertSyntax ^^ {
+    case t ~ cols ~ vals => Insert(t, cols, vals)
   }
 
   lazy val colNames = "(" ~> repsep(ident, ",") <~ ")"

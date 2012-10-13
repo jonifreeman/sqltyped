@@ -66,6 +66,8 @@ class Analyzer(typer: Typer) extends Ast.Resolved {
       case Create() => One
       case Union(s1, s2, _, _) => 
         analyzeResults(stmt.copy(stmt = s1)) max analyzeResults(stmt.copy(stmt = s2))
+      case Composed(s1, s2) => 
+        analyzeResults(stmt.copy(stmt = s1)) max analyzeResults(stmt.copy(stmt = s2))
     }
   }
 }

@@ -41,6 +41,17 @@ class MySQLExamples extends Example {
     val addPerson = sql("insert ignore into person(id, name, age, salary) values (?, ?, ?, ?)")
     val updateId  = sql("update ignore person set id=? where id=?")
     
-    addPerson.apply(1, "tom", 40, 1000) === 0
+    addPerson(1, "tom", 40, 1000) === 0
+  }
+
+  test("ON DUPLICATE KEY") {
+    val addOrUpdate = sql(""" 
+          insert into person(id, name, age, salary) values (?, ?, ?, ?)
+          on duplicate key update name=?, age=age+1, salary=?
+    """)
+
+    addOrUpdate(1, "tom", 40, 1000, "tommy", 2000)
+    sql("select name, age, salary from person where id=1").apply.tuples === 
+      Some(("tommy", 37, 2000))
   }
 }

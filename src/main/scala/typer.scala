@@ -64,6 +64,9 @@ object Variables extends Ast.Resolved {
     case Union(left, right, orderBy, limit) => 
       input(schema, left) ::: input(schema, right) ::: limitParams(limit)
 
+    case Composed(left, right) => 
+      input(schema, left) ::: input(schema, right)
+
     case Update(tables, set, where, orderBy, limit) => 
       set.collect { case (col, Input()) => Named(col.name, None, col) } :::
       where.map(w => params(w.expr)).getOrElse(Nil) ::: 
@@ -88,6 +91,7 @@ object Variables extends Ast.Resolved {
     case Delete(_, _) => Nil
     case Insert(_, _, _) => Nil
     case Union(left, _, _, _) => output(left)
+    case Composed(left, right) => output(left) ::: output(right)
     case Update(_, _, _, _, _) => Nil
     case Create() => Nil
     case Select(projection, _, _, _, _, _) => projection

@@ -20,12 +20,12 @@ trait Example extends FunSuite with BeforeAndAfterEach with matchers.ShouldMatch
     sql("delete from job_history").apply
     sql("delete from person").apply
 
-    newPerson.apply(1, "joe", 36, 9500)
-    newPerson.apply(2, "moe", 14, 8000)
+    newPerson(1, "joe", 36, 9500)
+    newPerson(2, "moe", 14, 8000)
 
-    jobHistory.apply(1, "Enron", date("2002-08-02 08:00:00.0"), Some(date("2004-06-22 18:00:00.0")))
-    jobHistory.apply(1, "IBM", date("2004-07-13 11:00:00.0"), None)
-    jobHistory.apply(2, "IBM", date("2005-08-10 11:00:00.0"), None)
+    jobHistory(1, "Enron", date("2002-08-02 08:00:00.0"), Some(date("2004-06-22 18:00:00.0")))
+    jobHistory(1, "IBM", date("2004-07-13 11:00:00.0"), None)
+    jobHistory(2, "IBM", date("2005-08-10 11:00:00.0"), None)
   }
 
   def date(s: String) = 

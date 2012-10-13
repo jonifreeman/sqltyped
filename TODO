@@ -4,10 +4,6 @@
 
 - Examples how records can be used
 
-* MySQL
-
-- ON DUPLICATE KEY
-
 * PostgreSQL
 
 - run tests

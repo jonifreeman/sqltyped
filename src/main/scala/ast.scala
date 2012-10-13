@@ -109,6 +109,7 @@ private[sqltyped] object Ast {
     case Create() => Create[Table]().ok
     case i@Insert(_, _, _) => resolveInsert(i)()
     case u@Union(_, _, _, _) => resolveUnion(u)()
+    case c@Composed(_, _) => resolveComposed(c)()
   }
 
   private class ResolveEnv(env: List[Table]) {
@@ -216,6 +217,14 @@ private[sqltyped] object Ast {
     } yield Union(le, ri, o, l)
   }
 
+  private def resolveComposed(c: Composed[Option[String]])(env: List[Table] = c.tables): ?[Composed[Table]] = {
+    val r = new ResolveEnv(env)
+    for {
+      l <- resolveTables(c.left)
+      r <- resolveTables(c.right)
+    } yield Composed(l, r)
+  }
+
   private def resolveDelete(d: Delete[Option[String]])(env: List[Table] = d.tables): ?[Delete[Table]] = {
     val r = new ResolveEnv(env)
     for {
@@ -273,6 +282,11 @@ private[sqltyped] object Ast {
 
   case class Create[T]() extends Statement[T] {
     def tables = Nil
+  }
+
+  case class Composed[T](left: Statement[T], right: Statement[T]) extends Statement[T] {
+    def tables = left.tables ::: right.tables
+    override def isQuery = left.isQuery || right.isQuery
   }
 
   case class Select[T](projection: List[Named[T]], 
