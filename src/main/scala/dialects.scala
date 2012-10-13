@@ -1,6 +1,7 @@
 package sqltyped
 
 import schemacrawler.schema.Schema
+import scala.reflect.runtime.universe.Type
 
 trait Dialect {
   def parser: SqlParser
@@ -24,10 +25,17 @@ object MysqlDialect extends Dialect {
     import dsl._
 
     override def extraScalarFunctions = Map(
-      "datediff"  -> (f2(date, date) -> option(int))
-//      "ifnull"    -> f(a, a) -> a
-//    , "coalesce" -> `(a,a) => a`
+        "datediff"  -> (f2(date, date) -> option(int))
+      , "ifnull"    -> ifnull _
+      , "coalesce"  -> ifnull _
     )
+
+    def ifnull(fname: String, params: List[Term]): ?[(Type, Boolean)] = 
+      if (params.length != 2) fail("Expected 2 parameters " + params)
+      else for {
+        (tpel, _) <- tpeOf(params(0))
+        (_, optr) <- tpeOf(params(1))
+      } yield (tpel, optr)
   }
 
   val parser = MysqlParser

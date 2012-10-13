@@ -2,13 +2,11 @@
 
 * Generic
 
-- Make built-in function mapping extensible
 - Use generic name if not found in Columns
 - Examples how records can be used
 
 * MySQL
 
-- IFNULL
 - IGNORE, insert + update
 - ON DUPLICATE KEY
 
@@ -21,6 +19,7 @@
 
 - apply(10) vs (10) ?
 - Generate meta types http://stackoverflow.com/questions/12295971/will-it-be-possible-to-generate-several-top-level-classes-with-one-macro-invocat
+- runtime querybuilding
 - in operator
 - Infer function types from schema
 - Improve names of input arguments
