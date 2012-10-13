@@ -36,4 +36,11 @@ class MySQLExamples extends Example {
     sql("select coalesce(resigned, ?) from job_history order by resigned").apply(date("1990-01-01 12:00:00.0")) ===
       List(date("1990-01-01 12:00:00.0"), date("1990-01-01 12:00:00.0"), date("2004-06-22 18:00:00.0"))
   }
+
+  test("Insert/update ignore") {
+    val addPerson = sql("insert ignore into person(id, name, age, salary) values (?, ?, ?, ?)")
+    val updateId  = sql("update ignore person set id=? where id=?")
+    
+    addPerson.apply(1, "tom", 40, 1000) === 0
+  }
 }

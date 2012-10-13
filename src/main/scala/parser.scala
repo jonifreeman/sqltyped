@@ -21,7 +21,7 @@ trait SqlParser extends RegexParsers with Ast.Unresolved {
     case s1 ~ _ ~ s2 ~ o ~ l => Union(s1, s2, o, l)
   }
 
-  lazy val insertStmt = "insert".i ~ "into".i ~ table ~ opt(colNames) ~ (listValues | selectValues) ^^ {
+  lazy val insertStmt = insert ~ "into".i ~ table ~ opt(colNames) ~ (listValues | selectValues) ^^ {
     case _ ~ _ ~ t ~ cols ~ vals => Insert(t, cols, vals)
   }
 
@@ -31,9 +31,12 @@ trait SqlParser extends RegexParsers with Ast.Unresolved {
 
   lazy val selectValues = selectStmt ^^ SelectedInput.apply
 
-  lazy val updateStmt = "update".i ~ repsep(table, ",") ~ "set".i ~ repsep(assignment, ",") ~ opt(where) ~ opt(orderBy) ~ opt(limit) ^^ {
+  lazy val updateStmt = update ~ repsep(table, ",") ~ "set".i ~ repsep(assignment, ",") ~ opt(where) ~ opt(orderBy) ~ opt(limit) ^^ {
     case _ ~ t ~ _ ~ a ~ w ~ o ~ l => Update(t, a, w, o, l)
   }
+
+  def insert = "insert".i
+  def update = "update".i
 
   lazy val assignment = column ~ "=" ~ term ^^ { case c ~ _ ~ t => (c, t) }
 

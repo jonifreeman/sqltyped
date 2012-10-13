@@ -6,7 +6,6 @@
 
 * MySQL
 
-- IGNORE, insert + update
 - ON DUPLICATE KEY
 
 * PostgreSQL

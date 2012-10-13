@@ -43,6 +43,9 @@ object MysqlDialect extends Dialect {
   object MysqlParser extends SqlParser {
     import scala.reflect.runtime.universe.typeOf
 
+    override def insert = "insert".i <~ opt("ignore".i)
+    override def update = "update".i <~ opt("ignore".i)
+    
     override def extraValues = MysqlParser.interval
 
     lazy val interval = "interval".i ~> numericLit ~ timeUnit ^^ { case x ~ _ => const(typeOf[java.util.Date], x) }
