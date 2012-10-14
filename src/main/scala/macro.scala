@@ -129,7 +129,13 @@ object SqlMacro {
       try {
         c.typeCheck(Select(Select(config.tree, "columns"), name))
         Select(Select(config.tree, "columns"), name)
-      } catch { case c.TypeError(_, _) => Select(config.tree, "columns") }
+      } catch { case c.TypeError(_, _) => Literal(Constant(name)) }
+
+    def colKeyType(name: String) = 
+      try {
+        c.typeCheck(Select(Select(config.tree, "columns"), name))
+        SingletonTypeTree(Select(Select(config.tree, "columns"), name))
+      } catch { case c.TypeError(_, _) => Ident(newTypeName("String")) }
 
     def tagType(tag: String) = SelectFromTypeTree(Select(config.tree, "tables"), tag)
     def stmtSetterName(x: TypedValue) = "set" + javaName(x)
@@ -177,8 +183,7 @@ object SqlMacro {
         Ident(c.mirror.staticClass("shapeless.$colon$colon")), 
         List(AppliedTypeTree(
           Ident(c.mirror.staticClass("scala.Tuple2")), 
-          List(SingletonTypeTree(colKey(x.name)), 
-               possiblyOptional(x, scalaType(x)))), sig)
+          List(colKeyType(x.name), possiblyOptional(x, scalaType(x)))), sig)
       )
     })
 

@@ -21,6 +21,13 @@ package object sqltyped {
 
   def tag[U] = TypeOperators.tag[U]
 
+  def keyAsString(k: Any) = 
+    if (k.getClass == classOf[String]) k.toString
+    else {
+      val parts = k.getClass.getName.split("\\$")
+      parts(parts.length - 1)
+    }
+
   // Internally ? is used to denote computations that may fail.
   private[sqltyped] type ?[A] = Either[String, A]
   private[sqltyped] def ok[A](a: A): ?[A] = Right(a)
