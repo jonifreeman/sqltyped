@@ -4,7 +4,7 @@ name := "sqltyped"
 
 version := "0.1-SNAPSHOT"
 
-scalaVersion := "2.10.0-M6"
+scalaVersion := "2.10.0-RC1"
 
 scalacOptions ++= Seq("-unchecked", "-deprecation")
 
@@ -16,10 +16,11 @@ resolvers ++= Seq(
 )
 
 libraryDependencies ++= Seq(
-  "com.chuusai" % "shapeless_2.10.0-M6" % "1.2.3-SNAPSHOT",
-  "org.scala-lang" % "scala-reflect" % "2.10.0-M6",
+  "com.chuusai" % "shapeless_2.10.0-RC1" % "1.2.3-SNAPSHOT",
+  "org.scala-lang" % "scala-reflect" % "2.10.0-RC1",
   "net.sourceforge.schemacrawler" % "schemacrawler" % "8.17",
-  "org.scalatest" % "scalatest_2.10.0-M6" % "1.9-2.10.0-M6-B2" % "test",
+  "org.scalatest" % "scalatest_2.10.0-RC1" % "2.0.M4-2.10.0-RC1-B1" % "test",
+  "org.scala-lang" % "scala-actors" % "2.10.0-RC1" % "test",
   "mysql" % "mysql-connector-java" % "5.1.21" % "test",
   "postgresql" % "postgresql" % "9.1-901.jdbc4" % "test"
 )

@@ -8,7 +8,7 @@ case class Configuration[A, B](tables: A, columns: B)
 
 object SqlMacro {
   import shapeless._
-  import scala.reflect.makro._
+  import scala.reflect.macros._
 
   private val schemaCache = new java.util.WeakHashMap[Context#Run, ?[Schema]]()
 
@@ -37,24 +37,28 @@ object SqlMacro {
       stmt.close
     }
 
-  def sqlImpl[A: c.TypeTag, B: c.TypeTag](c: Context)
-                                         (s: c.Expr[String])
-                                         (config: c.Expr[Configuration[A, B]]): c.Expr[Any] = 
+  def sqlImpl[A: c.WeakTypeTag, B: c.WeakTypeTag]
+      (c: Context)
+      (s: c.Expr[String])
+      (config: c.Expr[Configuration[A, B]]): c.Expr[Any] = 
     sqlImpl0(c, useInputTags = false, keys = false)(s)(config)
 
-  def sqltImpl[A: c.TypeTag, B: c.TypeTag](c: Context)
-                                          (s: c.Expr[String])
-                                          (config: c.Expr[Configuration[A, B]]): c.Expr[Any] = 
+  def sqltImpl[A: c.WeakTypeTag, B: c.WeakTypeTag]
+      (c: Context)
+      (s: c.Expr[String])
+      (config: c.Expr[Configuration[A, B]]): c.Expr[Any] = 
     sqlImpl0(c, useInputTags = true, keys = false)(s)(config)
 
-  def sqlkImpl[A: c.TypeTag, B: c.TypeTag](c: Context)
-                                          (s: c.Expr[String])
-                                          (config: c.Expr[Configuration[A, B]]): c.Expr[Any] = 
+  def sqlkImpl[A: c.WeakTypeTag, B: c.WeakTypeTag]
+      (c: Context)
+      (s: c.Expr[String])
+      (config: c.Expr[Configuration[A, B]]): c.Expr[Any] = 
     sqlImpl0(c, useInputTags = false, keys = true)(s)(config)
 
-  def sqlImpl0[A: c.TypeTag, B: c.TypeTag](c: Context, useInputTags: Boolean, keys: Boolean)
-                                          (s: c.Expr[String])
-                                          (config: c.Expr[Configuration[A, B]]): c.Expr[Any] = {
+  def sqlImpl0[A: c.WeakTypeTag, B: c.WeakTypeTag]
+      (c: Context, useInputTags: Boolean, keys: Boolean)
+      (s: c.Expr[String])
+      (config: c.Expr[Configuration[A, B]]): c.Expr[Any] = {
 
     import c.universe._
 
@@ -67,10 +71,10 @@ object SqlMacro {
     val dialect = Dialect.choose(driver)
                                             
     val cachedSchema = {
-      val cached = schemaCache.get(c.currentRun)
+      val cached = schemaCache.get(c.enclosingRun)
       if (cached != null) cached else {
         val s = DbSchema.read(url, driver, username, password)
-        schemaCache.put(c.currentRun, s)
+        schemaCache.put(c.enclosingRun, s)
         s 
       }
     }
@@ -87,7 +91,7 @@ object SqlMacro {
     )
   }
 
-  def codeGen[A: c.TypeTag, B: c.TypeTag]
+  def codeGen[A: c.WeakTypeTag, B: c.WeakTypeTag]
     (meta: TypedStatement, sql: String, c: Context, keys: Boolean)
     (config: c.Expr[Configuration[A, B]]): c.Expr[Any] = {
 
@@ -126,16 +130,14 @@ object SqlMacro {
     }
 
     def colKey(name: String) = 
-      try {
-        c.typeCheck(Select(Select(config.tree, "columns"), name))
-        Select(Select(config.tree, "columns"), name)
-      } catch { case c.TypeError(_, _) => Literal(Constant(name)) }
+      if (c.typeCheck(Select(Select(config.tree, "columns"), name), silent = true) == EmptyTree)
+        Literal(Constant(name))
+      else Select(Select(config.tree, "columns"), name)
 
     def colKeyType(name: String) = 
-      try {
-        c.typeCheck(Select(Select(config.tree, "columns"), name))
-        SingletonTypeTree(Select(Select(config.tree, "columns"), name))
-      } catch { case c.TypeError(_, _) => Ident(newTypeName("String")) }
+      if (c.typeCheck(Select(Select(config.tree, "columns"), name), silent = true) == EmptyTree)
+        Ident(newTypeName("String"))
+      else SingletonTypeTree(Select(Select(config.tree, "columns"), name))
 
     def tagType(tag: String) = SelectFromTypeTree(Select(config.tree, "tables"), tag)
     def stmtSetterName(x: TypedValue) = "set" + javaName(x)
