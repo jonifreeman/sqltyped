@@ -1,5 +1,7 @@
 ======== 0.1 ========
 
+- record to case class
+- test: table with all column types
 
 ======== 0.2 ========
 
@@ -8,4 +10,4 @@
 - in operator
 - Infer function types from schema
 - Improve names of input arguments
-- A mechanism to tranform or combine records
+- A mechanism to merge, tranform or combine records

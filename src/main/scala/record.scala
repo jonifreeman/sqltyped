@@ -7,6 +7,8 @@ final class AssocHListOps[L <: HList](l: L) {
 
   def get[K](k: K)(implicit lookup0: Lookup[L, K]): lookup0.Out = lookup[K]
 
+  def removeKey[K](k: K)(implicit remove: RemoveKey[L, K]): remove.Out = remove(l)
+
   def values(implicit valueProj: ValueProjection[L]): valueProj.Out = valueProj(l)
   def values0[Out <: HList](implicit valueProj: ValueProjectionAux[L, Out]): Out = valueProj(l)
 }
@@ -29,7 +31,7 @@ final class OptionOps[L <: HList](o: Option[L]) {
        tupler: TuplerAux[Out0, Out]) = o.map(_.values0.tupled)
 }
 
-@annotation.implicitNotFound(msg = "No such column ${K}")
+@annotation.implicitNotFound(msg = "No such key ${K}")
 trait Lookup[L <: HList, K] {
   type Out
   def apply(l: L): Out
@@ -45,6 +47,36 @@ object Lookup {
     type Out = st.Out
     def apply(l: (K, V) :: T) = st(l.tail)
   }
+}
+
+trait RemoveKey[L <: HList, K] {
+  type Out
+  def apply(l: L): Out
+}
+
+trait RemoveKeyAux[L <: HList, K, Rem <: HList] {
+  def apply(l: L): Rem
+}
+
+object RemoveKey {
+  implicit def hlistRemoveKey[L <: HList, K, Rem <: HList](implicit aux: RemoveKeyAux[L, K, Rem]) = new RemoveKey[L, K] {
+    type Out = Rem
+    def apply(l: L): Rem = aux(l)
+  }
+}
+
+object RemoveKeyAux {
+  implicit def hlistRemoveKey1[K, V, T <: HList] = new RemoveKeyAux[(K, V) :: T, K, T] {
+    def apply(l: (K, V) :: T): T = l.tail
+  }
+  
+  implicit def hlistRemoveKey[H, T <: HList, K, Rem <: HList](implicit r: RemoveKeyAux[T, K, Rem]) =
+    new RemoveKeyAux[H :: T, K, H :: Rem] {
+      def apply(l: H :: T): H :: Rem = {
+        val tail = r(l.tail)
+        l.head :: tail
+      }
+    }
 }
 
 trait ValueProjection[L <: HList] {

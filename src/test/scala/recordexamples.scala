@@ -46,13 +46,28 @@ class RecordExampleSuite extends Example {
     JSON.toJSON(rows) === """[{"id":1,"fname":"joe","age":36},{"id":2,"fname":"moe","age":14}]"""
   }
 
-/*
   test("Modify a record") {
-  }
-  
-  test("Query to case class") {
+    val joe = sql("select id, name from person where id=?").apply(1) getOrElse sys.error("No data")
+
+    // Add a field
+    object lname
+    val joe2 = (lname -> "Doe") :: joe
+    joe2.get(lname) === "Doe"
+
+    // Remove by a key
+    joe2.removeKey(lname) === joe
+    
+    // Modify a field
+
+    // Rename a field
   }
 
+/*
+  test("Query to a case class") {
+  }
+  
+  test("Merge records") {
+  }
 */
 }
 
