@@ -62,6 +62,9 @@ class RecordExampleSuite extends Example {
     joe3.get(lname) === 3
 
     // Rename a field
+    object lastname
+    val joe4 = joe2.renameKey(lname, lastname)
+    joe4.get(lastname) === "Doe"
   }
 
 /*

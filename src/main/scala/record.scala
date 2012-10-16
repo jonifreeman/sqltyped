@@ -9,6 +9,8 @@ final class AssocHListOps[L <: HList](l: L) {
 
   def removeKey[K](k: K)(implicit remove: RemoveKey[L, K]): remove.Out = remove(l)
 
+  def renameKey[K1, K2](oldKey: K1, newKey: K2)(implicit rename: RenameKey[L, K1, K2]): rename.Out = rename(l, newKey)
+
   def modify[K, A, B](k: K)(f: A => B)(implicit modify: Modify[L, K, A, B]): modify.Out = modify(l, f)
 
   def values(implicit valueProj: ValueProjection[L]): valueProj.Out = valueProj(l)
@@ -79,6 +81,35 @@ object RemoveKeyAux {
     }
 }
 
+@annotation.implicitNotFound(msg = "No such key ${K1}")
+trait RenameKey[L <: HList, K1, K2] {
+  type Out
+  def apply(l: L, newKey: K2): Out
+}
+
+trait RenameKeyAux[L <: HList, K1, K2, Rem <: HList] {
+  def apply(l: L, newKey: K2): Rem
+}
+
+object RenameKey {
+  implicit def hlistRenameKey[L <: HList, K1, K2, Rem <: HList](implicit aux: RenameKeyAux[L, K1, K2, Rem]) = new RenameKey[L, K1, K2] {
+    type Out = Rem
+    def apply(l: L, newKey: K2): Rem = aux(l, newKey)
+  }
+}
+
+object RenameKeyAux {
+  implicit def hlistRenameKey1[K1, K2, V, T <: HList] = new RenameKeyAux[(K1, V) :: T, K1, K2, (K2, V) :: T] {
+    def apply(l: (K1, V) :: T, newKey: K2): (K2, V) :: T = (newKey, l.head._2) :: l.tail
+  }
+  
+  implicit def hlistRenameKey[H, T <: HList, K1, K2, Rem <: HList](implicit r: RenameKeyAux[T, K1, K2, Rem]) =
+    new RenameKeyAux[H :: T, K1, K2, H :: Rem] {
+      def apply(l: H :: T, newKey: K2): H :: Rem = l.head :: r(l.tail, newKey)
+    }
+}
+
+@annotation.implicitNotFound(msg = "No key ${K} with value of type ${A}")
 trait Modify[L <: HList, K, A, B] {
   type Out
   def apply(l: L, f: A => B): Out
