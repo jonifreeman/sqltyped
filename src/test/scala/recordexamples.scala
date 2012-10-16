@@ -58,6 +58,8 @@ class RecordExampleSuite extends Example {
     joe2.removeKey(lname) === joe
     
     // Modify a field
+    val joe3 = joe2.modify(lname)((s: String) => s.length)
+    joe3.get(lname) === 3
 
     // Rename a field
   }

@@ -9,6 +9,8 @@ final class AssocHListOps[L <: HList](l: L) {
 
   def removeKey[K](k: K)(implicit remove: RemoveKey[L, K]): remove.Out = remove(l)
 
+  def modify[K, A, B](k: K)(f: A => B)(implicit modify: Modify[L, K, A, B]): modify.Out = modify(l, f)
+
   def values(implicit valueProj: ValueProjection[L]): valueProj.Out = valueProj(l)
   def values0[Out <: HList](implicit valueProj: ValueProjectionAux[L, Out]): Out = valueProj(l)
 }
@@ -49,6 +51,7 @@ object Lookup {
   }
 }
 
+@annotation.implicitNotFound(msg = "No such key ${K}")
 trait RemoveKey[L <: HList, K] {
   type Out
   def apply(l: L): Out
@@ -72,10 +75,34 @@ object RemoveKeyAux {
   
   implicit def hlistRemoveKey[H, T <: HList, K, Rem <: HList](implicit r: RemoveKeyAux[T, K, Rem]) =
     new RemoveKeyAux[H :: T, K, H :: Rem] {
-      def apply(l: H :: T): H :: Rem = {
-        val tail = r(l.tail)
-        l.head :: tail
-      }
+      def apply(l: H :: T): H :: Rem = l.head :: r(l.tail)
+    }
+}
+
+trait Modify[L <: HList, K, A, B] {
+  type Out
+  def apply(l: L, f: A => B): Out
+}
+
+trait ModifyAux[L <: HList, K, A, B, Rem <: HList] {
+  def apply(l: L, f: A => B): Rem
+}
+
+object Modify {
+  implicit def hlistModify[L <: HList, K, A, B, Rem <: HList](implicit aux: ModifyAux[L, K, A, B, Rem]) = new Modify[L, K, A, B] {
+    type Out = Rem
+    def apply(l: L, f: A => B): Rem = aux(l, f)
+  }
+}
+
+object ModifyAux {
+  implicit def hlistModify1[K, A, B, T <: HList] = new ModifyAux[(K, A) :: T, K, A, B, (K, B) :: T] {
+    def apply(l: (K, A) :: T, f: A => B): (K, B) :: T = (l.head._1, f(l.head._2)) :: l.tail
+  }
+  
+  implicit def hlistModify[H, T <: HList, K, A, B, Rem <: HList](implicit r: ModifyAux[T, K, A, B, Rem]) =
+    new ModifyAux[H :: T, K, A, B, H :: Rem] {
+      def apply(l: H :: T, f: A => B): H :: Rem = l.head :: r(l.tail, f)
     }
 }
 
