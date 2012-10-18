@@ -25,15 +25,24 @@ trait Example extends FunSuite with BeforeAndAfterEach with matchers.ShouldMatch
     newPerson(1, "joe", 36, 9500)
     newPerson(2, "moe", 14, 8000)
 
-    jobHistory(1, "Enron", date("2002-08-02 08:00:00.0"), Some(date("2004-06-22 18:00:00.0")))
-    jobHistory(1, "IBM", date("2004-07-13 11:00:00.0"), None)
-    jobHistory(2, "IBM", date("2005-08-10 11:00:00.0"), None)
+    jobHistory(1, "Enron", tstamp("2002-08-02 08:00:00.0"), Some(tstamp("2004-06-22 18:00:00.0")))
+    jobHistory(1, "IBM", tstamp("2004-07-13 11:00:00.0"), None)
+    jobHistory(2, "IBM", tstamp("2005-08-10 11:00:00.0"), None)
   }
 
-  def date(s: String) = 
+  def tstamp(s: String) = 
     new java.sql.Timestamp(new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss.S").parse(s).getTime)
 
-  def year(y: Int) = date(y + "-01-01 00:00:00.0")
+  def datetime(s: String) = 
+    new java.sql.Timestamp(new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss.S").parse(s).getTime)
+
+  def date(s: String) = 
+    new java.sql.Date(new java.text.SimpleDateFormat("yyyy-MM-dd").parse(s).getTime)
+
+  def time(s: String) = 
+    new java.sql.Time(new java.text.SimpleDateFormat("HH:mm:ss.S").parse(s).getTime)
+
+  def year(y: Int) = tstamp(y + "-01-01 00:00:00.0")
 
   implicit class TypeSafeEquals[A](a: A) {
     def ===(other: A) = a should equal(other)
@@ -72,9 +81,9 @@ class ExampleSuite extends Example {
     val q = sql("select p.name, j.name as employer, j.started, j.resigned from person p join job_history j on p.id=j.person order by j.started")
     
     q().tuples === List(
-      ("joe", "Enron", date("2002-08-02 08:00:00.0"), Some(date("2004-06-22 18:00:00.0"))), 
-      ("joe", "IBM",   date("2004-07-13 11:00:00.0"), None),
-      ("moe", "IBM",   date("2005-08-10 11:00:00.0"), None))
+      ("joe", "Enron", tstamp("2002-08-02 08:00:00.0"), Some(tstamp("2004-06-22 18:00:00.0"))), 
+      ("joe", "IBM",   tstamp("2004-07-13 11:00:00.0"), None),
+      ("moe", "IBM",   tstamp("2005-08-10 11:00:00.0"), None))
   }
 
   test("Query with functions") {

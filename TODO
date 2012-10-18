@@ -1,7 +1,7 @@
 ======== 0.1 ========
 
+- record to tuple
 - record to case class
-- test: table with all column types
 
 ======== 0.2 ========
 
