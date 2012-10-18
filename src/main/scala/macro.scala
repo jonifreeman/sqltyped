@@ -64,13 +64,10 @@ object SqlMacro {
 
     val Literal(Constant(sql: String)) = s.tree // FIXME err handling
 
-    val url = System.getProperty("sqltyped.url") // FIXME err handling
-    val driver = System.getProperty("sqltyped.driver")
-    val username = System.getProperty("sqltyped.username")
-    val password = System.getProperty("sqltyped.password")
-    val dialect = Dialect.choose(driver)
-                                            
-    val cachedSchema = {
+    def sysProp(n: String) = util.Properties.propOrNone(n) orFail 
+        "System property '" + n + "' is required to get a compile time connection to the database"
+
+    def cachedSchema(url: String, driver: String, username: String, password: String) = {
       val cached = schemaCache.get(c.enclosingRun)
       if (cached != null) cached else {
         val s = DbSchema.read(url, driver, username, password)
@@ -80,8 +77,13 @@ object SqlMacro {
     }
 
     (for {
+      url      <- sysProp("sqltyped.url")
+      driver   <- sysProp("sqltyped.driver")
+      username <- sysProp("sqltyped.username")
+      password <- sysProp("sqltyped.password")
+      dialect = Dialect.choose(driver)
       stmt     <- dialect.parser.parse(sql)
-      schema   <- cachedSchema
+      schema   <- cachedSchema(url, driver, username, password)
       resolved <- Ast.resolveTables(stmt)
       typed    <- dialect.typer(schema, resolved).infer(useInputTags)
       meta     <- new Analyzer(dialect.typer(schema, resolved)).refine(typed)
