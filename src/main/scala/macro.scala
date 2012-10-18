@@ -62,7 +62,10 @@ object SqlMacro {
 
     import c.universe._
 
-    val Literal(Constant(sql: String)) = s.tree // FIXME err handling
+    val sql = s.tree match {
+      case Literal(Constant(sql: String)) => sql
+      case _ => c.abort(c.enclosingPosition, "Argument to macro must be a String literal")
+    }
 
     def sysProp(n: String) = util.Properties.propOrNone(n) orFail 
         "System property '" + n + "' is required to get a compile time connection to the database"
