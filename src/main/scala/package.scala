@@ -11,7 +11,7 @@ package object sqltyped {
   // https://issues.scala-lang.org/browse/SI-5920
   def sqlk[A, B](s: String)(implicit config: Configuration[A, B]) = macro SqlMacro.sqlkImpl[A, B]
 
-  implicit def assochlistOps[L <: HList](l: L): AssocHListOps[L] = new AssocHListOps(l)
+  implicit def recordOps[L <: HList](l: L): RecordOps[L] = new RecordOps(l)
 
   implicit def listOps[L <: HList](l: List[L]): ListOps[L] = new ListOps(l)  
 

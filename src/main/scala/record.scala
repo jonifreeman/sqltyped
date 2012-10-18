@@ -2,19 +2,30 @@ package sqltyped
 
 import shapeless._
 
-final class AssocHListOps[L <: HList](l: L) {
-  def lookup[K](implicit lookup: Lookup[L, K]): lookup.Out = lookup(l)
+private[sqltyped] object fieldAsString extends Poly1 {
+  implicit def f[K, V] = at[(K, V)] { 
+    case (k, v) => keyAsString(k) + " = " + v.toString 
+  }
+}
 
-  def get[K](k: K)(implicit lookup0: Lookup[L, K]): lookup0.Out = lookup[K]
+final class RecordOps[R <: HList](r: R) {
+  def lookup[K](implicit lookup: Lookup[R, K]): lookup.Out = lookup(r)
 
-  def removeKey[K](k: K)(implicit remove: RemoveKey[L, K]): remove.Out = remove(l)
+  def get[K](k: K)(implicit lookup0: Lookup[R, K]): lookup0.Out = lookup[K]
 
-  def renameKey[K1, K2](oldKey: K1, newKey: K2)(implicit rename: RenameKey[L, K1, K2]): rename.Out = rename(l, newKey)
+  def removeKey[K](k: K)(implicit remove: RemoveKey[R, K]): remove.Out = remove(r)
 
-  def modify[K, A, B](k: K)(f: A => B)(implicit modify: Modify[L, K, A, B]): modify.Out = modify(l, f)
+  def renameKey[K1, K2](oldKey: K1, newKey: K2)(implicit rename: RenameKey[R, K1, K2]): rename.Out = rename(r, newKey)
 
-  def values(implicit valueProj: ValueProjection[L]): valueProj.Out = valueProj(l)
-  def values0[Out <: HList](implicit valueProj: ValueProjectionAux[L, Out]): Out = valueProj(l)
+  def modify[K, A, B](k: K)(f: A => B)(implicit modify: Modify[R, K, A, B]): modify.Out = modify(r, f)
+
+  def values(implicit valueProj: ValueProjection[R]): valueProj.Out = valueProj(r)
+  def values0[Out <: HList](implicit valueProj: ValueProjectionAux[R, Out]): Out = valueProj(r)
+
+  def show(implicit foldMap: MapFolder[R, String, fieldAsString.type]): String = {
+    val concat = (s1: String, s2: String) => if (s2 != "") s1 + ", " + s2 else s1
+    "{ " + (r.foldMap("")(fieldAsString)(concat)) + " }"
+  }
 }
 
 final class ListOps[L <: HList](l: List[L]) {
