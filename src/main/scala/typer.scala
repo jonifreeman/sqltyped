@@ -253,6 +253,6 @@ class Typer(schema: Schema, stmt: Ast.Statement[Table]) extends Ast.Resolved {
     case "java.sql.Time" => typeOf[java.sql.Time]
     case "byte[]" => typeOf[java.sql.Blob]
     case "byte" => typeOf[Byte]
-    case x => sys.error("Unknown type " + x)  // FIXME improve error handling
+    case x => sys.error("Unknown type " + x)
   }
 }

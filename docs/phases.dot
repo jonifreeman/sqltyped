@@ -1,0 +1,8 @@
+digraph phases {
+  rankdir="LR"
+  parse -> resolve [label="Statement[Option[String]]"]
+  resolve -> type [label="Statement[Table]"]
+  type -> analyze [label="TypedStatement"]
+  analyze -> codegen [label="TypedStatement"]
+  codegen -> embed [label="Scala AST"]
+}
