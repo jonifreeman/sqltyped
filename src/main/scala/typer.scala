@@ -116,8 +116,8 @@ object Variables extends Ast.Resolved {
       .getOrElse(Nil).map(_ => Named("<constant>", None, Constant[Table](typeOf[Long], None)))
 }
 
-class Typer(schema: Schema, stmt: Ast.Statement[Table]) extends Ast.Resolved {
-  def infer(useInputTags: Boolean): ?[TypedStatement] = {
+class Typer(schema: Schema) extends Ast.Resolved {
+  def infer(stmt: Statement, useInputTags: Boolean): ?[TypedStatement] = {
     def tag(col: Column) = {
       getTable(col.table) map { t =>
         def findFK = t.getForeignKeys

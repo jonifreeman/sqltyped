@@ -4,9 +4,9 @@ import schemacrawler.schema.Schema
 import scala.reflect.runtime.universe.Type
 import Ast._
 
-trait Dialect extends Ast.Resolved {
+trait Dialect {
   def parser: SqlParser
-  def typer(schema: Schema, stmt: Statement): Typer // FIXME cleanup, remove params
+  def typer(schema: Schema): Typer
 }
 
 object Dialect {
@@ -18,11 +18,11 @@ object Dialect {
 
 object GenericDialect extends Dialect {
   val parser = new SqlParser {}
-  def typer(schema: Schema, stmt: Statement) = new Typer(schema, stmt)
+  def typer(schema: Schema) = new Typer(schema)
 }
 
 object MysqlDialect extends Dialect {
-  def typer(schema: Schema, stmt: Statement) = new Typer(schema, stmt) {
+  def typer(schema: Schema) = new Typer(schema) {
     import dsl._
 
     override def extraScalarFunctions = Map(

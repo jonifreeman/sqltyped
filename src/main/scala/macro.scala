@@ -84,12 +84,13 @@ object SqlMacro {
       driver   <- sysProp("sqltyped.driver")
       username <- sysProp("sqltyped.username")
       password <- sysProp("sqltyped.password")
-      dialect = Dialect.choose(driver)
+      dialect  = Dialect.choose(driver)
       stmt     <- dialect.parser.parse(sql)
       schema   <- cachedSchema(url, driver, username, password)
       resolved <- Ast.resolveTables(stmt)
-      typed    <- dialect.typer(schema, resolved).infer(useInputTags)
-      meta     <- new Analyzer(dialect.typer(schema, resolved)).refine(typed)
+      typer    = dialect.typer(schema)
+      typed    <- typer.infer(resolved, useInputTags)
+      meta     <- new Analyzer(typer).refine(typed)
     } yield meta) fold (
       err => c.abort(c.enclosingPosition, err),
       meta => codeGen(meta, sql, c, keys)(config)
