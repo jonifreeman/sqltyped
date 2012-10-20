@@ -32,22 +32,32 @@ object SqltypedBuild extends Build {
         "mysql" % "mysql-connector-java" % "5.1.21" % "test",
         "postgresql" % "postgresql" % "9.1-901.jdbc4" % "test"
       ),
+      initialize ~= { _ => initSqltyped }
+    )
+  )
 
-      initialize ~= { _ =>
+  lazy val slickIntegration = Project(
+    id = "slick-integration",
+    base = file("slick-integration"),
+    settings = sqltypedSettings ++ Seq(
+      libraryDependencies ++= Seq(
+        "com.typesafe" % "slick_2.10.0-M7" % "0.11.1"
+      ),
+      initialize ~= { _ => initSqltyped }
+    )
+  ) dependsOn(core % "compile;test->test;provided->provided")
+
+  def initSqltyped {
 /*
         System.setProperty("sqltyped.url", "jdbc:postgresql://localhost/sqltyped")
         System.setProperty("sqltyped.driver", "org.postgresql.Driver")
         System.setProperty("sqltyped.username", "sqltypedtest")
         System.setProperty("sqltyped.password", "secret") */
-        System.setProperty("sqltyped.url", "jdbc:mysql://localhost:3306/sqltyped")
-        System.setProperty("sqltyped.driver", "com.mysql.jdbc.Driver")
-        System.setProperty("sqltyped.username", "root")
-        System.setProperty("sqltyped.password", "")
-      }
-
-    )
-  )
-
+    System.setProperty("sqltyped.url", "jdbc:mysql://localhost:3306/sqltyped")
+    System.setProperty("sqltyped.driver", "com.mysql.jdbc.Driver")
+    System.setProperty("sqltyped.username", "root")
+    System.setProperty("sqltyped.password", "")
+  }
   
   object Resolvers {
     val sonatypeNexusSnapshots = "Sonatype Nexus Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots"
