@@ -157,9 +157,19 @@ class Typer(schema: Schema) extends Ast.Resolved {
           case (_, c@Constant(_, _)) => List(TypedValue(x.aname, typeOf[Int], false, None)).ok
           case _ => typeValue(useTags)(Named(x.name, x.alias, lhs))
         }
-      case Comparison1(_, _)       => List(TypedValue(x.aname, typeOf[Boolean], false, None)).ok
-      case Comparison2(_, _, _)    => List(TypedValue(x.aname, typeOf[Boolean], false, None)).ok
-      case Comparison3(_, _, _, _) => List(TypedValue(x.aname, typeOf[Boolean], false, None)).ok
+      case Comparison1(_, IsNull) | Comparison1(_, IsNotNull) => 
+        List(TypedValue(x.aname, typeOf[Boolean], false, None)).ok
+      case Comparison1(t, _) => 
+        List(TypedValue(x.aname, typeOf[Boolean], isNullable(t), None)).ok
+      case Comparison2(t1, _, t2) => 
+        List(TypedValue(x.aname, typeOf[Boolean], isNullable(t1) || isNullable(t2), None)).ok
+      case Comparison3(t1, _, t2, t3) => 
+        List(TypedValue(x.aname, typeOf[Boolean], isNullable(t1) || isNullable(t2) || isNullable(t3), None)).ok
+    }
+
+    def isNullable(t: Term) = tpeOf(t) map { case (_, opt) => opt } match {
+      case Right(opt) => opt
+      case _ => false
     }
 
     def uniqueConstraints = {
@@ -225,6 +235,7 @@ class Typer(schema: Schema) extends Ast.Resolved {
     case col@Column(_, _)              => inferColumnType(col)
     case Function(n, params)           => inferReturnType(n, params)
     case Input()                       => (typeOf[AnyRef], false).ok
+    case TermList(terms)               => tpeOf(terms.head)
     case x                             => sys.error("Term " + x + " not supported")
   }
 

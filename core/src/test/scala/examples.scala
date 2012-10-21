@@ -119,8 +119,8 @@ class ExampleSuite extends Example {
     sql("select age in (1,36) from person order by age desc").apply ===
       List(true, false)
 
-//    sql("select resigned < now() from job_history order by started").apply ===
-//      List(Some(true), None, None)
+    sql("select resigned < now() from job_history order by started").apply ===
+      List(Some(true), None, None)
   }
 
   test("Query with just one selected column") {
