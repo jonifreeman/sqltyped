@@ -17,7 +17,7 @@ The following examples use schema and data from [test.sql](https://github.com/jo
 
 First some boring initialization... 
 
-Start console: ```sbt test:console```
+Start console: ```sbt```, then ```project sqltyped``` and ```test:console```.
 
 ```scala
     import java.sql._

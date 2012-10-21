@@ -51,7 +51,7 @@ private[sqltyped] object Ast {
   case class Constant[T](tpe: Type, value: Any) extends Value[T]
   case class Column[T](name: String, table: T) extends Value[T]
   case class AllColumns[T](table: T) extends Value[T]
-  case class Function[T](name: String, params: List[Term[T]]) extends Value[T]
+  case class Function[T](name: String, params: List[Expr[T]]) extends Value[T]
   case class ArithExpr[T](lhs: Value[T], op: String, rhs: Value[T]) extends Value[T]
   
   case class Input[T]() extends Term[T]
@@ -81,14 +81,15 @@ private[sqltyped] object Ast {
     def find(p: Expr[T] => Boolean): Option[Expr[T]] = 
       if (p(this)) Some(this)
       else this match {
-        case And(e1, e2)  => e1.find(p) orElse e2.find(p)
-        case Or(e1, e2)   => e1.find(p) orElse e2.find(p)
-        case _: Comparison[T] => None
+        case And(e1, e2) => e1.find(p) orElse e2.find(p)
+        case Or(e1, e2)  => e1.find(p) orElse e2.find(p)
+        case _ => None
       }
   }
 
   sealed trait Comparison[T] extends Expr[T] with Value[T]
 
+  case class SimpleExpr[T](term: Term[T]) extends Expr[T]
   case class Comparison1[T](term: Term[T], op: Operator1) extends Comparison[T]
   case class Comparison2[T](lhs: Term[T], op: Operator2, rhs: Term[T]) extends Comparison[T]
   case class Comparison3[T](t1: Term[T], op: Operator3, t2: Term[T], t3: Term[T]) extends Comparison[T]
@@ -155,7 +156,7 @@ private[sqltyped] object Ast {
     }
 
     def resolveNamed(n: Named[Option[String]]) = resolveValue(n.value) map (v => n.copy(value = v))
-    def resolveFunc(f: Function[Option[String]]) = sequence(f.params map resolve) map (ps => f.copy(params = ps))
+    def resolveFunc(f: Function[Option[String]]) = sequence(f.params map resolveExpr) map (ps => f.copy(params = ps))
     def resolveProj(proj: List[Named[Option[String]]]) = sequence(proj map resolveNamed)
     def resolveFroms(from: List[From[Option[String]]]) = sequence(from map resolveFrom)
     def resolveFrom(from: From[Option[String]]) = sequence(from.join map resolveJoin) map (j => from.copy(join = j))
@@ -179,6 +180,7 @@ private[sqltyped] object Ast {
     def resolveLimitOpt(limit: Option[Limit[Option[String]]]) = sequenceO(limit map resolveLimit)
 
     def resolveExpr(e: Expr[Option[String]]): ?[Expr[Table]] = e match {
+      case SimpleExpr(t) => resolve(t) map SimpleExpr.apply
       case c: Comparison[Option[String]] => resolveComparison(c)
       case And(e1, e2) => 
         for { r1 <- resolveExpr(e1); r2 <- resolveExpr(e2) } yield And(r1, r2)

@@ -82,9 +82,12 @@ object Variables extends Ast.Resolved {
   }
 
   def input(f: Function): List[Named] = f.params flatMap {
-    case Input() => Named("<farg>", None, Constant[Table](typeOf[AnyRef], ())) :: Nil // FIXME can be typed
-    case f2@Function(_, _) => input(f2)
-    case _ => Nil
+    case SimpleExpr(t) => t match {
+      case Input() => Named("<farg>", None, Constant[Table](typeOf[AnyRef], ())) :: Nil
+      case f2@Function(_, _) => input(f2)
+      case _ => Nil
+    }
+    case e => params(e)
   }
 
   def output(stmt: Statement): List[Named] = stmt match {
@@ -98,6 +101,7 @@ object Variables extends Ast.Resolved {
   }
 
   def params(e: Expr): List[Named] = e match {
+    case SimpleExpr(x)                        => termToValue(x) :: Nil
     case Comparison1(_, _)                    => Nil
     case Comparison2(Input(), op, x)          => termToValue(x) :: Nil
     case Comparison2(x, op, Input())          => termToValue(x) :: Nil
@@ -142,8 +146,8 @@ class Typer(schema: Schema) extends Ast.Resolved {
           tbl <- getTable(t)
           cs  <- sequence(tbl.getColumns.toList map { c => typeValue(useTags)(Named(c.getName, None, Column(c.getName, t))) })
         } yield cs.flatten
-      case Function(name, params) =>
-        inferReturnType(name, params) map { case (tpe, opt) =>
+      case f@Function(_, _) =>
+        inferReturnType(f) map { case (tpe, opt) =>
           List(TypedValue(x.aname, tpe, opt, None))
         }
       case Constant(tpe, _) => List(TypedValue(x.aname, tpe, false, None)).ok
@@ -167,7 +171,7 @@ class Typer(schema: Schema) extends Ast.Resolved {
         List(TypedValue(x.aname, typeOf[Boolean], isNullable(t1) || isNullable(t2) || isNullable(t3), None)).ok
     }
 
-    def isNullable(t: Term) = tpeOf(t) map { case (_, opt) => opt } match {
+    def isNullable(t: Term) = tpeOf(SimpleExpr(t)) map { case (_, opt) => opt } match {
       case Right(opt) => opt
       case _ => false
     }
@@ -226,22 +230,26 @@ class Typer(schema: Schema) extends Ast.Resolved {
 
   val knownFunctions = aggregateFunctions ++ scalarFunctions
 
-  def extraAggregateFunctions: Map[String, (String, List[Term]) => ?[(Type, Boolean)]] = Map()
-  def extraScalarFunctions: Map[String, (String, List[Term]) => ?[(Type, Boolean)]] = Map()
+  def extraAggregateFunctions: Map[String, (String, List[Expr]) => ?[(Type, Boolean)]] = Map()
+  def extraScalarFunctions: Map[String, (String, List[Expr]) => ?[(Type, Boolean)]] = Map()
 
-  def tpeOf(e: Term): ?[(Type, Boolean)] = e match {
-    case Constant(tpe, x) if x == null => (tpe, true).ok
-    case Constant(tpe, _)              => (tpe, false).ok
-    case col@Column(_, _)              => inferColumnType(col)
-    case Function(n, params)           => inferReturnType(n, params)
-    case Input()                       => (typeOf[AnyRef], false).ok
-    case TermList(terms)               => tpeOf(terms.head)
-    case x                             => sys.error("Term " + x + " not supported")
+  def tpeOf(e: Expr): ?[(Type, Boolean)] = e match {
+    case SimpleExpr(t) => t match {
+      case Constant(tpe, x) if x == null => (tpe, true).ok
+      case Constant(tpe, _)              => (tpe, false).ok
+      case col@Column(_, _)              => inferColumnType(col)
+      case f@Function(_, _)              => inferReturnType(f)
+      case Input()                       => (typeOf[AnyRef], false).ok
+      case TermList(terms)               => tpeOf(SimpleExpr(terms.head))
+      case x                             => sys.error("Term " + x + " not supported")
+    }
+
+    case _                               => (typeOf[Boolean], false).ok
   }
 
-  def inferReturnType(fname: String, params: List[Term]) = 
-    knownFunctions.get(fname.toLowerCase) match {
-      case Some(f) => f(fname, params)
+  def inferReturnType(f: Function) = 
+    knownFunctions.get(f.name.toLowerCase) match {
+      case Some(func) => func(f.name, f.params)
       case None => (typeOf[AnyRef], true).ok
     }
 

@@ -5,19 +5,19 @@ import Ast.Resolved._
 
 class TypeSigDSL(typer: Typer) {
   case class f[A: Typed](a: A) {
-    def ->[R: Typed](r: R) = (fname: String, params: List[Term]) =>
+    def ->[R: Typed](r: R) = (fname: String, params: List[Expr]) =>
       if (params.length != 1) fail("Expected 1 parameter " + params)
       else implicitly[Typed[R]].tpe(fname, params.head) 
   }
 
   case class f2[A: Typed, B: Typed](a: A, b: B) {
-    def ->[R: Typed](r: R) = (fname: String, params: List[Term]) =>
+    def ->[R: Typed](r: R) = (fname: String, params: List[Expr]) =>
       if (params.length != 2) fail("Expected 2 parameters " + params)
       else implicitly[Typed[R]].tpe(fname, params.head) 
   }
 
   trait Typed[A] {
-    def tpe(fname: String, e: Term): ?[(Type, Boolean)]
+    def tpe(fname: String, e: Expr): ?[(Type, Boolean)]
   }
   
   trait TypeParam
@@ -33,13 +33,13 @@ class TypeSigDSL(typer: Typer) {
   case class option[A: Typed](a: A)
 
   implicit def optionTyped[A: Typed]: Typed[option[A]] = new Typed[option[A]] {
-    def tpe(fname: String, e: Term) = implicitly[Typed[A]].tpe(fname, e) map { 
+    def tpe(fname: String, e: Expr) = implicitly[Typed[A]].tpe(fname, e) map { 
       case (tpe, opt) => (tpe, true) 
     }
   }
 
   implicit def typeParamTyped[A <: TypeParam]: Typed[A] = new Typed[A] {
-    def tpe(fname: String, e: Term) = typer.tpeOf(e) map { 
+    def tpe(fname: String, e: Expr) = typer.tpeOf(e) map { 
       case (tpe, opt) => (tpe, typer.isAggregate(fname) || opt) 
     }
   }
@@ -50,6 +50,6 @@ class TypeSigDSL(typer: Typer) {
   implicit def dateTyped: Typed[date.type] = new Const[date.type](typeOf[java.util.Date])
 
   class Const[A](tpe: Type) extends Typed[A] {
-    def tpe(fname: String, e: Term) = (tpe, false).ok
+    def tpe(fname: String, e: Expr) = (tpe, false).ok
   }
 }

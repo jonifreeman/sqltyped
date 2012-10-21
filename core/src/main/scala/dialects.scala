@@ -29,14 +29,22 @@ object MysqlDialect extends Dialect {
         "datediff"  -> (f2(date, date) -> option(int))
       , "ifnull"    -> ifnull _
       , "coalesce"  -> ifnull _
+      , "if"        -> iff _
     )
 
-    def ifnull(fname: String, params: List[Term]): ?[(Type, Boolean)] = 
+    def ifnull(fname: String, params: List[Expr]): ?[(Type, Boolean)] = 
       if (params.length != 2) fail("Expected 2 parameters " + params)
       else for {
         (tpel, _) <- tpeOf(params(0))
         (_, optr) <- tpeOf(params(1))
       } yield (tpel, optr)
+
+    def iff(fname: String, params: List[Expr]): ?[(Type, Boolean)] = 
+      if (params.length != 3) fail("Expected 3 parameters " + params)
+      else for {
+        (tpel, optl) <- tpeOf(params(1))
+        (_, optr) <- tpeOf(params(2))
+      } yield (tpel, optl || optr)
   }
 
   val parser = MysqlParser

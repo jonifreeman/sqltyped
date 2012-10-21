@@ -63,15 +63,15 @@ trait SqlParser extends RegexParsers with Ast.Unresolved {
 
   lazy val where = "where".i ~> expr ^^ Where.apply
 
-  lazy val expr: Parser[Expr] = (compTerm | parens)* (
+  lazy val expr: Parser[Expr] = (comparisonTerm | parens)* (
       "and".i ^^^ { (e1: Expr, e2: Expr) => And(e1, e2) } 
     | "or".i  ^^^ { (e1: Expr, e2: Expr) => Or(e1, e2) } 
   )
 
   lazy val parens: Parser[Expr] = "(" ~> expr  <~ ")"
 
-  lazy val compTerm  = comparison(subselect)
-  lazy val compValue = comparison(failure("subselect not allowed here"))
+  lazy val comparisonTerm  = comparison(subselect)
+  lazy val comparisonValue = comparison(failure("subselect not allowed here"))
 
   def comparison(sub: Parser[Term]): Parser[Comparison] = (
       term ~ "="  ~ (term | sub)          ^^ { case lhs ~ _ ~ rhs => Comparison2(lhs, Eq, rhs) }
@@ -103,7 +103,7 @@ trait SqlParser extends RegexParsers with Ast.Unresolved {
     | "?"        ^^^ Input[Option[String]]()
   )
 
-  lazy val value = (compValue | arith | simpleValue) ~ opt(opt("as".i) ~> ident) ^^ {
+  lazy val value = (comparisonValue | arith | simpleValue) ~ opt(opt("as".i) ~> ident) ^^ {
     case (c@Constant(_, _)) ~ a          => Named("<constant>", a, c)
     case (f@Function(n, _)) ~ a          => Named(n, a, f)
     case (c@Column(n, _)) ~ a            => Named(n, a, c)
@@ -135,8 +135,10 @@ trait SqlParser extends RegexParsers with Ast.Unresolved {
   lazy val allColumns = 
     "*" ~ opt("." ~> ident) ^^ { case _ ~ t => AllColumns(t) }
 
+  lazy val functionArg: Parser[Expr] = (expr | term ^^ SimpleExpr.apply)
+
   lazy val function: Parser[Function] = 
-    ident ~ "(" ~ repsep(term, ",") ~ ")" ^^ {
+    ident ~ "(" ~ repsep(functionArg, ",") ~ ")" ^^ {
       case name ~ _ ~ params ~ _ => Function(name, params)
     }
 
