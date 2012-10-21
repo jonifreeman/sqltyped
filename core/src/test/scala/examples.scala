@@ -117,6 +117,9 @@ class ExampleSuite extends Example {
 
     sql("select name from person where age > ? order by name for update").apply(10) === 
       List("joe", "moe")
+
+    sql("select name from person where name LIKE ? order by name").apply("j%") === 
+      List("joe")
   }
   
   test("Query with constraint by unique column") {

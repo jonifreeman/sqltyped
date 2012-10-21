@@ -77,6 +77,7 @@ trait SqlParser extends RegexParsers with Ast.Unresolved {
     | term ~ ">"  ~ (term | subselect)       ^^ { case lhs ~ _ ~ rhs => Predicate2(lhs, Gt, rhs) }
     | term ~ "<=" ~ (term | subselect)       ^^ { case lhs ~ _ ~ rhs => Predicate2(lhs, Le, rhs) }
     | term ~ ">=" ~ (term | subselect)       ^^ { case lhs ~ _ ~ rhs => Predicate2(lhs, Ge, rhs) }
+    | term ~ "like".i ~ (term | subselect)   ^^ { case lhs ~ _ ~ rhs => Predicate2(lhs, Like, rhs) }
     | term ~ "in".i ~ subselect              ^^ { case lhs ~ _ ~ rhs => Predicate2(lhs, In, rhs) }
     | term ~ "between".i ~ term ~ "and".i ~ term ^^ { case t1 ~ _ ~ t2 ~ _ ~ t3 => Predicate3(t1, Between, t2, t3) }
     | term <~ "is".i ~ "null".i              ^^ { t => Predicate1(t, IsNull) }

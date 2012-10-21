@@ -10,3 +10,4 @@
 - Infer function types from schema
 - Improve names of input arguments
 - A mechanism to merge, tranform or combine records
+- Lift input / output types
