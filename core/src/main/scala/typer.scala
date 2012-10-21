@@ -98,17 +98,17 @@ object Variables extends Ast.Resolved {
   }
 
   def params(e: Expr): List[Named] = e match {
-    case Predicate1(_, _)                    => Nil
-    case Predicate2(Input(), op, x)          => termToValue(x) :: Nil
-    case Predicate2(x, op, Input())          => termToValue(x) :: Nil
-    case Predicate2(_, op, Subselect(s))     => s.where.map(w => params(w.expr)).getOrElse(Nil) // FIXME groupBy
-    case Predicate2(_, op, _)                => Nil
-    case Predicate3(x, op, Input(), Input()) => termToValue(x) :: termToValue(x) :: Nil
-    case Predicate3(x, op, Input(), _)       => termToValue(x) :: Nil
-    case Predicate3(x, op, _, Input())       => termToValue(x) :: Nil
-    case Predicate3(_, op, _, _)             => Nil
-    case And(e1, e2)                         => params(e1) ::: params(e2)
-    case Or(e1, e2)                          => params(e1) ::: params(e2)
+    case Comparison1(_, _)                    => Nil
+    case Comparison2(Input(), op, x)          => termToValue(x) :: Nil
+    case Comparison2(x, op, Input())          => termToValue(x) :: Nil
+    case Comparison2(_, op, Subselect(s))     => s.where.map(w => params(w.expr)).getOrElse(Nil) // FIXME groupBy
+    case Comparison2(_, op, _)                => Nil
+    case Comparison3(x, op, Input(), Input()) => termToValue(x) :: termToValue(x) :: Nil
+    case Comparison3(x, op, Input(), _)       => termToValue(x) :: Nil
+    case Comparison3(x, op, _, Input())       => termToValue(x) :: Nil
+    case Comparison3(_, op, _, _)             => Nil
+    case And(e1, e2)                          => params(e1) ::: params(e2)
+    case Or(e1, e2)                           => params(e1) ::: params(e2)
   }
 
   def limitParams(limit: Option[Limit]) =
@@ -157,6 +157,9 @@ class Typer(schema: Schema) extends Ast.Resolved {
           case (_, c@Constant(_, _)) => List(TypedValue(x.aname, typeOf[Int], false, None)).ok
           case _ => typeValue(useTags)(Named(x.name, x.alias, lhs))
         }
+      case Comparison1(_, _)       => List(TypedValue(x.aname, typeOf[Boolean], false, None)).ok
+      case Comparison2(_, _, _)    => List(TypedValue(x.aname, typeOf[Boolean], false, None)).ok
+      case Comparison3(_, _, _, _) => List(TypedValue(x.aname, typeOf[Boolean], false, None)).ok
     }
 
     def uniqueConstraints = {

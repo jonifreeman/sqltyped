@@ -63,30 +63,35 @@ trait SqlParser extends RegexParsers with Ast.Unresolved {
 
   lazy val where = "where".i ~> expr ^^ Where.apply
 
-  lazy val expr: Parser[Expr] = (predicate | parens)* (
+  lazy val expr: Parser[Expr] = (compTerm | parens)* (
       "and".i ^^^ { (e1: Expr, e2: Expr) => And(e1, e2) } 
     | "or".i  ^^^ { (e1: Expr, e2: Expr) => Or(e1, e2) } 
   )
 
   lazy val parens: Parser[Expr] = "(" ~> expr  <~ ")"
 
-  lazy val predicate: Parser[Predicate] = (
-      term ~ "="  ~ (term | subselect)       ^^ { case lhs ~ _ ~ rhs => Predicate2(lhs, Eq, rhs) }
-    | term ~ "!=" ~ (term | subselect)       ^^ { case lhs ~ _ ~ rhs => Predicate2(lhs, Neq, rhs) }
-    | term ~ "<"  ~ (term | subselect)       ^^ { case lhs ~ _ ~ rhs => Predicate2(lhs, Lt, rhs) }
-    | term ~ ">"  ~ (term | subselect)       ^^ { case lhs ~ _ ~ rhs => Predicate2(lhs, Gt, rhs) }
-    | term ~ "<=" ~ (term | subselect)       ^^ { case lhs ~ _ ~ rhs => Predicate2(lhs, Le, rhs) }
-    | term ~ ">=" ~ (term | subselect)       ^^ { case lhs ~ _ ~ rhs => Predicate2(lhs, Ge, rhs) }
-    | term ~ "like".i ~ (term | subselect)   ^^ { case lhs ~ _ ~ rhs => Predicate2(lhs, Like, rhs) }
-    | term ~ "in".i ~ subselect              ^^ { case lhs ~ _ ~ rhs => Predicate2(lhs, In, rhs) }
-    | term ~ "between".i ~ term ~ "and".i ~ term ^^ { case t1 ~ _ ~ t2 ~ _ ~ t3 => Predicate3(t1, Between, t2, t3) }
-    | term <~ "is".i ~ "null".i              ^^ { t => Predicate1(t, IsNull) }
-    | term <~ "is".i ~ "not".i ~ "null".i    ^^ { t => Predicate1(t, IsNotNull) }
+  lazy val compTerm  = comparison(subselect)
+  lazy val compValue = comparison(failure("subselect not allowed here"))
+
+  def comparison(sub: Parser[Term]): Parser[Comparison] = (
+      term ~ "="  ~ (term | sub)          ^^ { case lhs ~ _ ~ rhs => Comparison2(lhs, Eq, rhs) }
+    | term ~ "!=" ~ (term | sub)          ^^ { case lhs ~ _ ~ rhs => Comparison2(lhs, Neq, rhs) }
+    | term ~ "<"  ~ (term | sub)          ^^ { case lhs ~ _ ~ rhs => Comparison2(lhs, Lt, rhs) }
+    | term ~ ">"  ~ (term | sub)          ^^ { case lhs ~ _ ~ rhs => Comparison2(lhs, Gt, rhs) }
+    | term ~ "<=" ~ (term | sub)          ^^ { case lhs ~ _ ~ rhs => Comparison2(lhs, Le, rhs) }
+    | term ~ ">=" ~ (term | sub)          ^^ { case lhs ~ _ ~ rhs => Comparison2(lhs, Ge, rhs) }
+    | term ~ "like".i ~ (term | sub)      ^^ { case lhs ~ _ ~ rhs => Comparison2(lhs, Like, rhs) }
+    | term ~ "in".i ~ (terms | sub)       ^^ { case lhs ~ _ ~ rhs => Comparison2(lhs, In, rhs) }
+    | term ~ "between".i ~ term ~ "and".i ~ term ^^ { case t1 ~ _ ~ t2 ~ _ ~ t3 => Comparison3(t1, Between, t2, t3) }
+    | term <~ "is".i ~ "null".i           ^^ { t => Comparison1(t, IsNull) }
+    | term <~ "is".i ~ "not".i ~ "null".i ^^ { t => Comparison1(t, IsNotNull) }
   )
 
   lazy val subselect = "(" ~> selectStmt <~ ")" ^^ Subselect.apply
 
   lazy val term = (arith | simpleTerm)
+
+  lazy val terms: Parser[Term] = "(" ~> repsep(term, ",") <~ ")" ^^ TermList.apply
 
   lazy val simpleTerm = (
       boolean    ^^ constB
@@ -98,12 +103,15 @@ trait SqlParser extends RegexParsers with Ast.Unresolved {
     | "?"        ^^^ Input[Option[String]]()
   )
 
-  lazy val value = (arith | simpleValue) ~ opt(opt("as".i) ~> ident) ^^ {
-    case (c@Constant(_, _)) ~ a     => Named("<constant>", a, c)
-    case (f@Function(n, _)) ~ a     => Named(n, a, f)
-    case (c@Column(n, _)) ~ a       => Named(n, a, c)
-    case (c@AllColumns(_)) ~ a      => Named("*", a, c)
-    case (e@ArithExpr(_, _, _)) ~ a => Named("<constant>", a, e)
+  lazy val value = (compValue | arith | simpleValue) ~ opt(opt("as".i) ~> ident) ^^ {
+    case (c@Constant(_, _)) ~ a          => Named("<constant>", a, c)
+    case (f@Function(n, _)) ~ a          => Named(n, a, f)
+    case (c@Column(n, _)) ~ a            => Named(n, a, c)
+    case (c@AllColumns(_)) ~ a           => Named("*", a, c)
+    case (e@ArithExpr(_, _, _)) ~ a      => Named("<constant>", a, e)
+    case (c@Comparison1(_, _)) ~ a       => Named("<constant>", a, c)
+    case (c@Comparison2(_, _, _)) ~ a    => Named("<constant>", a, c)
+    case (c@Comparison3(_, _, _, _)) ~ a => Named("<constant>", a, c)
   }
 
   lazy val simpleValue: Parser[Value] = (

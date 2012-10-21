@@ -7,37 +7,37 @@ private[sqltyped] object Ast {
   // Types used for AST when references to tables are not yet resolved 
   // (table is optional string reference).
   trait Unresolved {
-    type Expr      = Ast.Expr[Option[String]]
-    type Term      = Ast.Term[Option[String]]
-    type Value     = Ast.Value[Option[String]]
-    type Named     = Ast.Named[Option[String]]
-    type Statement = Ast.Statement[Option[String]]
-    type ArithExpr = Ast.ArithExpr[Option[String]]
-    type Predicate = Ast.Predicate[Option[String]]
-    type Column    = Ast.Column[Option[String]]
-    type Function  = Ast.Function[Option[String]]
-    type Constant  = Ast.Constant[Option[String]]
-    type Select    = Ast.Select[Option[String]]
-    type Where     = Ast.Where[Option[String]]
-    type Limit     = Ast.Limit[Option[String]]
+    type Expr       = Ast.Expr[Option[String]]
+    type Term       = Ast.Term[Option[String]]
+    type Value      = Ast.Value[Option[String]]
+    type Named      = Ast.Named[Option[String]]
+    type Statement  = Ast.Statement[Option[String]]
+    type ArithExpr  = Ast.ArithExpr[Option[String]]
+    type Comparison = Ast.Comparison[Option[String]]
+    type Column     = Ast.Column[Option[String]]
+    type Function   = Ast.Function[Option[String]]
+    type Constant   = Ast.Constant[Option[String]]
+    type Select     = Ast.Select[Option[String]]
+    type Where      = Ast.Where[Option[String]]
+    type Limit      = Ast.Limit[Option[String]]
   }
   object Unresolved extends Unresolved
 
   // Types used for AST when references to tables are resolved 
   trait Resolved {
-    type Expr      = Ast.Expr[Table]
-    type Term      = Ast.Term[Table]
-    type Value     = Ast.Value[Table]
-    type Named     = Ast.Named[Table]
-    type Statement = Ast.Statement[Table]
-    type ArithExpr = Ast.ArithExpr[Table]
-    type Predicate = Ast.Predicate[Table]
-    type Column    = Ast.Column[Table]
-    type Function  = Ast.Function[Table]
-    type Constant  = Ast.Constant[Table]
-    type Select    = Ast.Select[Table]
-    type Where     = Ast.Where[Table]
-    type Limit     = Ast.Limit[Table]
+    type Expr       = Ast.Expr[Table]
+    type Term       = Ast.Term[Table]
+    type Value      = Ast.Value[Table]
+    type Named      = Ast.Named[Table]
+    type Statement  = Ast.Statement[Table]
+    type ArithExpr  = Ast.ArithExpr[Table]
+    type Comparison = Ast.Comparison[Table]
+    type Column     = Ast.Column[Table]
+    type Function   = Ast.Function[Table]
+    type Constant   = Ast.Constant[Table]
+    type Select     = Ast.Select[Table]
+    type Where      = Ast.Where[Table]
+    type Limit      = Ast.Limit[Table]
   }
   object Resolved extends Resolved
 
@@ -56,6 +56,7 @@ private[sqltyped] object Ast {
   
   case class Input[T]() extends Term[T]
   case class Subselect[T](select: Select[T]) extends Term[T]
+  case class TermList[T](terms: List[Term[T]]) extends Term[T]
 
   case class Table(name: String, alias: Option[String])
 
@@ -82,15 +83,15 @@ private[sqltyped] object Ast {
       else this match {
         case And(e1, e2)  => e1.find(p) orElse e2.find(p)
         case Or(e1, e2)   => e1.find(p) orElse e2.find(p)
-        case _: Predicate[T] => None
+        case _: Comparison[T] => None
       }
   }
 
-  sealed trait Predicate[T] extends Expr[T]
+  sealed trait Comparison[T] extends Expr[T] with Value[T]
 
-  case class Predicate1[T](term: Term[T], op: Operator1) extends Predicate[T]
-  case class Predicate2[T](lhs: Term[T], op: Operator2, rhs: Term[T]) extends Predicate[T]
-  case class Predicate3[T](t1: Term[T], op: Operator3, t2: Term[T], t3: Term[T]) extends Predicate[T]
+  case class Comparison1[T](term: Term[T], op: Operator1) extends Comparison[T]
+  case class Comparison2[T](lhs: Term[T], op: Operator2, rhs: Term[T]) extends Comparison[T]
+  case class Comparison3[T](t1: Term[T], op: Operator3, t2: Term[T], t3: Term[T]) extends Comparison[T]
   case class And[T](e1: Expr[T], e2: Expr[T]) extends Expr[T]
   case class Or[T](e1: Expr[T], e2: Expr[T]) extends Expr[T]
 
@@ -121,7 +122,9 @@ private[sqltyped] object Ast {
       case Subselect(select) => resolveSelect(select)(select.tables ::: env) map (s => Subselect(s))
       case ArithExpr(lhs, op, rhs) => 
         for { l <- resolveValue(lhs); r <- resolveValue(rhs) } yield ArithExpr(l, op, r)
+      case c: Comparison[Option[String]] => resolveComparison(c)
       case Constant(tpe, value) => Constant[Table](tpe, value).ok
+      case TermList(terms) => sequence(terms map resolve) map (ts => TermList[Table](ts))
       case Input() => Input[Table]().ok
     }
 
@@ -147,6 +150,7 @@ private[sqltyped] object Ast {
       case f@Function(_, _) => resolveFunc(f)
       case ArithExpr(lhs, op, rhs) => 
         for { l <- resolveValue(lhs); r <- resolveValue(rhs) } yield ArithExpr(l, op, r)
+      case c: Comparison[Option[String]] => resolveComparison(c)
       case Constant(tpe, value) => Constant[Table](tpe, value).ok
     }
 
@@ -175,16 +179,20 @@ private[sqltyped] object Ast {
     def resolveLimitOpt(limit: Option[Limit[Option[String]]]) = sequenceO(limit map resolveLimit)
 
     def resolveExpr(e: Expr[Option[String]]): ?[Expr[Table]] = e match {
-      case p@Predicate1(t1, op) => 
-        resolve(t1) map (t => p.copy(term = t))
-      case p@Predicate2(t1, op, t2) => 
-        for { l <- resolve(t1); r <- resolve(t2) } yield p.copy(lhs = l, rhs = r)
-      case p@Predicate3(t1, op, t2, t3) => 
-        for { r1 <- resolve(t1); r2 <- resolve(t2); r3 <- resolve(t3) } yield p.copy(t1 = r1, t2 = r2, t3 = r3)
+      case c: Comparison[Option[String]] => resolveComparison(c)
       case And(e1, e2) => 
         for { r1 <- resolveExpr(e1); r2 <- resolveExpr(e2) } yield And(r1, r2)
       case Or(e1, e2) =>
         for { r1 <- resolveExpr(e1); r2 <- resolveExpr(e2) } yield Or(r1, r2)
+    }
+
+    def resolveComparison(c: Comparison[Option[String]]) = c match {
+      case p@Comparison1(t1, op) => 
+        resolve(t1) map (t => p.copy(term = t))
+      case p@Comparison2(t1, op, t2) => 
+        for { l <- resolve(t1); r <- resolve(t2) } yield p.copy(lhs = l, rhs = r)
+      case p@Comparison3(t1, op, t2, t3) => 
+        for { r1 <- resolve(t1); r2 <- resolve(t2); r3 <- resolve(t3) } yield p.copy(t1 = r1, t2 = r2, t3 = r3)
     }
   }
 

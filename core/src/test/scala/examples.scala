@@ -109,6 +109,18 @@ class ExampleSuite extends Example {
     sql("select count(id) from person").apply === 2
 
     sql("select max(id) from person where age > ?").apply(100) === None
+
+    sql("select age > 20 from person order by age").apply ===
+      List(false, true)
+
+    sql("select resigned is not null from job_history order by started").apply ===
+      List(true, false, false)
+
+    sql("select age in (1,36) from person order by age desc").apply ===
+      List(true, false)
+
+//    sql("select resigned < now() from job_history order by started").apply ===
+//      List(Some(true), None, None)
   }
 
   test("Query with just one selected column") {
