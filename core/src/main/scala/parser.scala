@@ -33,7 +33,7 @@ trait SqlParser extends RegexParsers with Ast.Unresolved {
 
   lazy val selectValues = selectStmt ^^ SelectedInput.apply
 
-  lazy val updateStmt = update ~ repsep(table, ",") ~ "set".i ~ repsep(assignment, ",") ~ opt(where) ~ opt(orderBy) ~ opt(limit) ^^ {
+  lazy val updateStmt = update ~ rep1sep(table, ",") ~ "set".i ~ rep1sep(assignment, ",") ~ opt(where) ~ opt(orderBy) ~ opt(limit) ^^ {
     case _ ~ t ~ _ ~ a ~ w ~ o ~ l => Update(t, a, w, o, l)
   }
 
@@ -48,7 +48,7 @@ trait SqlParser extends RegexParsers with Ast.Unresolved {
 
   lazy val createStmt = "create".i ^^^ Create[Option[String]]()
 
-  lazy val select = "select".i ~> repsep((opt("distinct".i) ~> value), ",")
+  lazy val select = "select".i ~> repsep((opt("distinct".i) ~> named), ",")
 
   lazy val from = "from".i ~> rep1sep(join, ",")
 
@@ -95,15 +95,17 @@ trait SqlParser extends RegexParsers with Ast.Unresolved {
 
   lazy val simpleTerm = (
       boolean    ^^ constB
+    | nullLit    ^^^ constNull
     | stringLit  ^^ constS
     | numericLit ^^ (n => if (n.contains(".")) constD(n.toDouble) else constL(n.toLong))
-    | extraValues
+    | extraTerms
     | function
     | column
+    | allColumns
     | "?"        ^^^ Input[Option[String]]()
   )
 
-  lazy val value = (comparisonValue | arith | simpleValue) ~ opt(opt("as".i) ~> ident) ^^ {
+  lazy val named = (comparisonValue | arith | simpleTerm) ~ opt(opt("as".i) ~> ident) ^^ {
     case (c@Constant(_, _)) ~ a          => Named("<constant>", a, c)
     case (f@Function(n, _)) ~ a          => Named(n, a, f)
     case (c@Column(n, _)) ~ a            => Named(n, a, c)
@@ -114,18 +116,7 @@ trait SqlParser extends RegexParsers with Ast.Unresolved {
     case (c@Comparison3(_, _, _, _)) ~ a => Named("<constant>", a, c)
   }
 
-  lazy val simpleValue: Parser[Value] = (
-      boolean    ^^ constB
-    | nullLit    ^^^ constNull
-    | stringLit  ^^ constS
-    | numericLit ^^ (n => if (n.contains(".")) constD(n.toDouble) else constL(n.toLong))
-    | function
-    | extraValues
-    | column
-    | allColumns
-  )
-
-  def extraValues: Parser[Value] = failure("no extra values")
+  def extraTerms: Parser[Term] = failure("expected a term")
 
   lazy val column = (
       ident ~ "." ~ ident ^^ { case t ~ _ ~ c => col(c, Some(t)) }
@@ -137,17 +128,29 @@ trait SqlParser extends RegexParsers with Ast.Unresolved {
 
   lazy val functionArg: Parser[Expr] = (expr | term ^^ SimpleExpr.apply)
 
-  lazy val function: Parser[Function] = 
+  lazy val function = (prefixFunction)// | infixFunction)
+
+  lazy val prefixFunction: Parser[Function] = 
     ident ~ "(" ~ repsep(functionArg, ",") ~ ")" ^^ {
       case name ~ _ ~ params ~ _ => Function(name, params)
     }
 
-  lazy val arith: Parser[Value] = (simpleValue | arithParens)* (
-      "+" ^^^ { (lhs: Value, rhs: Value) => ArithExpr(lhs, "+", rhs) }
-    | "-" ^^^ { (lhs: Value, rhs: Value) => ArithExpr(lhs, "-", rhs) }
-    | "*" ^^^ { (lhs: Value, rhs: Value) => ArithExpr(lhs, "*", rhs) }
-    | "/" ^^^ { (lhs: Value, rhs: Value) => ArithExpr(lhs, "/", rhs) }
-    | "%" ^^^ { (lhs: Value, rhs: Value) => ArithExpr(lhs, "%", rhs) }
+  lazy val infixFunction: Parser[Function] = (
+      functionArg ~ "|" ~ functionArg
+    | functionArg ~ "&" ~ functionArg
+    | functionArg ~ "^" ~ functionArg
+    | functionArg ~ "<<" ~ functionArg
+    | functionArg ~ ">>" ~ functionArg
+  ) ^^ {
+    case lhs ~ name ~ rhs => Function(name, List(lhs, rhs))
+  }
+
+  lazy val arith: Parser[Term] = (simpleTerm | arithParens)* (
+      "+" ^^^ { (lhs: Term, rhs: Term) => ArithExpr(lhs, "+", rhs) }
+    | "-" ^^^ { (lhs: Term, rhs: Term) => ArithExpr(lhs, "-", rhs) }
+    | "*" ^^^ { (lhs: Term, rhs: Term) => ArithExpr(lhs, "*", rhs) }
+    | "/" ^^^ { (lhs: Term, rhs: Term) => ArithExpr(lhs, "/", rhs) }
+    | "%" ^^^ { (lhs: Term, rhs: Term) => ArithExpr(lhs, "%", rhs) }
   )
 
   lazy val arithParens = "(" ~> arith <~ ")"
@@ -156,7 +159,7 @@ trait SqlParser extends RegexParsers with Ast.Unresolved {
 
   lazy val nullLit = "null".i
 
-  lazy val orderBy = "order".i ~> "by".i ~> repsep(column, ",") ~ opt("asc".i ^^^ Asc | "desc".i ^^^ Desc) ^^ {
+  lazy val orderBy = "order".i ~> "by".i ~> rep1sep(column, ",") ~ opt("asc".i ^^^ Asc | "desc".i ^^^ Desc) ^^ {
     case cols ~ order => OrderBy(cols, order)
   }
 

@@ -64,7 +64,7 @@ object MysqlDialect extends Dialect {
     lazy val onDuplicateKey = 
       "on".i ~> "duplicate".i ~> "key".i ~> "update".i ~> repsep(assignment, ",")
  
-    override def extraValues = MysqlParser.interval
+    override def extraTerms = MysqlParser.interval
 
     lazy val interval = "interval".i ~> numericLit ~ timeUnit ^^ { case x ~ _ => const(typeOf[java.util.Date], x) }
 

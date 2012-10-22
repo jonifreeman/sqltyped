@@ -100,16 +100,24 @@ object Variables extends Ast.Resolved {
     case Select(projection, _, _, _, _, _) => projection
   }
 
+  def nameTerm(x: Term) = x match {
+    case c@Constant(_, _) => Named("<constant>", None, c)
+    case f@Function(n, _) => Named(n, None, f)
+    case c@Column(n, _)   => Named(n, None, c)
+    case c@AllColumns(_)  => Named("*", None, c)
+    case _ => sys.error("Invalid term " + x)
+  }
+
   def params(e: Expr): List[Named] = e match {
-    case SimpleExpr(x)                        => termToValue(x) :: Nil
+    case SimpleExpr(x)                        => nameTerm(x) :: Nil
     case Comparison1(_, _)                    => Nil
-    case Comparison2(Input(), op, x)          => termToValue(x) :: Nil
-    case Comparison2(x, op, Input())          => termToValue(x) :: Nil
+    case Comparison2(Input(), op, x)          => nameTerm(x) :: Nil
+    case Comparison2(x, op, Input())          => nameTerm(x) :: Nil
     case Comparison2(_, op, Subselect(s))     => s.where.map(w => params(w.expr)).getOrElse(Nil) // FIXME groupBy
     case Comparison2(_, op, _)                => Nil
-    case Comparison3(x, op, Input(), Input()) => termToValue(x) :: termToValue(x) :: Nil
-    case Comparison3(x, op, Input(), _)       => termToValue(x) :: Nil
-    case Comparison3(x, op, _, Input())       => termToValue(x) :: Nil
+    case Comparison3(x, op, Input(), Input()) => nameTerm(x) :: nameTerm(x) :: Nil
+    case Comparison3(x, op, Input(), _)       => nameTerm(x) :: Nil
+    case Comparison3(x, op, _, Input())       => nameTerm(x) :: Nil
     case Comparison3(_, op, _, _)             => Nil
     case And(e1, e2)                          => params(e1) ::: params(e2)
     case Or(e1, e2)                           => params(e1) ::: params(e2)
@@ -135,7 +143,7 @@ class Typer(schema: Schema) extends Ast.Resolved {
       }
     }
 
-    def typeValue(useTags: Boolean)(x: Named): ?[List[TypedValue]] = x.value match {
+    def typeTerm(useTags: Boolean)(x: Named): ?[List[TypedValue]] = x.term match {
       case col@Column(_, _) => 
         for {
           (tpe, opt) <- inferColumnType(col)
@@ -144,7 +152,7 @@ class Typer(schema: Schema) extends Ast.Resolved {
       case AllColumns(t) =>
         for {
           tbl <- getTable(t)
-          cs  <- sequence(tbl.getColumns.toList map { c => typeValue(useTags)(Named(c.getName, None, Column(c.getName, t))) })
+          cs  <- sequence(tbl.getColumns.toList map { c => typeTerm(useTags)(Named(c.getName, None, Column(c.getName, t))) })
         } yield cs.flatten
       case f@Function(_, _) =>
         inferReturnType(f) map { case (tpe, opt) =>
@@ -153,13 +161,13 @@ class Typer(schema: Schema) extends Ast.Resolved {
       case Constant(tpe, _) => List(TypedValue(x.aname, tpe, false, None)).ok
       case ArithExpr(lhs, _, rhs) => 
         (lhs, rhs) match {
-          case (c@Column(_, _), _) => typeValue(useTags)(Named(c.name, x.alias, c))
-          case (_, c@Column(_, _)) => typeValue(useTags)(Named(c.name, x.alias, c))
-          case (Constant(tpe, _), _) if tpe == typeOf[Double] => typeValue(useTags)(Named(x.name, x.alias, lhs))
-          case (_, Constant(tpe, _)) if tpe == typeOf[Double] => typeValue(useTags)(Named(x.name, x.alias, lhs))
+          case (c@Column(_, _), _) => typeTerm(useTags)(Named(c.name, x.alias, c))
+          case (_, c@Column(_, _)) => typeTerm(useTags)(Named(c.name, x.alias, c))
+          case (Constant(tpe, _), _) if tpe == typeOf[Double] => typeTerm(useTags)(Named(x.name, x.alias, lhs))
+          case (_, Constant(tpe, _)) if tpe == typeOf[Double] => typeTerm(useTags)(Named(x.name, x.alias, lhs))
           case (c@Constant(_, _), _) => List(TypedValue(x.aname, typeOf[Int], false, None)).ok
           case (_, c@Constant(_, _)) => List(TypedValue(x.aname, typeOf[Int], false, None)).ok
-          case _ => typeValue(useTags)(Named(x.name, x.alias, lhs))
+          case _ => typeTerm(useTags)(Named(x.name, x.alias, lhs))
         }
       case Comparison1(_, IsNull) | Comparison1(_, IsNotNull) => 
         List(TypedValue(x.aname, typeOf[Boolean], false, None)).ok
@@ -202,8 +210,8 @@ class Typer(schema: Schema) extends Ast.Resolved {
     }
 
     for {
-      in  <- sequence(Variables.input(schema, stmt) map typeValue(useTags = useInputTags))
-      out <- sequence(Variables.output(stmt) map typeValue(useTags = true))
+      in  <- sequence(Variables.input(schema, stmt) map typeTerm(useTags = useInputTags))
+      out <- sequence(Variables.output(stmt) map typeTerm(useTags = true))
       ucs <- uniqueConstraints
       key <- generatedKeyTypes(stmt.tables.head)
     } yield TypedStatement(in.flatten, out.flatten, stmt, ucs, key)

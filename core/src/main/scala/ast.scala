@@ -9,7 +9,6 @@ private[sqltyped] object Ast {
   trait Unresolved {
     type Expr       = Ast.Expr[Option[String]]
     type Term       = Ast.Term[Option[String]]
-    type Value      = Ast.Value[Option[String]]
     type Named      = Ast.Named[Option[String]]
     type Statement  = Ast.Statement[Option[String]]
     type ArithExpr  = Ast.ArithExpr[Option[String]]
@@ -27,7 +26,6 @@ private[sqltyped] object Ast {
   trait Resolved {
     type Expr       = Ast.Expr[Table]
     type Term       = Ast.Term[Table]
-    type Value      = Ast.Value[Table]
     type Named      = Ast.Named[Table]
     type Statement  = Ast.Statement[Table]
     type ArithExpr  = Ast.ArithExpr[Table]
@@ -42,17 +40,16 @@ private[sqltyped] object Ast {
   object Resolved extends Resolved
 
   sealed trait Term[T]
-  sealed trait Value[T] extends Term[T]
 
-  case class Named[T](name: String, alias: Option[String], value: Value[T]) {
+  case class Named[T](name: String, alias: Option[String], term: Term[T]) {
     def aname = alias getOrElse name
   }
 
-  case class Constant[T](tpe: Type, value: Any) extends Value[T]
-  case class Column[T](name: String, table: T) extends Value[T]
-  case class AllColumns[T](table: T) extends Value[T]
-  case class Function[T](name: String, params: List[Expr[T]]) extends Value[T]
-  case class ArithExpr[T](lhs: Value[T], op: String, rhs: Value[T]) extends Value[T]
+  case class Constant[T](tpe: Type, value: Any) extends Term[T]
+  case class Column[T](name: String, table: T) extends Term[T]
+  case class AllColumns[T](table: T) extends Term[T]
+  case class Function[T](name: String, params: List[Expr[T]]) extends Term[T]
+  case class ArithExpr[T](lhs: Term[T], op: String, rhs: Term[T]) extends Term[T]
   
   case class Input[T]() extends Term[T]
   case class Subselect[T](select: Select[T]) extends Term[T]
@@ -87,7 +84,7 @@ private[sqltyped] object Ast {
       }
   }
 
-  sealed trait Comparison[T] extends Expr[T] with Value[T]
+  sealed trait Comparison[T] extends Expr[T] with Term[T]
 
   case class SimpleExpr[T](term: Term[T]) extends Expr[T]
   case class Comparison1[T](term: Term[T], op: Operator1) extends Comparison[T]
@@ -122,7 +119,7 @@ private[sqltyped] object Ast {
       case f@Function(_, ps) => resolveFunc(f)
       case Subselect(select) => resolveSelect(select)(select.tables ::: env) map (s => Subselect(s))
       case ArithExpr(lhs, op, rhs) => 
-        for { l <- resolveValue(lhs); r <- resolveValue(rhs) } yield ArithExpr(l, op, r)
+        for { l <- resolve(lhs); r <- resolve(rhs) } yield ArithExpr(l, op, r)
       case c: Comparison[Option[String]] => resolveComparison(c)
       case Constant(tpe, value) => Constant[Table](tpe, value).ok
       case TermList(terms) => sequence(terms map resolve) map (ts => TermList[Table](ts))
@@ -145,17 +142,7 @@ private[sqltyped] object Ast {
         AllColumns(env.head).ok
     }
 
-    def resolveValue(v: Value[Option[String]]): ?[Value[Table]] = v match {
-      case col@Column(_, _) => resolveColumn(col)
-      case AllColumns(t) => resolveAllColumns(t)
-      case f@Function(_, _) => resolveFunc(f)
-      case ArithExpr(lhs, op, rhs) => 
-        for { l <- resolveValue(lhs); r <- resolveValue(rhs) } yield ArithExpr(l, op, r)
-      case c: Comparison[Option[String]] => resolveComparison(c)
-      case Constant(tpe, value) => Constant[Table](tpe, value).ok
-    }
-
-    def resolveNamed(n: Named[Option[String]]) = resolveValue(n.value) map (v => n.copy(value = v))
+    def resolveNamed(n: Named[Option[String]]) = resolve(n.term) map (t => n.copy(term = t))
     def resolveFunc(f: Function[Option[String]]) = sequence(f.params map resolveExpr) map (ps => f.copy(params = ps))
     def resolveProj(proj: List[Named[Option[String]]]) = sequence(proj map resolveNamed)
     def resolveFroms(from: List[From[Option[String]]]) = sequence(from map resolveFrom)
@@ -258,15 +245,6 @@ private[sqltyped] object Ast {
       o <- r.resolveOrderByOpt(u.orderBy)
       l <- r.resolveLimitOpt(u.limit)
     } yield u.copy(set = s, where = w, orderBy = o, limit = l)
-  }
-
-  // FIXME clean this (see parser.value)
-  def termToValue[T](x: Term[T]) = x match {
-    case c@Constant(_, _) => Named("<constant>", None, c)
-    case f@Function(n, _) => Named(n, None, f)
-    case c@Column(n, _)   => Named(n, None, c)
-    case c@AllColumns(_)  => Named("*", None, c)
-    case _ => sys.error("Invalid value " + x)
   }
 
   case class Delete[T](from: List[From[T]], where: Option[Where[T]]) extends Statement[T] {
