@@ -218,14 +218,14 @@ How to try it?
 Then either:
 
     mysql -u root -e 'create database sqltyped'
-    mysql -u root sqltyped < src/test/resources/test.sql
+    mysql -u root sqltyped < core/src/test/resources/test.sql
     sbt test // Requires >= 0.12.0 
 
 or:
 
-    sudo -u postgres createuser -P sqltypedtest  // Note, change the password from build.sbt
+    sudo -u postgres createuser -P sqltypedtest  // Note, change the password from project/build.scala
     sudo -u postgres createdb -O sqltypedtest sqltyped
-    sudo -u postgres psql sqltyped < src/test/resources/test-postgresql.sql
+    sudo -u postgres psql sqltyped < core/src/test/resources/test-postgresql.sql
 
 
 Related
