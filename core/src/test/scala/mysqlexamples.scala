@@ -33,7 +33,7 @@ class MySQLExamples extends Example {
     sql("select coalesce(resigned, ?) from job_history order by resigned").apply(tstamp("1990-01-01 12:00:00.0")) ===
       List(tstamp("1990-01-01 12:00:00.0"), tstamp("1990-01-01 12:00:00.0"), tstamp("2004-06-22 18:00:00.0"))
 
-    sql("select IF(age<18 or age>100, 18, age) from person order by age").apply ===
+    sql("select IF(age<18 or age>100, 18, age) from person where age > ? order by age").apply(5) ===
       List(18, 36)
   }
 

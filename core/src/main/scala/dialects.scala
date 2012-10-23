@@ -54,7 +54,7 @@ object MysqlDialect extends Dialect {
 
     override def insert = "insert".i <~ opt("ignore".i)
     override def update = "update".i <~ opt("ignore".i)
-   
+
     override lazy val insertStmt = insertSyntax ~ opt(onDuplicateKey) ^^ {
       case t ~ cols ~ vals ~ None => Insert(t, cols, vals)
       case t ~ cols ~ vals ~ Some(as) => 

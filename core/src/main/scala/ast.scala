@@ -60,6 +60,8 @@ private[sqltyped] object Ast {
   sealed trait Operator1
   case object IsNull extends Operator1
   case object IsNotNull extends Operator1
+  case object Exists extends Operator1
+  case object NotExists extends Operator1
 
   sealed trait Operator2
   case object Eq extends Operator2

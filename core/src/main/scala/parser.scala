@@ -3,17 +3,17 @@ package sqltyped
 import scala.util.parsing.combinator._
 import scala.reflect.runtime.universe.{Type, typeOf}
 
-trait SqlParser extends RegexParsers with Ast.Unresolved {
+trait SqlParser extends RegexParsers with Ast.Unresolved with PackratParsers {
   import Ast._
 
-  def parse(sql: String): ?[Statement] = parse(stmt, sql) match {
+  def parse(sql: String): ?[Statement] = parseAll(stmt, sql) match {
     case Success(r, q)  => Right(r)
     case err: NoSuccess => Left(err.msg)
   }
 
   lazy val stmt = (unionStmt | selectStmt | insertStmt | updateStmt | deleteStmt | createStmt)
 
-  lazy val selectStmt = select ~ from ~ opt(where) ~ opt(groupBy) ~ opt(orderBy) ~ opt(limit) ^^ {
+  lazy val selectStmt = select ~ from ~ opt(where) ~ opt(groupBy) ~ opt(orderBy) ~ opt(limit) <~ opt("for".i ~ "update".i) ^^ {
     case s ~ f ~ w ~ g ~ o ~ l => Select(s, f, w, g, o, l)
   }
 
@@ -63,17 +63,17 @@ trait SqlParser extends RegexParsers with Ast.Unresolved {
 
   lazy val where = "where".i ~> expr ^^ Where.apply
 
-  lazy val expr: Parser[Expr] = (comparisonTerm | parens)* (
+  lazy val expr: PackratParser[Expr] = (comparisonTerm | parens)* (
       "and".i ^^^ { (e1: Expr, e2: Expr) => And(e1, e2) } 
     | "or".i  ^^^ { (e1: Expr, e2: Expr) => Or(e1, e2) } 
   )
 
-  lazy val parens: Parser[Expr] = "(" ~> expr  <~ ")"
+  lazy val parens: PackratParser[Expr] = "(" ~> expr  <~ ")"
 
   lazy val comparisonTerm  = comparison(subselect)
   lazy val comparisonValue = comparison(failure("subselect not allowed here"))
 
-  def comparison(sub: Parser[Term]): Parser[Comparison] = (
+  def comparison(sub: PackratParser[Term]): PackratParser[Comparison] = (
       term ~ "="  ~ (term | sub)          ^^ { case lhs ~ _ ~ rhs => Comparison2(lhs, Eq, rhs) }
     | term ~ "!=" ~ (term | sub)          ^^ { case lhs ~ _ ~ rhs => Comparison2(lhs, Neq, rhs) }
     | term ~ "<"  ~ (term | sub)          ^^ { case lhs ~ _ ~ rhs => Comparison2(lhs, Lt, rhs) }
@@ -85,13 +85,15 @@ trait SqlParser extends RegexParsers with Ast.Unresolved {
     | term ~ "between".i ~ term ~ "and".i ~ term ^^ { case t1 ~ _ ~ t2 ~ _ ~ t3 => Comparison3(t1, Between, t2, t3) }
     | term <~ "is".i ~ "null".i           ^^ { t => Comparison1(t, IsNull) }
     | term <~ "is".i ~ "not".i ~ "null".i ^^ { t => Comparison1(t, IsNotNull) }
+    | "exists".i ~> sub                   ^^ { t => Comparison1(t, Exists) }
+    | "not" ~> "exists".i ~> sub          ^^ { t => Comparison1(t, NotExists) }
   )
 
   lazy val subselect = "(" ~> selectStmt <~ ")" ^^ Subselect.apply
 
   lazy val term = (arith | simpleTerm)
 
-  lazy val terms: Parser[Term] = "(" ~> repsep(term, ",") <~ ")" ^^ TermList.apply
+  lazy val terms: PackratParser[Term] = "(" ~> repsep(term, ",") <~ ")" ^^ TermList.apply
 
   lazy val simpleTerm = (
       boolean    ^^ constB
@@ -116,7 +118,7 @@ trait SqlParser extends RegexParsers with Ast.Unresolved {
     case (c@Comparison3(_, _, _, _)) ~ a => Named("<constant>", a, c)
   }
 
-  def extraTerms: Parser[Term] = failure("expected a term")
+  def extraTerms: PackratParser[Term] = failure("expected a term")
 
   lazy val column = (
       ident ~ "." ~ ident ^^ { case t ~ _ ~ c => col(c, Some(t)) }
@@ -126,17 +128,17 @@ trait SqlParser extends RegexParsers with Ast.Unresolved {
   lazy val allColumns = 
     "*" ~ opt("." ~> ident) ^^ { case _ ~ t => AllColumns(t) }
 
-  lazy val functionArg: Parser[Expr] = (expr | term ^^ SimpleExpr.apply)
+  lazy val functionArg: PackratParser[Expr] = (expr | term ^^ SimpleExpr.apply)
 
   lazy val function = (prefixFunction | infixFunction)
 
-  lazy val prefixFunction: Parser[Function] = 
+  lazy val prefixFunction: PackratParser[Function] = 
     ident ~ "(" ~ repsep(functionArg, ",") ~ ")" ^^ {
       case name ~ _ ~ params ~ _ => Function(name, params)
     }
 
-  lazy val infixFunction: Parser[Function] = (
-      "(" ~> functionArg ~ "|" ~ functionArg <~ ")"
+  lazy val infixFunction: PackratParser[Function] = (
+      functionArg ~ "|" ~ functionArg
 //    | functionArg ~ "&" ~ functionArg
 //    | functionArg ~ "^" ~ functionArg
 //    | functionArg ~ "<<" ~ functionArg
@@ -145,7 +147,7 @@ trait SqlParser extends RegexParsers with Ast.Unresolved {
     case lhs ~ name ~ rhs => Function(name, List(lhs, rhs))
   }
 
-  lazy val arith: Parser[Term] = (simpleTerm | arithParens)* (
+  lazy val arith: PackratParser[Term] = (simpleTerm | arithParens)* (
       "+" ^^^ { (lhs: Term, rhs: Term) => ArithExpr(lhs, "+", rhs) }
     | "-" ^^^ { (lhs: Term, rhs: Term) => ArithExpr(lhs, "-", rhs) }
     | "*" ^^^ { (lhs: Term, rhs: Term) => ArithExpr(lhs, "*", rhs) }
@@ -178,7 +180,7 @@ trait SqlParser extends RegexParsers with Ast.Unresolved {
     | numericLit ^^ (n => Left(n.toInt))
   )
 
-  def optParens[A](p: Parser[A]): Parser[A] = (
+  def optParens[A](p: PackratParser[A]): PackratParser[A] = (
       "(" ~> p <~ ")"
     | p
   )

@@ -122,13 +122,15 @@ class ExampleSuite extends Example {
     sql("select resigned < now() from job_history order by started").apply ===
       List(Some(true), None, None)
 
-    sql("select age from person where age|10=46").apply ===
+    // FIXME remove ()
+    sql("select age from person where (age|10)=46").apply ===
       List(36)
 
     // FIXME: type ascription can be removed when function arguments are better typed
-//    sql("select age from person where age|?=?").apply(10, 46) ===
+    // FIXME remove ()
     sql("select age from person where (age|?)=?").apply(10: java.lang.Integer, 46) ===
       List(36)
+
 //    sql("select age|? from person where age&?=0").apply(10, 2) ===
 //      List(46)
   }
