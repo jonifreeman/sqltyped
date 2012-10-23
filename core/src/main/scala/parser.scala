@@ -128,7 +128,7 @@ trait SqlParser extends RegexParsers with Ast.Unresolved {
 
   lazy val functionArg: Parser[Expr] = (expr | term ^^ SimpleExpr.apply)
 
-  lazy val function = (prefixFunction)// | infixFunction)
+  lazy val function = (prefixFunction | infixFunction)
 
   lazy val prefixFunction: Parser[Function] = 
     ident ~ "(" ~ repsep(functionArg, ",") ~ ")" ^^ {
@@ -136,11 +136,11 @@ trait SqlParser extends RegexParsers with Ast.Unresolved {
     }
 
   lazy val infixFunction: Parser[Function] = (
-      functionArg ~ "|" ~ functionArg
-    | functionArg ~ "&" ~ functionArg
-    | functionArg ~ "^" ~ functionArg
-    | functionArg ~ "<<" ~ functionArg
-    | functionArg ~ ">>" ~ functionArg
+      "(" ~> functionArg ~ "|" ~ functionArg <~ ")"
+//    | functionArg ~ "&" ~ functionArg
+//    | functionArg ~ "^" ~ functionArg
+//    | functionArg ~ "<<" ~ functionArg
+//    | functionArg ~ ">>" ~ functionArg
   ) ^^ {
     case lhs ~ name ~ rhs => Function(name, List(lhs, rhs))
   }

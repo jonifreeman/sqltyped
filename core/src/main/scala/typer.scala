@@ -48,7 +48,7 @@ object DbSchema {
 
 object Variables extends Ast.Resolved {
   def input(schema: Schema, stmt: Statement): List[Named] = stmt match {
-    case Delete(from, where) => where.map(w => params(w.expr)).getOrElse(Nil)
+    case Delete(from, where) => where.map(w => input(w.expr)).getOrElse(Nil)
 
     case Insert(table, colNames, insertInput) =>
       def colNamesFromSchema = schema.getTable(table.name).getColumns.toList.map(_.getName)
@@ -62,33 +62,66 @@ object Variables extends Ast.Resolved {
       }
 
     case Union(left, right, orderBy, limit) => 
-      input(schema, left) ::: input(schema, right) ::: limitParams(limit)
+      input(schema, left) ::: input(schema, right) ::: limitInput(limit)
 
     case Composed(left, right) => 
       input(schema, left) ::: input(schema, right)
 
     case Update(tables, set, where, orderBy, limit) => 
       set.collect { case (col, Input()) => Named(col.name, None, col) } :::
-      where.map(w => params(w.expr)).getOrElse(Nil) ::: 
-      limitParams(limit)
+      where.map(w => input(w.expr)).getOrElse(Nil) ::: 
+      limitInput(limit)
 
     case Create() => Nil
 
     case Select(projection, from, where, groupBy, orderBy, limit) =>
       projection.collect { case Named(n, a, f@Function(_, _)) => input(f) }.flatten :::
-      where.map(w => params(w.expr)).getOrElse(Nil) ::: 
-      groupBy.flatMap(g => g.having.map(h => params(h.expr))).getOrElse(Nil) :::
-      limitParams(limit)
+      where.map(w => input(w.expr)).getOrElse(Nil) ::: 
+      groupBy.flatMap(g => g.having.map(h => input(h.expr))).getOrElse(Nil) :::
+      limitInput(limit)
   }
 
   def input(f: Function): List[Named] = f.params flatMap {
     case SimpleExpr(t) => t match {
-      case Input() => Named("<farg>", None, Constant[Table](typeOf[AnyRef], ())) :: Nil
+      case Input() => Named("<farg>", None, Constant[Table](typeOf[AnyRef], ())) :: Nil // FIXME type
       case f2@Function(_, _) => input(f2)
       case _ => Nil
     }
-    case e => params(e)
+    case e => input(e)
   }
+
+  // FIXME remove this
+  def nameTerm(t: Term) = t match {
+    case c@Constant(_, _) => Named("<constant>", None, c)
+    case f@Function(n, _) => Named(n, None, f)
+    case c@Column(n, _)   => Named(n, None, c)
+    case c@AllColumns(_)  => Named("*", None, c)
+    case _ => sys.error("Invalid term " + t)
+  }
+
+  def inputTerm(t: Term) = t match {
+    case f@Function(_, _) => input(f)
+    case _ => Nil
+  }
+
+  def input(e: Expr): List[Named] = e match {
+    case SimpleExpr(t)                        => inputTerm(t)
+    case Comparison1(t, _)                    => inputTerm(t)
+    case Comparison2(Input(), op, t)          => nameTerm(t) :: inputTerm(t)
+    case Comparison2(t, op, Input())          => inputTerm(t) ::: List(nameTerm(t))
+    case Comparison2(t, op, Subselect(s))     => inputTerm(t) ::: s.where.map(w => input(w.expr)).getOrElse(Nil) // FIXME groupBy
+    case Comparison2(t1, op, t2)              => inputTerm(t1) ::: inputTerm(t2)
+    case Comparison3(t, op, Input(), Input()) => inputTerm(t) ::: (nameTerm(t) :: nameTerm(t) :: Nil)
+    case Comparison3(t1, op, Input(), t2)     => inputTerm(t1) ::: (nameTerm(t1) :: inputTerm(t2))
+    case Comparison3(t1, op, t2, Input())     => inputTerm(t1) ::: inputTerm(t2) ::: List(nameTerm(t1))
+    case Comparison3(t1, op, t2, t3)          => inputTerm(t1) ::: inputTerm(t2) ::: inputTerm(t3)
+    case And(e1, e2)                          => input(e1) ::: input(e2)
+    case Or(e1, e2)                           => input(e1) ::: input(e2)
+  }
+
+  def limitInput(limit: Option[Limit]) =
+    limit.map(l => l.count.right.toSeq.toList ::: l.offset.map(_.right.toSeq.toList).getOrElse(Nil))
+      .getOrElse(Nil).map(_ => Named("<constant>", None, Constant[Table](typeOf[Long], None)))
 
   def output(stmt: Statement): List[Named] = stmt match {
     case Delete(_, _) => Nil
@@ -99,33 +132,6 @@ object Variables extends Ast.Resolved {
     case Create() => Nil
     case Select(projection, _, _, _, _, _) => projection
   }
-
-  def nameTerm(x: Term) = x match {
-    case c@Constant(_, _) => Named("<constant>", None, c)
-    case f@Function(n, _) => Named(n, None, f)
-    case c@Column(n, _)   => Named(n, None, c)
-    case c@AllColumns(_)  => Named("*", None, c)
-    case _ => sys.error("Invalid term " + x)
-  }
-
-  def params(e: Expr): List[Named] = e match {
-    case SimpleExpr(x)                        => nameTerm(x) :: Nil
-    case Comparison1(_, _)                    => Nil
-    case Comparison2(Input(), op, x)          => nameTerm(x) :: Nil
-    case Comparison2(x, op, Input())          => nameTerm(x) :: Nil
-    case Comparison2(_, op, Subselect(s))     => s.where.map(w => params(w.expr)).getOrElse(Nil) // FIXME groupBy
-    case Comparison2(_, op, _)                => Nil
-    case Comparison3(x, op, Input(), Input()) => nameTerm(x) :: nameTerm(x) :: Nil
-    case Comparison3(x, op, Input(), _)       => nameTerm(x) :: Nil
-    case Comparison3(x, op, _, Input())       => nameTerm(x) :: Nil
-    case Comparison3(_, op, _, _)             => Nil
-    case And(e1, e2)                          => params(e1) ::: params(e2)
-    case Or(e1, e2)                           => params(e1) ::: params(e2)
-  }
-
-  def limitParams(limit: Option[Limit]) =
-    limit.map(l => l.count.right.toSeq.toList ::: l.offset.map(_.right.toSeq.toList).getOrElse(Nil))
-      .getOrElse(Nil).map(_ => Named("<constant>", None, Constant[Table](typeOf[Long], None)))
 }
 
 class Typer(schema: Schema) extends Ast.Resolved {
@@ -234,6 +240,11 @@ class Typer(schema: Schema) extends Ast.Resolved {
       "abs"   -> (f(a) -> a)
     , "lower" -> (f(a) -> a)
     , "upper" -> (f(a) -> a)
+    , "|"     -> (f2(a, a) -> a)
+    , "&"     -> (f2(a, a) -> a)
+    , "^"     -> (f2(a, a) -> a)
+    , ">>"    -> (f2(a, a) -> a)
+    , "<<"    -> (f2(a, a) -> a)
   ) ++ extraScalarFunctions
 
   val knownFunctions = aggregateFunctions ++ scalarFunctions
