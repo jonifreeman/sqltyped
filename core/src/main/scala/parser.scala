@@ -139,10 +139,10 @@ trait SqlParser extends RegexParsers with Ast.Unresolved with PackratParsers {
 
   lazy val infixFunction: PackratParser[Function] = (
       functionArg ~ "|" ~ functionArg
-//    | functionArg ~ "&" ~ functionArg
-//    | functionArg ~ "^" ~ functionArg
-//    | functionArg ~ "<<" ~ functionArg
-//    | functionArg ~ ">>" ~ functionArg
+    | functionArg ~ "&" ~ functionArg
+    | functionArg ~ "^" ~ functionArg
+    | functionArg ~ "<<" ~ functionArg
+    | functionArg ~ ">>" ~ functionArg
   ) ^^ {
     case lhs ~ name ~ rhs => Function(name, List(lhs, rhs))
   }

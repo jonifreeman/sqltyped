@@ -131,8 +131,8 @@ class ExampleSuite extends Example {
     sql("select age from person where (age|?)=?").apply(10: java.lang.Integer, 46) ===
       List(36)
 
-//    sql("select age|? from person where age&?=0").apply(10, 2) ===
-//      List(46)
+    sql("select age|? from person where (age&?)=0").apply(10: java.lang.Integer, 2: java.lang.Integer) ===
+      List(46)
   }
 
   test("Query with just one selected column") {
