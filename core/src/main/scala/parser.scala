@@ -96,12 +96,12 @@ trait SqlParser extends RegexParsers with Ast.Unresolved with PackratParsers {
   lazy val terms: PackratParser[Term] = "(" ~> repsep(term, ",") <~ ")" ^^ TermList.apply
 
   lazy val simpleTerm = (
-      boolean    ^^ constB
+      function
+    | boolean    ^^ constB
     | nullLit    ^^^ constNull
     | stringLit  ^^ constS
     | numericLit ^^ (n => if (n.contains(".")) constD(n.toDouble) else constL(n.toLong))
     | extraTerms
-    | function
     | column
     | allColumns
     | "?"        ^^^ Input[Option[String]]()
@@ -129,6 +129,7 @@ trait SqlParser extends RegexParsers with Ast.Unresolved with PackratParsers {
     "*" ~ opt("." ~> ident) ^^ { case _ ~ t => AllColumns(t) }
 
   lazy val functionArg: PackratParser[Expr] = (expr | term ^^ SimpleExpr.apply)
+  lazy val infixFunctionArg = term ^^ SimpleExpr.apply
 
   lazy val function = (prefixFunction | infixFunction)
 
@@ -138,11 +139,11 @@ trait SqlParser extends RegexParsers with Ast.Unresolved with PackratParsers {
     }
 
   lazy val infixFunction: PackratParser[Function] = (
-      functionArg ~ "|" ~ functionArg
-    | functionArg ~ "&" ~ functionArg
-    | functionArg ~ "^" ~ functionArg
-    | functionArg ~ "<<" ~ functionArg
-    | functionArg ~ ">>" ~ functionArg
+      infixFunctionArg ~ "|" ~ infixFunctionArg
+    | infixFunctionArg ~ "&" ~ infixFunctionArg
+    | infixFunctionArg ~ "^" ~ infixFunctionArg
+    | infixFunctionArg ~ "<<" ~ infixFunctionArg
+    | infixFunctionArg ~ ">>" ~ infixFunctionArg
   ) ^^ {
     case lhs ~ name ~ rhs => Function(name, List(lhs, rhs))
   }
