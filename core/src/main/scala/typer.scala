@@ -68,7 +68,10 @@ object Variables extends Ast.Resolved {
       input(schema, left) ::: input(schema, right)
 
     case Update(tables, set, where, orderBy, limit) => 
-      set.collect { case (col, Input()) => Named(col.name, None, col) } :::
+      set.flatMap { 
+        case (col, Input()) => Named(col.name, None, col) :: Nil
+        case (col, t) => inputTerm(t)
+      } :::
       where.map(w => input(w.expr)).getOrElse(Nil) ::: 
       limitInput(limit)
 

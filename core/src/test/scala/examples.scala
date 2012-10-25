@@ -244,6 +244,10 @@ class ExampleSuite extends Example {
     sql("update person p, job_history j set p.name=?, j.name=? where p.id=j.person and p.age > ?").apply("joe2", "x", 30)
     sql("select p.name, j.name from person p, job_history j where p.id=j.person order by age").apply.tuples ===
       List(("MOE2", "IBM"), ("joe2", "x"), ("joe2", "x"))
+
+    // FIXME: type ascription can be removed when function arguments are better typed
+    sql("UPDATE person SET age=age&? WHERE name=?").apply(0: java.lang.Integer, "joe2")
+    sql("SELECT age FROM person WHERE name=?").apply("joe2").head === 0
   }
 
   test("Blob") {
