@@ -13,7 +13,7 @@ This experiment starts from following observations.
 Examples
 --------
 
-The following examples use schema and data from [test.sql](https://github.com/jonifreeman/sqltyped/blob/master/src/test/resources/test.sql)
+The following examples use schema and data from [test.sql](https://github.com/jonifreeman/sqltyped/blob/master/core/src/test/resources/test.sql)
 
 First some boring initialization... 
 
