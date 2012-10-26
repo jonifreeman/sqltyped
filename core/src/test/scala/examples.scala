@@ -199,6 +199,12 @@ class ExampleSuite extends Example {
     sql("""select name from person p where not exists 
              (select person from job_history j where resigned is not null and p.id=j.person)""").apply ===
       List("moe")
+
+    sql(""" 
+        select p.name from person p where p.age <= ? and ? <
+          (select j.started from job_history j where p.id=j.person limit 1) order by p.name
+        """).apply(50, tstamp("2002-08-02 08:00:00.0")) ===
+      List("moe")
   }
 
   test("Insert, delete") {

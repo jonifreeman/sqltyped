@@ -1,5 +1,7 @@
 ======== 0.1 ========
 
+- Type input arguments of functions
+- Handle SQL quoting: select `values` from table; see: http://stackoverflow.com/questions/10573922/what-does-the-sql-standard-say-about-usage-of
 
 ======== 0.2 ========
 
@@ -10,8 +12,6 @@
 - Improve names of input arguments
 - A mechanism to merge, tranform or combine records
 - Lift input / output types
-- Type input arguments of functions
 - record to case class
 - Handle dialect specific keywords properly (e.g. http://www.postgresql.org/docs/9.2/static/sql-keywords-appendix.html)
-- Handle SQL quoting: select `values` from table; see: http://stackoverflow.com/questions/10573922/what-does-the-sql-standard-say-about-usage-of
 

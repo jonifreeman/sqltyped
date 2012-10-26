@@ -77,12 +77,14 @@ object Variables extends Ast.Resolved {
 
     case Create() => Nil
 
-    case Select(projection, from, where, groupBy, orderBy, limit) =>
-      projection.collect { case Named(n, a, f@Function(_, _)) => input(f) }.flatten :::
-      where.map(w => input(w.expr)).getOrElse(Nil) ::: 
-      groupBy.flatMap(g => g.having.map(h => input(h.expr))).getOrElse(Nil) :::
-      limitInput(limit)
+    case s@Select(_, _, _, _, _, _) => input(s)
   }
+
+  def input(s: Select): List[Named] =
+    s.projection.collect { case Named(n, a, f@Function(_, _)) => input(f) }.flatten :::
+    s.where.map(w => input(w.expr)).getOrElse(Nil) ::: 
+    s.groupBy.flatMap(g => g.having.map(h => input(h.expr))).getOrElse(Nil) :::
+    limitInput(s.limit)
 
   def input(f: Function): List[Named] = f.params flatMap {
     case SimpleExpr(t) => t match {
@@ -93,17 +95,18 @@ object Variables extends Ast.Resolved {
     case e => input(e)
   }
 
-  // FIXME remove this
   def nameTerm(t: Term) = t match {
     case c@Constant(_, _) => Named("<constant>", None, c)
     case f@Function(n, _) => Named(n, None, f)
     case c@Column(n, _)   => Named(n, None, c)
     case c@AllColumns(_)  => Named("*", None, c)
+    case Subselect(s)     => s.projection.head
     case _ => sys.error("Invalid term " + t)
   }
 
   def inputTerm(t: Term) = t match {
     case f@Function(_, _) => input(f)
+    case Subselect(s) => input(s)
     case _ => Nil
   }
 
