@@ -255,6 +255,9 @@ class ExampleSuite extends Example {
     // FIXME: type ascription can be removed when function arguments are better typed
     sql("UPDATE person SET age=age&? WHERE name=?").apply(0: java.lang.Integer, "joe2")
     sql("SELECT age FROM person WHERE name=?").apply("joe2").head === 0
+
+    
+    sql("update alltypes set i=not(i)").apply
   }
 
   test("Blob") {

@@ -192,7 +192,7 @@ trait SqlParser extends RegexParsers with Ast.Unresolved with PackratParsers {
     ("select".i | "delete".i | "insert".i | "update".i | "from".i | "into".i | "where".i | "as".i | 
      "and".i | "or".i | "join".i | "inner".i | "outer".i | "left".i | "right".i | "on".i | "group".i |
      "by".i | "having".i | "limit".i | "offset".i | "order".i | "asc".i | "desc".i | "distinct".i | 
-     "is".i | "not".i | "null".i | "between".i | "in".i | "exists".i | "values".i | "create".i | 
+     "is".i | "null".i | "between".i | "in".i | "exists".i | "values".i | "create".i | 
      "set".i | "union".i)
 
   private def col(name: String, table: Option[String]) = Column(name, table)
