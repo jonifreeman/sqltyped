@@ -55,7 +55,7 @@ trait SqlParser extends RegexParsers with Ast.Unresolved with PackratParsers {
   lazy val join = table ~ rep(joinSpec) ^^ { case t ~ j => From(t, j) }
 
   lazy val joinSpec = opt("left".i | "right".i) ~ opt("inner".i | "outer".i) ~ "join".i ~ table ~ "on".i ~ expr ^^ {
-    case side ~ joinType ~ _ ~ table ~ "on" ~ expr => 
+    case side ~ joinType ~ _ ~ table ~ _ ~ expr => 
       Join(table, expr, side.map(_ + " ").getOrElse("") + joinType.map(_ + " ").getOrElse("") + "join")
   }
 

@@ -70,6 +70,11 @@ class ExampleSuite extends Example {
     q2(10, "joe").map(_.get(name)) === List("moe")
   }
 
+  test("Joins") {
+    sql("""SELECT distinct p.name FROM person p JOIN job_history j ON p.id=j.person""").apply ===
+      List("joe", "moe")
+  }
+
   test("Query with join and column alias") {
     val q = sql("select p.name, j.name as employer, p.age from person p join job_history j on p.id=j.person where id=? order by employer")
 
@@ -255,9 +260,8 @@ class ExampleSuite extends Example {
     // FIXME: type ascription can be removed when function arguments are better typed
     sql("UPDATE person SET age=age&? WHERE name=?").apply(0: java.lang.Integer, "joe2")
     sql("SELECT age FROM person WHERE name=?").apply("joe2").head === 0
-
     
-    sql("update alltypes set i=not(i)").apply
+    sql("update alltypes set i=not(i) where a > 100").apply
   }
 
   test("Blob") {
