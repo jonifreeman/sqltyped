@@ -71,6 +71,7 @@ private[sqltyped] object Ast {
   case object Le extends Operator2
   case object Ge extends Operator2
   case object In extends Operator2
+  case object NotIn extends Operator2
   case object Like extends Operator2
 
   sealed trait Operator3

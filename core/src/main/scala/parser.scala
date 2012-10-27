@@ -83,6 +83,7 @@ trait SqlParser extends RegexParsers with Ast.Unresolved with PackratParsers {
     | term ~ ">=" ~ (term | sub)          ^^ { case lhs ~ _ ~ rhs => Comparison2(lhs, Ge, rhs) }
     | term ~ "like".i ~ (term | sub)      ^^ { case lhs ~ _ ~ rhs => Comparison2(lhs, Like, rhs) }
     | term ~ "in".i ~ (terms | sub)       ^^ { case lhs ~ _ ~ rhs => Comparison2(lhs, In, rhs) }
+    | term ~ "not".i ~ "in".i ~ (terms | sub) ^^ { case lhs ~ _ ~ _ ~ rhs => Comparison2(lhs, NotIn, rhs) }
     | term ~ "between".i ~ term ~ "and".i ~ term ^^ { case t1 ~ _ ~ t2 ~ _ ~ t3 => Comparison3(t1, Between, t2, t3) }
     | term <~ "is".i ~ "null".i           ^^ { t => Comparison1(t, IsNull) }
     | term <~ "is".i ~ "not".i ~ "null".i ^^ { t => Comparison1(t, IsNotNull) }

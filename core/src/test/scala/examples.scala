@@ -196,6 +196,9 @@ class ExampleSuite extends Example {
     sql("select distinct name from person where id in (select person from job_history)").apply ===
       List("joe", "moe")
 
+    sql("select distinct name from person where id not in (select person from job_history)").apply ===
+      Nil
+
     sql("""select distinct name from person where id in 
              (select person from job_history where started > ?)""").apply(year(2003)) ===
       List("joe", "moe")
