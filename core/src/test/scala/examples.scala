@@ -59,6 +59,8 @@ class ExampleSuite extends Example {
 
     val q2 = sql("select * from person")
     q2().map(_.get(age)).sum === 50
+
+    sql("select p.* from person p").apply.map(_.get(age)).sum === 50
   }
 
   test("Query with input") {

@@ -103,8 +103,8 @@ trait SqlParser extends RegexParsers with Ast.Unresolved with PackratParsers {
     | stringLit  ^^ constS
     | numericLit ^^ (n => if (n.contains(".")) constD(n.toDouble) else constL(n.toLong))
     | extraTerms
-    | column
     | allColumns
+    | column
     | "?"        ^^^ Input[Option[String]]()
   )
 
@@ -127,7 +127,7 @@ trait SqlParser extends RegexParsers with Ast.Unresolved with PackratParsers {
   )
 
   lazy val allColumns = 
-    "*" ~ opt("." ~> ident) ^^ { case _ ~ t => AllColumns(t) }
+    opt(ident <~ ".") <~ "*" ^^ (t => AllColumns(t))
 
   lazy val functionArg: PackratParser[Expr] = (expr | term ^^ SimpleExpr.apply)
   lazy val infixFunctionArg = term ^^ SimpleExpr.apply

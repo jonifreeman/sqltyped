@@ -139,7 +139,8 @@ private[sqltyped] object Ast {
 
     def resolveAllColumns(tableRef: Option[String]) = tableRef match {
       case Some(ref) => 
-        (env.find(t => t.name == ref) orFail ("Unknown table " + ref)) map (r => AllColumns(r))
+        (env.find(t => t.name == ref || t.alias.map(_ == ref).getOrElse(false)) orFail 
+           ("Unknown table '" + ref + "'")) map (r => AllColumns(r))
       case None => 
         AllColumns(env.head).ok
     }
