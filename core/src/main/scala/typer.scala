@@ -234,7 +234,7 @@ class Typer(schema: Schema) extends Ast.Resolved {
     } yield TypedStatement(in.flatten, out.flatten, stmt, ucs, key)
   }
 
-  def isAggregate(fname: String): Boolean = aggregateFunctions.contains(fname)
+  def isAggregate(fname: String): Boolean = aggregateFunctions.contains(fname.toLowerCase)
 
   val dsl = new TypeSigDSL(this)
   import dsl._
@@ -271,6 +271,7 @@ class Typer(schema: Schema) extends Ast.Resolved {
       case f@Function(_, _)              => inferReturnType(f)
       case Input()                       => (typeOf[AnyRef], false).ok
       case TermList(terms)               => tpeOf(SimpleExpr(terms.head))
+      case ArithExpr(lhs, op, rhs)       => tpeOf(SimpleExpr(lhs))
       case x                             => sys.error("Term " + x + " not supported")
     }
 
@@ -305,8 +306,8 @@ class Typer(schema: Schema) extends Ast.Resolved {
     case "java.sql.Time" => typeOf[java.sql.Time]
     case "byte[]" => typeOf[java.sql.Blob]
     case "byte" => typeOf[Byte]
-    case "java.math.BigInt" => typeOf[BigInt]
-    case "java.math.BigDecimal" => typeOf[BigDecimal]
+    case "java.math.BigInteger" => typeOf[java.math.BigInteger]
+    case "java.math.BigDecimal" => typeOf[java.math.BigDecimal]
     case x => sys.error("Unknown type " + x)
   }
 }
