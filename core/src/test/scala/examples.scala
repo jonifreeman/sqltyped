@@ -178,6 +178,9 @@ class ExampleSuite extends Example {
 
     val q = sql("select age from person where name between ? and ? limit ?")
     q("i", "k", 2) === List(36)
+
+    sql("select age from person where name not between ? and ?").apply("l", "z") ===
+      List(36)
   }
 
   test("Tagging") {

@@ -76,6 +76,7 @@ private[sqltyped] object Ast {
 
   sealed trait Operator3
   case object Between extends Operator3
+  case object NotBetween extends Operator3
 
   sealed trait Expr[T] {
     def find(p: Expr[T] => Boolean): Option[Expr[T]] = 
