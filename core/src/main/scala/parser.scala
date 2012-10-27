@@ -76,6 +76,7 @@ trait SqlParser extends RegexParsers with Ast.Unresolved with PackratParsers {
   def comparison(sub: PackratParser[Term]): PackratParser[Comparison] = (
       term ~ "="  ~ (term | sub)          ^^ { case lhs ~ _ ~ rhs => Comparison2(lhs, Eq, rhs) }
     | term ~ "!=" ~ (term | sub)          ^^ { case lhs ~ _ ~ rhs => Comparison2(lhs, Neq, rhs) }
+    | term ~ "<>" ~ (term | sub)          ^^ { case lhs ~ _ ~ rhs => Comparison2(lhs, Neq, rhs) }
     | term ~ "<"  ~ (term | sub)          ^^ { case lhs ~ _ ~ rhs => Comparison2(lhs, Lt, rhs) }
     | term ~ ">"  ~ (term | sub)          ^^ { case lhs ~ _ ~ rhs => Comparison2(lhs, Gt, rhs) }
     | term ~ "<=" ~ (term | sub)          ^^ { case lhs ~ _ ~ rhs => Comparison2(lhs, Le, rhs) }
