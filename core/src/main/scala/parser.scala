@@ -171,8 +171,8 @@ trait SqlParser extends RegexParsers with Ast.Unresolved with PackratParsers {
 
   lazy val orderSpec = column ~ opt("asc".i ^^^ Asc | "desc".i ^^^ Desc) ^^ { case c ~ o => (c, o) }
 
-  lazy val groupBy = "group".i ~> "by".i ~> column ~ opt(having) ^^ {
-    case col ~ having => GroupBy(col, having)
+  lazy val groupBy = "group".i ~> "by".i ~> rep1sep(column, ",") ~ opt(having) ^^ {
+    case cols ~ having => GroupBy(cols, having)
   }
 
   lazy val having = "having".i ~> expr ^^ Having.apply

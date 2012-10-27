@@ -93,6 +93,11 @@ class ExampleSuite extends Example {
       ("moe", "IBM",   tstamp("2005-08-10 11:00:00.0"), None))
   }
 
+  test("Group by") {
+    sql("select p.name from person p where age > ? group by p.id, p.age order by p.name").apply(1) ===
+      List("joe", "moe")
+  }
+
   test("Query with functions") {
     val q = sql("select avg(age), sum(salary) as salary, count(1) from person where abs(age) > ?")
     val res = q(10)
