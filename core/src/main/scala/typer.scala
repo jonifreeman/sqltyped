@@ -85,6 +85,7 @@ object Variables extends Ast.Resolved {
       case Named(n, a, f@Function(_, _)) => input(f) 
       case n@Named(_, _, Input()) => n :: Nil
     }.flatten :::
+    s.from.flatMap(_.join.flatMap(j => input(j.expr))) :::
     s.where.map(w => input(w.expr)).getOrElse(Nil) ::: 
     s.groupBy.flatMap(g => g.having.map(h => input(h.expr))).getOrElse(Nil) :::
     limitInput(s.limit)
@@ -304,6 +305,8 @@ class Typer(schema: Schema) extends Ast.Resolved {
     case "java.sql.Time" => typeOf[java.sql.Time]
     case "byte[]" => typeOf[java.sql.Blob]
     case "byte" => typeOf[Byte]
+    case "java.math.BigInt" => typeOf[BigInt]
+    case "java.math.BigDecimal" => typeOf[BigDecimal]
     case x => sys.error("Unknown type " + x)
   }
 }

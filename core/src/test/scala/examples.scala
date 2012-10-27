@@ -76,7 +76,10 @@ class ExampleSuite extends Example {
   }
 
   test("Joins") {
-    sql("""SELECT distinct p.name FROM person p JOIN job_history j ON p.id=j.person""").apply ===
+    sql("SELECT distinct p.name FROM person p JOIN job_history j ON p.id=j.person").apply ===
+      List("joe", "moe")
+
+    sql("SELECT p.name FROM person p JOIN (job_history j) ON (p.id=j.person and j.name=?)").apply("IBM") ===
       List("joe", "moe")
   }
 
