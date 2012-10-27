@@ -164,6 +164,7 @@ class ExampleSuite extends Example {
 
   test("Query with limit") {
     sql("select age from person order by age limit ?").apply(2) === List(14, 36)
+    sql("select age from person order by age desc, name asc limit ?").apply(2) === List(36, 14)
     sql("select age from person order by age limit ?").apply(1) === List(14)
     sql("select age from person order by age limit ? offset 1").apply(1) === List(36)
     sql("select age from person order by age limit ? offset ?").apply(1, 1) === List(36)

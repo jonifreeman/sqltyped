@@ -302,7 +302,7 @@ private[sqltyped] object Ast {
 
   case class Having[T](expr: Expr[T])
 
-  case class OrderBy[T](cols: List[Column[T]], order: Option[Order])
+  case class OrderBy[T](cols: List[Column[T]], orders: List[Option[Order]])
 
   sealed trait Order
   case object Asc extends Order

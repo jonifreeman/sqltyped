@@ -162,9 +162,11 @@ trait SqlParser extends RegexParsers with Ast.Unresolved with PackratParsers {
 
   lazy val nullLit = "null".i
 
-  lazy val orderBy = "order".i ~> "by".i ~> rep1sep(column, ",") ~ opt("asc".i ^^^ Asc | "desc".i ^^^ Desc) ^^ {
-    case cols ~ order => OrderBy(cols, order)
+  lazy val orderBy = "order".i ~> "by".i ~> rep1sep(orderSpec, ",") ^^ {
+    orderSpecs => OrderBy(orderSpecs.unzip._1, orderSpecs.unzip._2)
   }
+
+  lazy val orderSpec = column ~ opt("asc".i ^^^ Asc | "desc".i ^^^ Desc) ^^ { case c ~ o => (c, o) }
 
   lazy val groupBy = "group".i ~> "by".i ~> column ~ opt(having) ^^ {
     case col ~ having => GroupBy(col, having)
