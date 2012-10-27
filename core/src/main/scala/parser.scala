@@ -218,5 +218,5 @@ trait SqlParser extends RegexParsers with Ast.Unresolved with PackratParsers {
   val stringLit = 
     "'" ~ """([^'\p{Cntrl}\\]|\\[\\/bfnrt]|\\u[a-fA-F0-9]{4})*""".r ~ "'" ^^ { case _ ~ s ~ _ => s }
 
-  val numericLit: Parser[String] = """(\d+(\.\d*)?|\d*\.\d+)""".r
+  val numericLit: Parser[String] = """(-)?(\d+(\.\d*)?|\d*\.\d+)""".r
 }
