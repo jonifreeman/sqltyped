@@ -81,7 +81,10 @@ object Variables extends Ast.Resolved {
   }
 
   def input(s: Select): List[Named] =
-    s.projection.collect { case Named(n, a, f@Function(_, _)) => input(f) }.flatten :::
+    s.projection.collect { 
+      case Named(n, a, f@Function(_, _)) => input(f) 
+      case n@Named(_, _, Input()) => n :: Nil
+    }.flatten :::
     s.where.map(w => input(w.expr)).getOrElse(Nil) ::: 
     s.groupBy.flatMap(g => g.having.map(h => input(h.expr))).getOrElse(Nil) :::
     limitInput(s.limit)
@@ -171,6 +174,7 @@ class Typer(schema: Schema) extends Ast.Resolved {
           List(TypedValue(x.aname, tpe, opt, None))
         }
       case Constant(tpe, _) => List(TypedValue(x.aname, tpe, false, None)).ok
+      case Input() => List(TypedValue(x.aname, typeOf[AnyRef], false, None)).ok // FIXME type is I(n)
       case ArithExpr(lhs, _, rhs) => 
         (lhs, rhs) match {
           case (c@Column(_, _), _) => typeTerm(useTags)(Named(c.name, x.alias, c))

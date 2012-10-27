@@ -114,6 +114,7 @@ trait SqlParser extends RegexParsers with Ast.Unresolved with PackratParsers {
     case (c@Constant(_, _)) ~ a          => Named("<constant>", a, c)
     case (f@Function(n, _)) ~ a          => Named(n, a, f)
     case (c@Column(n, _)) ~ a            => Named(n, a, c)
+    case (i@Input()) ~ a                 => Named("?", a, i)
     case (c@AllColumns(_)) ~ a           => Named("*", a, c)
     case (e@ArithExpr(_, _, _)) ~ a      => Named("<constant>", a, e)
     case (c@Comparison1(_, _)) ~ a       => Named("<constant>", a, c)
