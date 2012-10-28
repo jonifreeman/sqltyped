@@ -35,6 +35,7 @@ class Analyzer(typer: Typer) extends Ast.Resolved {
         case Comparison3(_, _, _, _)               => false
         case And(e1, e2)                           => inExpr(e1, col) || inExpr(e2, col)
         case Or(e1, e2)                            => inExpr(e1, col) || inExpr(e2, col)
+        case Not(e)                                => inExpr(e, col)
       }
       s.where.map(w => cols.map(col => inExpr(w.expr, col)).forall(identity)).getOrElse(false)
     }

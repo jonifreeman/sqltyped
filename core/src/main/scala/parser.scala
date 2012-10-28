@@ -63,12 +63,13 @@ trait SqlParser extends RegexParsers with Ast.Unresolved with PackratParsers {
 
   lazy val where = "where".i ~> expr ^^ Where.apply
 
-  lazy val expr: PackratParser[Expr] = (comparisonTerm | parens)* (
+  lazy val expr: PackratParser[Expr] = (comparisonTerm | parens | notExpr)* (
       "and".i ^^^ { (e1: Expr, e2: Expr) => And(e1, e2) } 
     | "or".i  ^^^ { (e1: Expr, e2: Expr) => Or(e1, e2) } 
   )
 
   lazy val parens: PackratParser[Expr] = "(" ~> expr  <~ ")"
+  lazy val notExpr: PackratParser[Expr] = "not".i ~> expr ^^ Not.apply
 
   lazy val comparisonTerm  = comparison(subselect)
   lazy val comparisonValue = comparison(failure("subselect not allowed here"))
@@ -98,9 +99,9 @@ trait SqlParser extends RegexParsers with Ast.Unresolved with PackratParsers {
 
   lazy val terms: PackratParser[Term] = "(" ~> repsep(term, ",") <~ ")" ^^ TermList.apply
 
-  lazy val simpleTerm = (
+  lazy val simpleTerm: PackratParser[Term] = (
       function
-    | boolean    ^^ constB
+    | boolean
     | nullLit    ^^^ constNull
     | stringLit  ^^ constS
     | numericLit ^^ (n => if (n.contains(".")) constD(n.toDouble) else constL(n.toLong))
@@ -162,7 +163,11 @@ trait SqlParser extends RegexParsers with Ast.Unresolved with PackratParsers {
 
   lazy val arithParens = "(" ~> arith <~ ")"
 
-  lazy val boolean = ("true".i ^^^ true | "false".i ^^^ false)
+  lazy val boolean = (booleanFactor | booleanTerm)
+
+  lazy val booleanTerm = ("true".i ^^^ true | "false".i ^^^ false) ^^ constB
+
+  lazy val booleanFactor = "not".i ~> term
 
   lazy val nullLit = "null".i
 
@@ -196,7 +201,7 @@ trait SqlParser extends RegexParsers with Ast.Unresolved with PackratParsers {
     ("select".i | "delete".i | "insert".i | "update".i | "from".i | "into".i | "where".i | "as".i | 
      "and".i | "or".i | "join".i | "inner".i | "outer".i | "left".i | "right".i | "on".i | "group".i |
      "by".i | "having".i | "limit".i | "offset".i | "order".i | "asc".i | "desc".i | "distinct".i | 
-     "is".i | "null".i | "between".i | "in".i | "exists".i | "values".i | "create".i | 
+     "is".i | "not".i | "null".i | "between".i | "in".i | "exists".i | "values".i | "create".i | 
      "set".i | "union".i)
 
   private def col(name: String, table: Option[String]) = Column(name, table)

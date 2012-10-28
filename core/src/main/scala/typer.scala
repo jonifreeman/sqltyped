@@ -127,6 +127,7 @@ object Variables extends Ast.Resolved {
     case Comparison3(t1, op, t2, t3)          => inputTerm(t1) ::: inputTerm(t2) ::: inputTerm(t3)
     case And(e1, e2)                          => input(e1) ::: input(e2)
     case Or(e1, e2)                           => input(e1) ::: input(e2)
+    case Not(e)                               => input(e)
   }
 
   def limitInput(limit: Option[Limit]) =

@@ -96,6 +96,7 @@ private[sqltyped] object Ast {
   case class Comparison3[T](t1: Term[T], op: Operator3, t2: Term[T], t3: Term[T]) extends Comparison[T]
   case class And[T](e1: Expr[T], e2: Expr[T]) extends Expr[T]
   case class Or[T](e1: Expr[T], e2: Expr[T]) extends Expr[T]
+  case class Not[T](e: Expr[T]) extends Expr[T]
 
   // Parametrized by Table type (Option[String] or Table)
   sealed trait Statement[T] {
@@ -178,6 +179,8 @@ private[sqltyped] object Ast {
         for { r1 <- resolveExpr(e1); r2 <- resolveExpr(e2) } yield And(r1, r2)
       case Or(e1, e2) =>
         for { r1 <- resolveExpr(e1); r2 <- resolveExpr(e2) } yield Or(r1, r2)
+      case Not(e) =>
+        for { r <- resolveExpr(e) } yield Not(r)
     }
 
     def resolveComparison(c: Comparison[Option[String]]) = c match {

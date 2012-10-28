@@ -4,6 +4,9 @@
 - Handle SQL quoting: select `values` from table; see: http://stackoverflow.com/questions/10573922/what-does-the-sql-standard-say-about-usage-of  , language vs. `language`
 - Check that query compiles if column name is reserved Scala keyword (e.g. type)
 - Subselect as relation: select id from (select id, name from person) AS data where data.name = ?
+- DUAL table
+- Schemaprefixes
+- Better parser errors 
 
 ======== 0.2 ========
 
