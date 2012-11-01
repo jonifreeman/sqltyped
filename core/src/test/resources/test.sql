@@ -42,8 +42,8 @@ create table alltypes(
   s SET('v1','v2') NOT NULL
 ) ENGINE=InnoDB;
 
-insert into person values (1, 'joe', 36, 9500);
-insert into person values (2, 'moe', 14, 8000);
+insert into person values (1, 'joe', 36, 9500, NULL);
+insert into person values (2, 'moe', 14, 8000, NULL);
 
 insert into job_history values (1, 'Enron', '2002-08-02 08:00:00', '2004-06-22 18:00:00');
 insert into job_history values (1, 'IBM', '2004-07-13 11:00:00', NULL);
