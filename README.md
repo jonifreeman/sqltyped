@@ -122,49 +122,6 @@ a uniquely constraint column in its where clause. The second one explicitly want
     res10: Some[Int] = Some(36)
 ```
 
-### Tagging primary and foreign keys ###
-
-If a column is a primary or foreign key its type is tagged. For instance, a column which
-references 'person.id' is typed as ```Long @@ person```. That funny little @@ symbol is a type tag
-from Shapeless project. It is used to add extra type information to otherwise simple type and
-can be used for extra type safety in data access code.
-
-```scala
-    scala> def findName(id: Long @@ person) = sql("select name from person where id=?").apply(id)
-
-    scala> sql("select person from job_history").apply map findName
-```
-
-The above code compiles because 'job_history.person' is a foreign key referencing 'person.id'.
-Thus, its type is ```Long @@ person```.
-
-Note, input parameters are not tagged (just typed). Otherwise this wouldn't compile:
-
-```scala
-    sql("select name,age from person where id=?").apply(1)
-```
-
-Instead, explicit tagging would had been required:
-
-```scala
-    sql("select name,age from person where id=?").apply(tag[person](1))
-```
-
-There's a separate function called ```sqlt``` (t as tagged) which tags input parameters too.
-
-```scala
-    scala> val q = sqlt("select name,age from person where id=?")
-    scala> q.apply(1)
-    <console>:31: error: type mismatch;
-     found   : Int(1)
-     required: shapeless.TypeOperators.@@[Long,Tables.person]
-        (which expands to)  Long with AnyRef{type Tag = Tables.person}
-                  q.apply(1)
-
-    scala> q.apply(tag[person](1))
-    res2: Option[shapeless.::[(Columns.name.type, String),shapeless.::[(Columns.age.type, Int),shapeless.HNil]]] = Some((Columns$name$@d6d0dbe,joe) :: (Columns$age$@72a13bd4,36) :: HNil)
-```
-
 ### Inserting data ###
 
 ```scala
