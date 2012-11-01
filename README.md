@@ -139,7 +139,7 @@ the generated value use a function ```sqlk``` (will be changed to ```sql(..., ke
     res2: shapeless.TypeOperators.@@[Long,Tables.person] = 3
 ```
 
-The return value is a key, hence it's type was tagged to be ```Long @@ person```.
+The return value is a key, hence it's type was tagged to be ```Long @@ person```. See [Tagging](https://github.com/jonifreeman/sqltyped/wiki/User-guide#wiki-tagging).
 
 Inserting multiple values is supported too.
 
