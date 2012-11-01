@@ -199,15 +199,10 @@ Updates work as expected.
 ```
 
 
-Status
-------
+Documentation
+-------------
 
-This is a proof-of-concept currently.
-
-The initial implementation uses [Scala macros](http://scalamacros.org) to connect to the database 
-at compile time. The macro reads database schema and infers types and variable names from there. Query
-results are returned as type safe records. Those type safe records are emulated by building on
-[Shapeless](https://github.com/milessabin/shapeless) HLists.
+See [wiki](https://github.com/jonifreeman/sqltyped/wiki).
 
 How to try it?
 --------------
