@@ -10,8 +10,11 @@
 
 ======== 0.2 ========
 
+- runtime querybuilding with Slick + interpolation: 
+    def personByAge(from: Int, to: Int) = Persons.filter(p => p.age >= from && p.age <= to)
+  then: 
+    sql"""select name, age from person where ${personByAge}"""
 - Generate meta types http://stackoverflow.com/questions/12295971/will-it-be-possible-to-generate-several-top-level-classes-with-one-macro-invocat
-- runtime querybuilding
 - in operator
 - Infer function types from schema
 - Improve names of input arguments

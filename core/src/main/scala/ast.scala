@@ -163,8 +163,13 @@ private[sqltyped] object Ast {
     def resolveGroupByOpt(groupBy: Option[GroupBy[Option[String]]]) = sequenceO(groupBy map resolveGroupBy)
     def resolveHaving(having: Having[Option[String]]) = resolveExpr(having.expr) map Having.apply
     def resolveHavingOpt(having: Option[Having[Option[String]]]) = sequenceO(having map resolveHaving)
-    def resolveOrderBy(orderBy: OrderBy[Option[String]]) = sequence(orderBy.cols map resolveColumn) map (cs => orderBy.copy(cols = cs))
+    def resolveOrderBy(orderBy: OrderBy[Option[String]]) = sequence(orderBy.sort map resolveSortKey) map (s => orderBy.copy(sort = s))
     def resolveOrderByOpt(orderBy: Option[OrderBy[Option[String]]]) = sequenceO(orderBy map resolveOrderBy)
+    def resolveSortKey(k: SortKey[Option[String]]): ?[SortKey[Table]] = k match {
+      case ColumnSort(c)   => resolveColumn(c) map ColumnSort.apply
+      case FunctionSort(f) => resolveFunc(f) map FunctionSort.apply
+      case PositionSort(p) => PositionSort(p).ok
+    }
     def resolveLimit(limit: Limit[Option[String]]) = 
       Limit[Table](
         limit.count.right map (_ => Input[Table]()),
@@ -308,7 +313,12 @@ private[sqltyped] object Ast {
 
   case class Having[T](expr: Expr[T])
 
-  case class OrderBy[T](cols: List[Column[T]], orders: List[Option[Order]])
+  case class OrderBy[T](sort: List[SortKey[T]], orders: List[Option[Order]])
+
+  sealed trait SortKey[T]
+  case class ColumnSort[T](col: Column[T]) extends SortKey[T]
+  case class FunctionSort[T](f: Function[T]) extends SortKey[T]
+  case class PositionSort[T](pos: Int) extends SortKey[T]
 
   sealed trait Order
   case object Asc extends Order

@@ -88,13 +88,13 @@ object Variables extends Ast.Resolved {
     s.from.flatMap(_.join.flatMap(j => input(j.expr))) :::
     s.where.map(w => input(w.expr)).getOrElse(Nil) ::: 
     s.groupBy.flatMap(g => g.having.map(h => input(h.expr))).getOrElse(Nil) :::
+    s.orderBy.map(o => o.sort.collect { case FunctionSort(f) => input(f) }.flatten).getOrElse(Nil) :::
     limitInput(s.limit)
 
   def input(f: Function): List[Named] = f.params flatMap {
     case SimpleExpr(t) => t match {
       case Input() => Named("<farg>", None, Constant[Table](typeOf[AnyRef], ())) :: Nil // FIXME type
-      case f2@Function(_, _) => input(f2)
-      case _ => Nil
+      case _ => inputTerm(t)
     }
     case e => input(e)
   }
@@ -108,9 +108,12 @@ object Variables extends Ast.Resolved {
     case _ => sys.error("Invalid term " + t)
   }
 
-  def inputTerm(t: Term) = t match {
-    case f@Function(_, _) => input(f)
-    case Subselect(s) => input(s)
+  def inputTerm(t: Term): List[Named] = t match {
+    case f@Function(_, _)         => input(f)
+    case Subselect(s)             => input(s)
+    case ArithExpr(Input(), _, t) => nameTerm(t) :: inputTerm(t)
+    case ArithExpr(t, _, Input()) => inputTerm(t) ::: List(nameTerm(t))
+    case ArithExpr(lhs, _, rhs)   => inputTerm(lhs) ::: inputTerm(rhs)
     case _ => Nil
   }
 

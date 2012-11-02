@@ -99,9 +99,18 @@ class ExampleSuite extends Example {
       ("moe", "IBM",   tstamp("2005-08-10 11:00:00.0"), None))
   }
 
-  test("Group by") {
+  test("Group by and order by") {
     sql("select p.name from person p where age > ? group by p.id, p.age order by p.name").apply(1) ===
       List("joe", "moe")
+
+    sql("select p.name from person p where age > ? order by abs(salary - age)").apply(1) ===
+      List("moe", "joe")
+
+    sql("select p.name from person p where age > ? order by abs(salary - ?)").apply(1, 500) ===
+      List("moe", "joe")
+
+    sql("select p.name, p.age from person p where age > ? order by 2 desc").apply(1).tuples ===
+      List(("joe", 36), ("moe", 14))
   }
 
   test("Query with functions") {
