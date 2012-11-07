@@ -150,7 +150,9 @@ object SqlMacro {
     def rsGetterName(x: TypedValue)   = "get" + javaName(x)
 
     def javaName(x: TypedValue) = 
-      if (x.tpe.typeSymbol.name.toString == "AnyRef") "Object" else x.tpe.typeSymbol.name.toString
+      if (typeName(x) == "AnyRef" || typeName(x) == "Any") "Object" else typeName(x)
+
+    def typeName(x: TypedValue) = x.tpe.typeSymbol.name.toString
 
     def setParam(x: TypedValue, pos: Int) =
       if (x.nullable) 

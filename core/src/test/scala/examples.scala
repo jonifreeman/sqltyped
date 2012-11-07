@@ -6,14 +6,12 @@ import shapeless._
 
 trait Example extends FunSuite with BeforeAndAfterEach with matchers.ShouldMatchers {
   Class.forName("com.mysql.jdbc.Driver")
-//  Class.forName("org.postgresql.Driver")
 
   object Tables { trait person; trait job_history }
   object Columns { object name; object age; object salary; object count; object avg }
 
   implicit val c = Configuration(Tables, Columns)
   implicit val conn = DriverManager.getConnection("jdbc:mysql://localhost:3306/sqltyped", "root", "")
-//  implicit val conn = DriverManager.getConnection("jdbc:postgresql://localhost/sqltyped", "sqltypedtest", "secret")
 
   override def beforeEach() {
     val newPerson  = sql("insert into person(id, name, age, salary) values (?, ?, ?, ?)")
@@ -129,7 +127,7 @@ class ExampleSuite extends Example {
     res3.get(name) === None
     res3.get(age) === None
 
-    sql("select min(?) from person").apply(10: java.lang.Long) should equal(Some(10))
+    sql("select min(?) from person").apply(10) should equal(Some(10))
 
     sql("select max(age) from person").apply === Some(36)
 
@@ -152,11 +150,10 @@ class ExampleSuite extends Example {
     sql("select age from person where age|10=46").apply ===
       List(36)
 
-    // FIXME: type ascription can be removed when function arguments are better typed
-    sql("select age from person where age|?=?").apply(10: java.lang.Integer, 46) ===
+    sql("select age from person where age|?=?").apply(10, 46) ===
       List(36)
 
-    sql("select age|? from person where age&?=0").apply(10: java.lang.Integer, 2: java.lang.Integer) ===
+    sql("select age|? from person where age&?=0").apply(10, 2) ===
       List(46)
   }
 
@@ -288,8 +285,7 @@ class ExampleSuite extends Example {
     sql("select p.name, j.name from person p, job_history j where p.id=j.person order by age").apply.tuples ===
       List(("MOE2", "IBM"), ("joe2", "x"), ("joe2", "x"))
 
-    // FIXME: type ascription can be removed when function arguments are better typed
-    sql("UPDATE person SET age=age&? WHERE name=?").apply(0: java.lang.Integer, "joe2")
+    sql("UPDATE person SET age=age&? WHERE name=?").apply(0, "joe2")
     sql("SELECT age FROM person WHERE name=?").apply("joe2").head === 0
     
     sql("update alltypes set i=not(i) where a > 100").apply

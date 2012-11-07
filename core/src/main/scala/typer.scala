@@ -16,7 +16,6 @@ case class TypedStatement(
   , generatedKeyTypes: List[TypedValue]
   , numOfResults: NumOfResults.NumOfResults = NumOfResults.Many)
 
-
 object NumOfResults extends Enumeration {
   type NumOfResults = Value
   val ZeroOrOne, One, Many = Value
@@ -46,7 +45,7 @@ object DbSchema {
     java.sql.DriverManager.getConnection(url, username, password)
 }
 
-object Variables extends Ast.Resolved {
+class Variables(typer: Typer) extends Ast.Resolved {
   def input(schema: Schema, stmt: Statement): List[Named] = stmt match {
     case Delete(from, where) => where.map(w => input(w.expr)).getOrElse(Nil)
 
@@ -91,12 +90,12 @@ object Variables extends Ast.Resolved {
     s.orderBy.map(o => o.sort.collect { case FunctionSort(f) => input(f) }.flatten).getOrElse(Nil) :::
     limitInput(s.limit)
 
-  def input(f: Function): List[Named] = f.params flatMap {
-    case SimpleExpr(t) => t match {
-      case Input() => Named("<farg>", None, Constant[Table](typeOf[AnyRef], ())) :: Nil // FIXME type
+  def input(f: Function): List[Named] = f.params zip typer.inferArguments(f) flatMap {
+    case (SimpleExpr(t), (tpe, _)) => t match {
+      case Input() => Named("<farg>", None, Constant[Table](tpe, ())) :: Nil
       case _ => inputTerm(t)
     }
-    case e => input(e)
+    case (e, _) => input(e)
   }
 
   def nameTerm(t: Term) = t match {
@@ -149,6 +148,9 @@ object Variables extends Ast.Resolved {
 }
 
 class Typer(schema: Schema) extends Ast.Resolved {
+  type SqlType = (Type, Boolean)
+  type SqlFType = (List[SqlType], SqlType)
+
   def infer(stmt: Statement, useInputTags: Boolean): ?[TypedStatement] = {
     def tag(col: Column) = {
       getTable(col.table) map { t =>
@@ -179,7 +181,7 @@ class Typer(schema: Schema) extends Ast.Resolved {
           List(TypedValue(x.aname, tpe, opt, None))
         }
       case Constant(tpe, _) => List(TypedValue(x.aname, tpe, false, None)).ok
-      case Input() => List(TypedValue(x.aname, typeOf[AnyRef], false, None)).ok // FIXME type is I(n)
+      case Input() => List(TypedValue(x.aname, typeOf[Any], false, None)).ok
       case ArithExpr(lhs, _, rhs) => 
         (lhs, rhs) match {
           case (c@Column(_, _), _) => typeTerm(useTags)(Named(c.name, x.alias, c))
@@ -230,9 +232,10 @@ class Typer(schema: Schema) extends Ast.Resolved {
         .map(c => TypedValue(c.getName, mkType(c.getType), false, tag(c)))
     }
 
+    val vars = new Variables(this)
     for {
-      in  <- sequence(Variables.input(schema, stmt) map typeTerm(useTags = useInputTags))
-      out <- sequence(Variables.output(stmt) map typeTerm(useTags = true))
+      in  <- sequence(vars.input(schema, stmt) map typeTerm(useTags = useInputTags))
+      out <- sequence(vars.output(stmt) map typeTerm(useTags = true))
       ucs <- uniqueConstraints
       key <- generatedKeyTypes(stmt.tables.head)
     } yield TypedStatement(in.flatten, out.flatten, stmt, ucs, key)
@@ -264,17 +267,18 @@ class Typer(schema: Schema) extends Ast.Resolved {
 
   val knownFunctions = aggregateFunctions ++ scalarFunctions
 
-  def extraAggregateFunctions: Map[String, (String, List[Expr]) => ?[(Type, Boolean)]] = Map()
-  def extraScalarFunctions: Map[String, (String, List[Expr]) => ?[(Type, Boolean)]] = Map()
+  def extraAggregateFunctions: Map[String, (String, List[Expr]) => ?[SqlFType]] = Map()
+  def extraScalarFunctions: Map[String, (String, List[Expr]) => ?[SqlFType]] = Map()
 
-  def tpeOf(e: Expr): ?[(Type, Boolean)] = e match {
+  def tpeOf(e: Expr): ?[SqlType] = e match {
     case SimpleExpr(t) => t match {
       case Constant(tpe, x) if x == null => (tpe, true).ok
       case Constant(tpe, _)              => (tpe, false).ok
       case col@Column(_, _)              => inferColumnType(col)
       case f@Function(_, _)              => inferReturnType(f)
-      case Input()                       => (typeOf[AnyRef], false).ok
+      case Input()                       => (typeOf[Any], false).ok
       case TermList(terms)               => tpeOf(SimpleExpr(terms.head))
+      case ArithExpr(Input(), op, rhs)   => tpeOf(SimpleExpr(rhs))
       case ArithExpr(lhs, op, rhs)       => tpeOf(SimpleExpr(lhs))
       case x                             => sys.error("Term " + x + " not supported")
     }
@@ -284,8 +288,14 @@ class Typer(schema: Schema) extends Ast.Resolved {
 
   def inferReturnType(f: Function) = 
     knownFunctions.get(f.name.toLowerCase) match {
-      case Some(func) => func(f.name, f.params)
-      case None => (typeOf[AnyRef], true).ok
+      case Some(func) => func(f.name, f.params).map(_._2)
+      case None => (typeOf[Any], true).ok
+    }
+
+  def inferArguments(f: Function) = 
+    knownFunctions.get(f.name.toLowerCase) match {
+      case Some(func) => func(f.name, f.params).map(_._1).right.get // FIXME improve error handling
+      case None => f.params.map(_ => (typeOf[Any], true))
     }
 
   def inferColumnType(col: Column) = for {

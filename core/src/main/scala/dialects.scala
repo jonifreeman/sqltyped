@@ -32,19 +32,20 @@ object MysqlDialect extends Dialect {
       , "if"        -> iff _
     )
 
-    def ifnull(fname: String, params: List[Expr]): ?[(Type, Boolean)] = 
+    def ifnull(fname: String, params: List[Expr]): ?[SqlFType] = 
       if (params.length != 2) fail("Expected 2 parameters " + params)
       else for {
-        (tpel, _) <- tpeOf(params(0))
-        (_, optr) <- tpeOf(params(1))
-      } yield (tpel, optr)
+        (tpe0, opt0) <- tpeOf(params(0))
+        (tpe1, opt1) <- tpeOf(params(1))
+      } yield (List((tpe0, opt0), (tpe1, opt1)), (tpe0, opt1))
 
-    def iff(fname: String, params: List[Expr]): ?[(Type, Boolean)] = 
+    def iff(fname: String, params: List[Expr]): ?[SqlFType] = 
       if (params.length != 3) fail("Expected 3 parameters " + params)
       else for {
-        (tpel, optl) <- tpeOf(params(1))
-        (_, optr) <- tpeOf(params(2))
-      } yield (tpel, optl || optr)
+        (tpe0, opt0) <- tpeOf(params(0))
+        (tpe1, opt1) <- tpeOf(params(1))
+        (tpe2, opt2) <- tpeOf(params(2))
+      } yield (List((tpe0, opt0), (tpe1, opt1), (tpe2, opt2)), (tpe1, opt1 || opt2))
   }
 
   val parser = MysqlParser

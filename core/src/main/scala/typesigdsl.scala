@@ -7,13 +7,20 @@ class TypeSigDSL(typer: Typer) {
   case class f[A: Typed](a: A) {
     def ->[R: Typed](r: R) = (fname: String, params: List[Expr]) =>
       if (params.length != 1) fail("Expected 1 parameter " + params)
-      else implicitly[Typed[R]].tpe(fname, params.head) 
+      else for {
+        a1 <- implicitly[Typed[A]].tpe(fname, params(0))
+        r  <- implicitly[Typed[R]].tpe(fname, params.head) // FIXME params.head ??
+      } yield (List(a1), r)
   }
 
   case class f2[A: Typed, B: Typed](a: A, b: B) {
     def ->[R: Typed](r: R) = (fname: String, params: List[Expr]) =>
       if (params.length != 2) fail("Expected 2 parameters " + params)
-      else implicitly[Typed[R]].tpe(fname, params.head) 
+      else for {
+        a1 <- implicitly[Typed[A]].tpe(fname, params(0))
+        a2 <- implicitly[Typed[B]].tpe(fname, params(1))
+        r  <- implicitly[Typed[R]].tpe(fname, params.head) // FIXME params.head ??
+      } yield (List(a1, a2), r)
   }
 
   trait Typed[A] {
