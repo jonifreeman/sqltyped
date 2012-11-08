@@ -84,11 +84,16 @@ class Variables(typer: Typer) extends Ast.Resolved {
       case Named(n, a, f@Function(_, _)) => input(f) 
       case n@Named(_, _, Input()) => n :: Nil
     }.flatten :::
-    s.from.flatMap(_.join.flatMap(j => input(j.expr))) :::
+    s.tableReferences.flatMap(input) :::
     s.where.map(w => input(w.expr)).getOrElse(Nil) ::: 
     s.groupBy.flatMap(g => g.having.map(h => input(h.expr))).getOrElse(Nil) :::
     s.orderBy.map(o => o.sort.collect { case FunctionSort(f) => input(f) }.flatten).getOrElse(Nil) :::
     limitInput(s.limit)
+
+  def input(t: TableReference): List[Named] = t match {
+    case ConcreteTable(_, join) => join flatMap (j => input(j.expr))
+    case DerivedTable(_, s, join) => input(s) ::: (join flatMap (j => input(j.expr)))
+  }
 
   def input(f: Function): List[Named] = f.params zip typer.inferArguments(f) flatMap {
     case (SimpleExpr(t), (tpe, _)) => t match {
@@ -147,13 +152,13 @@ class Variables(typer: Typer) extends Ast.Resolved {
   }
 }
 
-class Typer(schema: Schema) extends Ast.Resolved {
+class Typer(schema: Schema, stmt: Ast.Statement[Table]) extends Ast.Resolved {
   type SqlType = (Type, Boolean)
   type SqlFType = (List[SqlType], SqlType)
 
-  def infer(stmt: Statement, useInputTags: Boolean): ?[TypedStatement] = {
-    def tag(col: Column) = {
-      getTable(col.table) map { t =>
+  def infer(useInputTags: Boolean): ?[TypedStatement] = {
+    def tag(col: Column) =
+      tableSchema(col.table) map { t =>
         def findFK = t.getForeignKeys
           .flatMap(_.getColumnPairs.map(_.getForeignKeyColumn))
           .find(_.getName == col.name)
@@ -163,7 +168,6 @@ class Typer(schema: Schema) extends Ast.Resolved {
           Some(col.table.name)
         else findFK orElse None
       }
-    }
 
     def typeTerm(useTags: Boolean)(x: Named): ?[List[TypedValue]] = x.term match {
       case col@Column(_, _) => 
@@ -173,7 +177,7 @@ class Typer(schema: Schema) extends Ast.Resolved {
         } yield List(TypedValue(x.aname, tpe, opt, if (useTags) t else None))
       case AllColumns(t) =>
         for {
-          tbl <- getTable(t)
+          tbl <- tableSchema(t)
           cs  <- sequence(tbl.getColumns.toList map { c => typeTerm(useTags)(Named(c.getName, None, Column(c.getName, t))) })
         } yield cs.flatten
       case f@Function(_, _) =>
@@ -209,7 +213,7 @@ class Typer(schema: Schema) extends Ast.Resolved {
 
     def uniqueConstraints = {
       val constraints = sequence(stmt.tables map { t =>
-        getTable(t) map { table =>
+        tableSchema(t) map { table =>
           val indices = Option(table.getPrimaryKey).map(List(_)).getOrElse(Nil) ::: table.getIndices.toList
           val uniques = indices filter (_.isUnique) map { i =>
             i.getColumns.toList.map(col => Column(col.getName, t))
@@ -222,7 +226,7 @@ class Typer(schema: Schema) extends Ast.Resolved {
     }
 
     def generatedKeyTypes(table: Table) = for {
-      t <- getTable(table)
+      t <- tableSchema(table)
     } yield {
       def tag(c: schemacrawler.schema.Column) = 
         Option(t.getPrimaryKey).flatMap(_.getColumns.find(_.getName == c.getName)).map(_ => t.getName)
@@ -299,13 +303,15 @@ class Typer(schema: Schema) extends Ast.Resolved {
     }
 
   def inferColumnType(col: Column) = for {
-    t <- getTable(col.table)
+    t <- tableSchema(col.table)
     c <- Option(t.getColumn(col.name)) orFail ("No such column " + col)
   } yield (mkType(c.getType), c.isNullable)
 
-  private def getTable(table: Table) =
-    if (table.name.toLowerCase == "dual") DualTable(schema).ok
-    else Option(schema.getTable(table.name)) orFail ("Unknown table " + table.name)
+  private def tableSchema(t: Table) =
+    if (t.name.toLowerCase == "dual") DualTable(schema).ok
+    else Option(schema.getTable(t.name)) orElse derivedTable(t.name) orFail ("Unknown table " + t.name)
+
+  private def derivedTable(name: String) = DerivedTables(schema, stmt, name)
 
   private def mkType(t: ColumnDataType): Type = t.getTypeClassName match {
     case "java.lang.String" => typeOf[String]
@@ -336,4 +342,56 @@ object DualTable {
   }
 }
 
+object DerivedTables extends Ast.Resolved {
+  def apply(schema: Schema, stmt: Statement, name: String): Option[schemacrawler.schema.Table] = 
+    derivedTables(stmt) find (_.name == name) map mkTable(schema)
 
+  private def derivedTables(stmt: Statement): List[DerivedTable] = stmt match {
+    case Select(proj, tableRefs, where, groupBy, orderBy, limit) => tableRefs flatMap referencedTables
+    case _ => Nil
+  }
+
+  private def joinedTables(j: Join) = referencedTables(j.table)
+
+  private def referencedTables(table: TableReference): List[DerivedTable] = table match {
+    case ConcreteTable(_, join) => join flatMap joinedTables
+    case t@DerivedTable(_, sub, join) => t :: derivedTables(sub) ::: (join flatMap joinedTables)
+  }
+
+  private def mkTable(schema: Schema)(t: DerivedTable) = new schemacrawler.schema.Table {
+    def getColumn(name: String) = 
+      t.subselect.projection find(_.name == name) flatMap mkColumn getOrElse(null)
+
+    def getColumns = (t.subselect.projection flatMap mkColumn).toArray
+
+    private def mkColumn(n: Named) = n.term match {
+      case Column(name, table) => Option(schema.getTable(table.name).getColumn(name))
+      case _ => None
+    }
+
+    def getAttribute(name: String) = ???
+    def getAttribute[T](name: String, defaultValue: T) = ???
+    def getAttributes = ???
+    def getFullName = t.name
+    def getName = t.name
+    def getRemarks = ""
+    def setAttribute(name: String, value: AnyRef) = ???
+    def getSchema = schema
+    def getCheckConstraints = Array()
+    def getColumnsListAsString = getColumns.mkString(",")
+    def getExportedForeignKeys = Array()
+    def getForeignKey(name: String) = null
+    def getForeignKeys = Array()
+    def getImportedForeignKeys = Array()
+    def getIndex(name: String) = null
+    def getIndices = Array()
+    def getPrimaryKey = null
+    def getPrivilege(name: String) = ???
+    def getPrivileges = Array()
+    def getRelatedTables(t: schemacrawler.schema.TableRelationshipType) = Array()
+    def getTrigger(name: String) = null
+    def getTriggers = Array()
+    def getType = ???
+    def compareTo(n: schemacrawler.schema.NamedObject) = getName compareTo n.getName
+  }
+}

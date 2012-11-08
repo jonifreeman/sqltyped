@@ -1,7 +1,10 @@
 ======== 0.1 ========
 
-- Subselect as relation: select id from (select id, name from person) AS data where data.name = ?
+- Subselect as projection: select id, (select name from job_history limit 1) from person
 - Schemaprefixes
+- COLLATE
+- EXCEPT
+- cross join
 - Better parser errors 
 
 ======== 0.2 ========

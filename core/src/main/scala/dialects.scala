@@ -6,7 +6,7 @@ import Ast._
 
 trait Dialect {
   def parser: SqlParser
-  def typer(schema: Schema): Typer
+  def typer(schema: Schema, stmt: Statement[Table]): Typer
 }
 
 object Dialect {
@@ -18,11 +18,11 @@ object Dialect {
 
 object GenericDialect extends Dialect {
   val parser = new SqlParser {}
-  def typer(schema: Schema) = new Typer(schema)
+  def typer(schema: Schema, stmt: Statement[Table]) = new Typer(schema, stmt)
 }
 
 object MysqlDialect extends Dialect {
-  def typer(schema: Schema) = new Typer(schema) {
+  def typer(schema: Schema, stmt: Statement[Table]) = new Typer(schema, stmt) {
     import dsl._
 
     override def extraScalarFunctions = Map(

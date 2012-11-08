@@ -50,12 +50,17 @@ class Analyzer(typer: Typer) extends Ast.Resolved {
     def hasAggregate(projection: List[Named]) = 
       projection collect { case Named(_, _, Function(n, _)) => n } exists typer.isAggregate
 
+    def hasJoin(t: TableReference) = t match {
+      case ConcreteTable(_, join) => join.length > 0
+      case DerivedTable(_, s, join) => join.length > 0
+    }
+
     stmt.stmt match {
       case s@Select(projection, _, _, None, _, _) if hasAggregate(projection) => One
-      case s@Select(_, from, where, _, _, _) => 
-        if ((from.length == 1 && from.head.join.length == 0 && 
+      case s@Select(_, tableRefs, where, _, _, _) => 
+        if ((tableRefs.length == 1 && !hasJoin(tableRefs.head) && 
              where.isDefined && hasNoOrExprs(s) && 
-             stmt.uniqueConstraints(s.from.head.table).exists(c => inWhereClause(s, c))) || 
+             stmt.uniqueConstraints(tableRefs.head.tables.head).exists(c => inWhereClause(s, c))) || 
             hasLimit1(s))
           ZeroOrOne
         else 

@@ -7,35 +7,43 @@ private[sqltyped] object Ast {
   // Types used for AST when references to tables are not yet resolved 
   // (table is optional string reference).
   trait Unresolved {
-    type Expr       = Ast.Expr[Option[String]]
-    type Term       = Ast.Term[Option[String]]
-    type Named      = Ast.Named[Option[String]]
-    type Statement  = Ast.Statement[Option[String]]
-    type ArithExpr  = Ast.ArithExpr[Option[String]]
-    type Comparison = Ast.Comparison[Option[String]]
-    type Column     = Ast.Column[Option[String]]
-    type Function   = Ast.Function[Option[String]]
-    type Constant   = Ast.Constant[Option[String]]
-    type Select     = Ast.Select[Option[String]]
-    type Where      = Ast.Where[Option[String]]
-    type Limit      = Ast.Limit[Option[String]]
+    type Expr           = Ast.Expr[Option[String]]
+    type Term           = Ast.Term[Option[String]]
+    type Named          = Ast.Named[Option[String]]
+    type Statement      = Ast.Statement[Option[String]]
+    type ArithExpr      = Ast.ArithExpr[Option[String]]
+    type Comparison     = Ast.Comparison[Option[String]]
+    type Column         = Ast.Column[Option[String]]
+    type Function       = Ast.Function[Option[String]]
+    type Constant       = Ast.Constant[Option[String]]
+    type Select         = Ast.Select[Option[String]]
+    type Join           = Ast.Join[Option[String]]
+    type TableReference = Ast.TableReference[Option[String]]
+    type ConcreteTable  = Ast.ConcreteTable[Option[String]]
+    type DerivedTable   = Ast.DerivedTable[Option[String]]
+    type Where          = Ast.Where[Option[String]]
+    type Limit          = Ast.Limit[Option[String]]
   }
   object Unresolved extends Unresolved
 
   // Types used for AST when references to tables are resolved 
   trait Resolved {
-    type Expr       = Ast.Expr[Table]
-    type Term       = Ast.Term[Table]
-    type Named      = Ast.Named[Table]
-    type Statement  = Ast.Statement[Table]
-    type ArithExpr  = Ast.ArithExpr[Table]
-    type Comparison = Ast.Comparison[Table]
-    type Column     = Ast.Column[Table]
-    type Function   = Ast.Function[Table]
-    type Constant   = Ast.Constant[Table]
-    type Select     = Ast.Select[Table]
-    type Where      = Ast.Where[Table]
-    type Limit      = Ast.Limit[Table]
+    type Expr           = Ast.Expr[Table]
+    type Term           = Ast.Term[Table]
+    type Named          = Ast.Named[Table]
+    type Statement      = Ast.Statement[Table]
+    type ArithExpr      = Ast.ArithExpr[Table]
+    type Comparison     = Ast.Comparison[Table]
+    type Column         = Ast.Column[Table]
+    type Function       = Ast.Function[Table]
+    type Constant       = Ast.Constant[Table]
+    type Select         = Ast.Select[Table]
+    type Join           = Ast.Join[Table]
+    type TableReference = Ast.TableReference[Table]
+    type ConcreteTable  = Ast.ConcreteTable[Table]
+    type DerivedTable   = Ast.DerivedTable[Table]
+    type Where          = Ast.Where[Table]
+    type Limit          = Ast.Limit[Table]
   }
   object Resolved extends Resolved
 
@@ -151,9 +159,18 @@ private[sqltyped] object Ast {
     def resolveNamed(n: Named[Option[String]]) = resolve(n.term) map (t => n.copy(term = t))
     def resolveFunc(f: Function[Option[String]]) = sequence(f.params map resolveExpr) map (ps => f.copy(params = ps))
     def resolveProj(proj: List[Named[Option[String]]]) = sequence(proj map resolveNamed)
-    def resolveFroms(from: List[From[Option[String]]]) = sequence(from map resolveFrom)
-    def resolveFrom(from: From[Option[String]]) = sequence(from.join map resolveJoin) map (j => from.copy(join = j))
-    def resolveJoin(join: Join[Option[String]]) = resolveExpr(join.expr) map (e => join.copy(expr = e))
+    def resolveTableRefs(ts: List[TableReference[Option[String]]]) = sequence(ts map resolveTableRef)
+    def resolveTableRef(t: TableReference[Option[String]]): ?[TableReference[Table]] = t match {
+      case f@ConcreteTable(_, join) => sequence(join map resolveJoin) map (j => f.copy(join = j))
+      case f@DerivedTable(_, select, join) => for {
+        s <- resolveSelect(select)()
+        j <- sequence(join map resolveJoin)
+      } yield f.copy(subselect = s, join = j)
+    }
+    def resolveJoin(join: Join[Option[String]]) = for {
+      t <- resolveTableRef(join.table)
+      e <- resolveExpr(join.expr)
+    } yield join.copy(table = t, expr = e)
     def resolveWhere(where: Where[Option[String]]) = resolveExpr(where.expr) map Where.apply
     def resolveWhereOpt(where: Option[Where[Option[String]]]) = sequenceO(where map resolveWhere)
     def resolveGroupBy(groupBy: GroupBy[Option[String]]) = for {
@@ -202,12 +219,12 @@ private[sqltyped] object Ast {
     val r = new ResolveEnv(env)
     for {
       p <- r.resolveProj(s.projection)
-      f <- r.resolveFroms(s.from)
+      t <- r.resolveTableRefs(s.tableReferences)
       w <- r.resolveWhereOpt(s.where) 
       g <- r.resolveGroupByOpt(s.groupBy) 
       o <- r.resolveOrderByOpt(s.orderBy)
       l <- r.resolveLimitOpt(s.limit)
-    } yield s.copy(projection = p, from = f, where = w, groupBy = g, orderBy = o, limit = l)
+    } yield s.copy(projection = p, tableReferences = t, where = w, groupBy = g, orderBy = o, limit = l)
   }
 
   private def resolveInsert(i: Insert[Option[String]])(env: List[Table] = i.tables): ?[Insert[Table]] = {
@@ -239,9 +256,8 @@ private[sqltyped] object Ast {
   private def resolveDelete(d: Delete[Option[String]])(env: List[Table] = d.tables): ?[Delete[Table]] = {
     val r = new ResolveEnv(env)
     for {
-      f <- sequence(d.from.map(f => r.resolveFrom(f)))
       w <- r.resolveWhereOpt(d.where)
-    } yield d.copy(from = f, where = w)
+    } yield d.copy(where = w)
   }
 
   private def resolveUpdate(u: Update[Option[String]])(env: List[Table] = u.tables): ?[Update[Table]] = {
@@ -260,9 +276,7 @@ private[sqltyped] object Ast {
     } yield u.copy(set = s, where = w, orderBy = o, limit = l)
   }
 
-  case class Delete[T](from: List[From[T]], where: Option[Where[T]]) extends Statement[T] {
-    def tables = from.map(_.table)
-  }
+  case class Delete[T](tables: List[Table], where: Option[Where[T]]) extends Statement[T]
 
   sealed trait InsertInput[T]
   case class ListedInput[T](values: List[Term[T]]) extends InsertInput[T]
@@ -292,22 +306,28 @@ private[sqltyped] object Ast {
   }
 
   case class Select[T](projection: List[Named[T]], 
-                       from: List[From[T]], // should be NonEmptyList
+                       tableReferences: List[TableReference[T]], // should be NonEmptyList
                        where: Option[Where[T]], 
                        groupBy: Option[GroupBy[T]],
                        orderBy: Option[OrderBy[T]],
                        limit: Option[Limit[T]]) extends Statement[T] {
-    def tables = from flatMap (_.tables)
+    def tables = tableReferences flatMap (_.tables)
     override def isQuery = true
   }
 
-  case class From[T](table: Table, join: List[Join[T]]) {
-    def tables = table :: join.map(_.table)
+  trait TableReference[T] {
+    def tables: List[Table]
+  }
+  case class ConcreteTable[T](table: Table, join: List[Join[T]]) extends TableReference[T] {
+    def tables = table :: join.flatMap(_.table.tables)
+  }
+  case class DerivedTable[T](name: String, subselect: Select[T], join: List[Join[T]]) extends TableReference[T] {
+    def tables = Table(name, None) :: join.flatMap(_.table.tables)
   }
 
   case class Where[T](expr: Expr[T])
 
-  case class Join[T](table: Table, expr: Expr[T], joinSpec: String)
+  case class Join[T](table: TableReference[T], expr: Expr[T], joinSpec: String)
 
   case class GroupBy[T](cols: List[Column[T]], having: Option[Having[T]])
 

@@ -337,4 +337,26 @@ class ExampleSuite extends Example {
   test("DUAL table") {
     sql("select count(1) from dual").apply === 1
   }
+
+  test("Subselect as a relation") {
+    sql("select id from (select id, name from person) AS data where data.name = ?").apply("joe") ===
+      List(1)
+
+    sql("select id from (select id, name from person where age>?) AS data where data.name = ?").apply(20, "joe") ===
+      List(1)
+
+    sql("""
+        SELECT data.id, j.name 
+        FROM (select id, name from person) AS data join job_history j on (data.id = j.person) 
+        WHERE data.name = ?
+        """).apply("joe").tuples === List((1, "Enron"), (1, "IBM"))
+
+    sql("""
+        SELECT data.id, j.name 
+        FROM 
+          (select id, name from person where age>20) AS data join 
+          (select person,name from job_history) AS j on (data.id=j.person) 
+        WHERE data.name = ?
+        """).apply("joe").tuples === List((1, "Enron"), (1, "IBM"))
+  }
 }

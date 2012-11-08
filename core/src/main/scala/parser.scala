@@ -42,21 +42,32 @@ trait SqlParser extends RegexParsers with Ast.Unresolved with PackratParsers {
 
   lazy val assignment = column ~ "=" ~ term ^^ { case c ~ _ ~ t => (c, t) }
 
-  lazy val deleteStmt = "delete".i ~ opt(repsep(ident, ",")) ~ from ~ opt(where) ^^ {
-    case _ ~ f ~ w => Delete(f, w)
-  }
+  lazy val deleteStmt = 
+    "delete".i ~ opt(repsep(ident, ",")) ~ "from".i ~ rep1sep(table, ",") ~ opt(where) ^^ {
+      case _ ~ _ ~ t ~ w => Delete(t, w)
+    }
 
   lazy val createStmt = "create".i ^^^ Create[Option[String]]()
 
   lazy val select = "select".i ~> repsep((opt("distinct".i) ~> named), ",")
 
-  lazy val from = "from".i ~> rep1sep(join, ",")
+  lazy val from = "from".i ~> rep1sep(tableReference, ",")
 
-  lazy val join = table ~ rep(joinSpec) ^^ { case t ~ j => From(t, j) }
+  lazy val tableReference: Parser[TableReference] = (
+      joinedTable
+    | derivedTable
+    | table ^^ (t => ConcreteTable(t, Nil))
+  )
 
-  lazy val joinSpec = opt("left".i | "right".i) ~ opt("inner".i | "outer".i) ~ "join".i ~ optParens(table) ~ "on".i ~ expr ^^ {
+  lazy val joinedTable = table ~ rep(joinSpec) ^^ { case t ~ j => ConcreteTable(t, j) }
+
+  lazy val joinSpec = opt("left".i | "right".i) ~ opt("inner".i | "outer".i) ~ "join".i ~ optParens(tableReference) ~ "on".i ~ expr ^^ {
     case side ~ joinType ~ _ ~ table ~ _ ~ expr => 
       Join(table, expr, side.map(_ + " ").getOrElse("") + joinType.map(_ + " ").getOrElse("") + "join")
+  }
+
+  lazy val derivedTable = subselect ~ "as".i ~ ident ~ rep(joinSpec) ^^ { 
+    case s ~ _ ~ a ~ j => DerivedTable(a, s.select, j)
   }
 
   lazy val table = ident ~ opt(opt("as".i) ~> ident) ^^ { case n ~ a => Table(n, a) }

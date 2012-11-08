@@ -88,8 +88,8 @@ object SqlMacro {
       stmt     <- dialect.parser.parse(sql)
       schema   <- cachedSchema(url, driver, username, password)
       resolved <- Ast.resolveTables(stmt)
-      typer    = dialect.typer(schema)
-      typed    <- typer.infer(resolved, useInputTags)
+      typer    = dialect.typer(schema, resolved)
+      typed    <- typer.infer(useInputTags)
       meta     <- new Analyzer(typer).refine(typed)
     } yield meta) fold (
       err => c.abort(c.enclosingPosition, err),
