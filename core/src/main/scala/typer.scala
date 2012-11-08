@@ -304,7 +304,8 @@ class Typer(schema: Schema) extends Ast.Resolved {
   } yield (mkType(c.getType), c.isNullable)
 
   private def getTable(table: Table) =
-    Option(schema.getTable(table.name)) orFail ("Unknown table " + table.name)
+    if (table.name.toLowerCase == "dual") DualTable(schema).ok
+    else Option(schema.getTable(table.name)) orFail ("Unknown table " + table.name)
 
   private def mkType(t: ColumnDataType): Type = t.getTypeClassName match {
     case "java.lang.String" => typeOf[String]
@@ -325,3 +326,14 @@ class Typer(schema: Schema) extends Ast.Resolved {
     case x => sys.error("Unknown type " + x)
   }
 }
+
+object DualTable {
+  def apply(schema: Schema) = {
+    val cstr = schema.getClass.getClassLoader.loadClass("schemacrawler.crawl.MutableTable")
+      .getDeclaredConstructor(classOf[Schema], classOf[String])
+    cstr.setAccessible(true)
+    cstr.newInstance(schema, "dual").asInstanceOf[schemacrawler.schema.Table]
+  }
+}
+
+

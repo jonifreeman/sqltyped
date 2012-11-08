@@ -1,6 +1,5 @@
 ======== 0.1 ========
 
-- DUAL table
 - Subselect as relation: select id from (select id, name from person) AS data where data.name = ?
 - Schemaprefixes
 - Better parser errors 

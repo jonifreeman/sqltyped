@@ -333,4 +333,8 @@ class ExampleSuite extends Example {
     rows.head.get(select) === "moe"
     rows.head.get(`type`) === false
   }
+
+  test("DUAL table") {
+    sql("select count(1) from dual").apply === 1
+  }
 }
