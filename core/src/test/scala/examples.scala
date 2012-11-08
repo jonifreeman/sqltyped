@@ -8,7 +8,8 @@ trait Example extends FunSuite with BeforeAndAfterEach with matchers.ShouldMatch
   Class.forName("com.mysql.jdbc.Driver")
 
   object Tables { trait person; trait job_history }
-  object Columns { object name; object age; object salary; object count; object avg }
+  object Columns { object name; object age; object salary; object count; object avg 
+                   object select; object `type` }
 
   implicit val c = Configuration(Tables, Columns)
   implicit val conn = DriverManager.getConnection("jdbc:mysql://localhost:3306/sqltyped", "root", "")
@@ -324,5 +325,12 @@ class ExampleSuite extends Example {
     sql("update person set age = age + 1").apply
     sql("select age - 1, age, age * 2, (age % 10) - 1 as age, -10 from person order by age").apply.tuples ===
       List((14, 15, 30, 4, -10), (36, 37, 74, 6, -10))
+  }
+
+  test("Quoting") {
+    val rows = sql(""" select `in`.name as "select", age > 20 as "type" from person `in` order by age """).apply
+    
+    rows.head.get(select) === "moe"
+    rows.head.get(`type`) === false
   }
 }

@@ -203,7 +203,7 @@ trait SqlParser extends RegexParsers with Ast.Unresolved with PackratParsers {
     | p
   )
 
-  val reserved = 
+  lazy val reserved = 
     ("select".i | "delete".i | "insert".i | "update".i | "from".i | "into".i | "where".i | "as".i | 
      "and".i | "or".i | "join".i | "inner".i | "outer".i | "left".i | "right".i | "on".i | "group".i |
      "by".i | "having".i | "limit".i | "offset".i | "order".i | "asc".i | "desc".i | "distinct".i | 
@@ -225,11 +225,17 @@ trait SqlParser extends RegexParsers with Ast.Unresolved with PackratParsers {
 
   def keyword(kw: String): Parser[String] = ("(?i)" + kw + "\\b").r
 
-  val ident = not(reserved) ~> "[a-zA-Z][a-zA-Z0-9_-]*".r
+  def quoteChar: Parser[String] = "\""
 
-  val stringLit = 
+  lazy val ident = (quotedIdent | rawIdent)
+
+  lazy val rawIdent = not(reserved) ~> identValue
+  lazy val quotedIdent = quoteChar ~> identValue <~ quoteChar
+
+  lazy val stringLit = 
     "'" ~ """([^'\p{Cntrl}\\]|\\[\\/bfnrt]|\\u[a-fA-F0-9]{4})*""".r ~ "'" ^^ { case _ ~ s ~ _ => s }
 
-  val numericLit: Parser[String] = """(-)?(\d+(\.\d*)?|\d*\.\d+)""".r
-  val integer: Parser[Int] = """\d*""".r ^^ (s => s.toInt)
+  lazy val identValue: Parser[String] = "[a-zA-Z][a-zA-Z0-9_-]*".r
+  lazy val numericLit: Parser[String] = """(-)?(\d+(\.\d*)?|\d*\.\d+)""".r
+  lazy val integer: Parser[Int] = """\d*""".r ^^ (s => s.toInt)
 }

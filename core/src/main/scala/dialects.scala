@@ -64,6 +64,8 @@ object MysqlDialect extends Dialect {
 
     lazy val onDuplicateKey = 
       "on".i ~> "duplicate".i ~> "key".i ~> "update".i ~> repsep(assignment, ",")
+
+    override def quoteChar = ("\"" | "`")
  
     override def extraTerms = MysqlParser.interval
 
