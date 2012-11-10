@@ -49,7 +49,7 @@ trait SqlParser extends RegexParsers with Ast.Unresolved with PackratParsers {
 
   lazy val createStmt = "create".i ^^^ Create[Option[String]]()
 
-  lazy val select = "select".i ~> repsep((opt("distinct".i) ~> named), ",")
+  lazy val select = "select".i ~> repsep((opt("distinct".i | "all".i) ~> named), ",")
 
   lazy val from = "from".i ~> rep1sep(tableReference, ",")
 
@@ -74,7 +74,7 @@ trait SqlParser extends RegexParsers with Ast.Unresolved with PackratParsers {
 
   lazy val where = "where".i ~> expr ^^ Where.apply
 
-  lazy val expr: PackratParser[Expr] = (comparisonTerm | parens | notExpr)* (
+  lazy val expr: PackratParser[Expr] = (comparison | parens | notExpr)* (
       "and".i ^^^ { (e1: Expr, e2: Expr) => And(e1, e2) } 
     | "or".i  ^^^ { (e1: Expr, e2: Expr) => Or(e1, e2) } 
   )
@@ -82,26 +82,23 @@ trait SqlParser extends RegexParsers with Ast.Unresolved with PackratParsers {
   lazy val parens: PackratParser[Expr] = "(" ~> expr  <~ ")"
   lazy val notExpr: PackratParser[Expr] = "not".i ~> expr ^^ Not.apply
 
-  lazy val comparisonTerm  = comparison(subselect)
-  lazy val comparisonValue = comparison(failure("subselect not allowed here"))
-
-  def comparison(sub: PackratParser[Term]): PackratParser[Comparison] = (
-      term ~ "="  ~ (term | sub)          ^^ { case lhs ~ _ ~ rhs => Comparison2(lhs, Eq, rhs) }
-    | term ~ "!=" ~ (term | sub)          ^^ { case lhs ~ _ ~ rhs => Comparison2(lhs, Neq, rhs) }
-    | term ~ "<>" ~ (term | sub)          ^^ { case lhs ~ _ ~ rhs => Comparison2(lhs, Neq, rhs) }
-    | term ~ "<"  ~ (term | sub)          ^^ { case lhs ~ _ ~ rhs => Comparison2(lhs, Lt, rhs) }
-    | term ~ ">"  ~ (term | sub)          ^^ { case lhs ~ _ ~ rhs => Comparison2(lhs, Gt, rhs) }
-    | term ~ "<=" ~ (term | sub)          ^^ { case lhs ~ _ ~ rhs => Comparison2(lhs, Le, rhs) }
-    | term ~ ">=" ~ (term | sub)          ^^ { case lhs ~ _ ~ rhs => Comparison2(lhs, Ge, rhs) }
-    | term ~ "like".i ~ (term | sub)      ^^ { case lhs ~ _ ~ rhs => Comparison2(lhs, Like, rhs) }
-    | term ~ "in".i ~ (terms | sub)       ^^ { case lhs ~ _ ~ rhs => Comparison2(lhs, In, rhs) }
-    | term ~ "not".i ~ "in".i ~ (terms | sub) ^^ { case lhs ~ _ ~ _ ~ rhs => Comparison2(lhs, NotIn, rhs) }
+  lazy val comparison: PackratParser[Comparison] = (
+      term ~ "="  ~ term          ^^ { case lhs ~ _ ~ rhs => Comparison2(lhs, Eq, rhs) }
+    | term ~ "!=" ~ term          ^^ { case lhs ~ _ ~ rhs => Comparison2(lhs, Neq, rhs) }
+    | term ~ "<>" ~ term          ^^ { case lhs ~ _ ~ rhs => Comparison2(lhs, Neq, rhs) }
+    | term ~ "<"  ~ term          ^^ { case lhs ~ _ ~ rhs => Comparison2(lhs, Lt, rhs) }
+    | term ~ ">"  ~ term          ^^ { case lhs ~ _ ~ rhs => Comparison2(lhs, Gt, rhs) }
+    | term ~ "<=" ~ term          ^^ { case lhs ~ _ ~ rhs => Comparison2(lhs, Le, rhs) }
+    | term ~ ">=" ~ term          ^^ { case lhs ~ _ ~ rhs => Comparison2(lhs, Ge, rhs) }
+    | term ~ "like".i ~ term      ^^ { case lhs ~ _ ~ rhs => Comparison2(lhs, Like, rhs) }
+    | term ~ "in".i ~ (terms | subselect) ^^ { case lhs ~ _ ~ rhs => Comparison2(lhs, In, rhs) }
+    | term ~ "not".i ~ "in".i ~ (terms | subselect) ^^ { case lhs ~ _ ~ _ ~ rhs => Comparison2(lhs, NotIn, rhs) }
     | term ~ "between".i ~ term ~ "and".i ~ term ^^ { case t1 ~ _ ~ t2 ~ _ ~ t3 => Comparison3(t1, Between, t2, t3) }
     | term ~ "not".i ~ "between".i ~ term ~ "and".i ~ term ^^ { case t1 ~ _ ~ _ ~ t2 ~ _ ~ t3 => Comparison3(t1, NotBetween, t2, t3) }
     | term <~ "is".i ~ "null".i           ^^ { t => Comparison1(t, IsNull) }
     | term <~ "is".i ~ "not".i ~ "null".i ^^ { t => Comparison1(t, IsNotNull) }
-    | "exists".i ~> sub                   ^^ { t => Comparison1(t, Exists) }
-    | "not" ~> "exists".i ~> sub          ^^ { t => Comparison1(t, NotExists) }
+    | "exists".i ~> subselect             ^^ { t => Comparison1(t, Exists) }
+    | "not" ~> "exists".i ~> subselect    ^^ { t => Comparison1(t, NotExists) }
   )
 
   lazy val subselect = "(" ~> selectStmt <~ ")" ^^ Subselect.apply
@@ -111,7 +108,8 @@ trait SqlParser extends RegexParsers with Ast.Unresolved with PackratParsers {
   lazy val terms: PackratParser[Term] = "(" ~> repsep(term, ",") <~ ")" ^^ TermList.apply
 
   lazy val simpleTerm: PackratParser[Term] = (
-      function
+      subselect
+    | function
     | boolean
     | nullLit    ^^^ constNull
     | stringLit  ^^ constS
@@ -122,7 +120,7 @@ trait SqlParser extends RegexParsers with Ast.Unresolved with PackratParsers {
     | "?"        ^^^ Input[Option[String]]()
   )
 
-  lazy val named = (comparisonValue | arith | simpleTerm) ~ opt(opt("as".i) ~> ident) ^^ {
+  lazy val named = (comparison | arith | simpleTerm) ~ opt(opt("as".i) ~> ident) ^^ {
     case (c@Constant(_, _)) ~ a          => Named("<constant>", a, c)
     case (f@Function(n, _)) ~ a          => Named(n, a, f)
     case (c@Column(n, _)) ~ a            => Named(n, a, c)
@@ -132,6 +130,7 @@ trait SqlParser extends RegexParsers with Ast.Unresolved with PackratParsers {
     case (c@Comparison1(_, _)) ~ a       => Named("<constant>", a, c)
     case (c@Comparison2(_, _, _)) ~ a    => Named("<constant>", a, c)
     case (c@Comparison3(_, _, _, _)) ~ a => Named("<constant>", a, c)
+    case (s@Subselect(_)) ~ a            => Named("subselect", a, s)
   }
 
   def extraTerms: PackratParser[Term] = failure("expected a term")

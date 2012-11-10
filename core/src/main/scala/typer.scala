@@ -82,7 +82,8 @@ class Variables(typer: Typer) extends Ast.Resolved {
   def input(s: Select): List[Named] =
     s.projection.collect { 
       case Named(n, a, f@Function(_, _)) => input(f) 
-      case n@Named(_, _, Input()) => n :: Nil
+      case n@Named(_, _, Input())        => n :: Nil
+      case Named(_, _, Subselect(s))     => input(s)
     }.flatten :::
     s.tableReferences.flatMap(input) :::
     s.where.map(w => input(w.expr)).getOrElse(Nil) ::: 
@@ -204,7 +205,11 @@ class Typer(schema: Schema, stmt: Ast.Statement[Table]) extends Ast.Resolved {
         List(TypedValue(x.aname, typeOf[Boolean], isNullable(t1) || isNullable(t2), None)).ok
       case Comparison3(t1, _, t2, t3) => 
         List(TypedValue(x.aname, typeOf[Boolean], isNullable(t1) || isNullable(t2) || isNullable(t3), None)).ok
+      case Subselect(s) => 
+        sequence(s.projection map typeTerm(useTags)) map (_.flatten) map (_ map makeNullable)
     }
+
+    def makeNullable(x: TypedValue) = x.copy(nullable = true)
 
     def isNullable(t: Term) = tpeOf(SimpleExpr(t)) map { case (_, opt) => opt } match {
       case Right(opt) => opt

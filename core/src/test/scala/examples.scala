@@ -359,4 +359,11 @@ class ExampleSuite extends Example {
         WHERE data.name = ?
         """).apply("joe").tuples === List((1, "Enron"), (1, "IBM"))
   }
+
+  test("Subselect in projection") {
+    sql("""
+        select p.name, (select name from job_history where p.age > ? and person=p.id limit 1) 
+        from person p order by p.name
+        """).apply(20).tuples === List(("joe", Some("Enron")), ("moe", None))
+  }
 }

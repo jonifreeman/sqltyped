@@ -1,7 +1,5 @@
 ======== 0.1 ========
 
-- Subselect as projection: select id, (select name from job_history limit 1) from person
-- Schemaprefixes
 - COLLATE
 - EXCEPT
 - cross join
@@ -21,4 +19,5 @@
 - Lift input / output types
 - record to case class
 - Handle dialect specific keywords properly (e.g. http://www.postgresql.org/docs/9.2/static/sql-keywords-appendix.html)
+- Schemaprefixes
 
