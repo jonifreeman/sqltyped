@@ -9,7 +9,7 @@ object SqltypedBuild extends Build {
   lazy val sqltypedSettings = Defaults.defaultSettings ++ Seq(
     organization := "sqltyped",
     version := "%s-SNAPSHOT" format majorVersion,
-    scalaVersion := "2.10.0-RC1",
+    scalaVersion := "2.10.0-RC2",
     scalacOptions ++= Seq("-unchecked", "-deprecation"),
     javacOptions ++= Seq("-target", "1.6", "-source", "1.6"),
     crossPaths := false,
@@ -24,11 +24,11 @@ object SqltypedBuild extends Build {
     base = file("core"),
     settings = sqltypedSettings ++ Seq(
       libraryDependencies ++= Seq(
-        "com.chuusai" % "shapeless_2.10.0-RC1" % "1.2.3-SNAPSHOT",
-        "org.scala-lang" % "scala-reflect" % "2.10.0-RC1",
+        "com.chuusai" % "shapeless_2.10.0-RC2" % "1.2.3-SNAPSHOT",
+        "org.scala-lang" % "scala-reflect" % "2.10.0-RC2",
         "net.sourceforge.schemacrawler" % "schemacrawler" % "8.17",
         "org.scalatest" % "scalatest_2.10.0-RC1" % "2.0.M4-2.10.0-RC1-B1" % "test",
-        "org.scala-lang" % "scala-actors" % "2.10.0-RC1" % "test",
+        "org.scala-lang" % "scala-actors" % "2.10.0-RC2" % "test",
         "mysql" % "mysql-connector-java" % "5.1.21" % "test",
         "postgresql" % "postgresql" % "9.1-901.jdbc4" % "test"
       ),
