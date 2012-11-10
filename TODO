@@ -1,6 +1,5 @@
 ======== 0.1 ========
 
-- COLLATE
 - EXCEPT
 - cross join
 - Better parser errors 
