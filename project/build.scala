@@ -1,13 +1,13 @@
 import sbt._
 import Keys._
 
-object SqltypedBuild extends Build {
+object SqltypedBuild extends Build with Publish {
   import Resolvers._
 
   lazy val majorVersion = "0.1"
 
-  lazy val sqltypedSettings = Defaults.defaultSettings ++ Seq(
-    organization := "sqltyped",
+  lazy val sqltypedSettings = Defaults.defaultSettings ++ publishSettings ++ Seq(
+    organization := "fi.reaktor",
     version := "%s-SNAPSHOT" format majorVersion,
     scalaVersion := "2.10.0-RC2",
     scalacOptions ++= Seq("-unchecked", "-deprecation"),
@@ -37,7 +37,7 @@ object SqltypedBuild extends Build {
   )
 
   lazy val slickIntegration = Project(
-    id = "slick-integration",
+    id = "sqltyped-slick",
     base = file("slick-integration"),
     settings = sqltypedSettings ++ Seq(
       libraryDependencies ++= Seq(
