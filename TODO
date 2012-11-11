@@ -1,8 +1,6 @@
 ======== 0.1 ========
 
-- EXCEPT + INTERSECT
 - cross join
-- Better parser errors 
 
 ======== 0.2 ========
 
@@ -19,4 +17,5 @@
 - record to case class
 - Handle dialect specific keywords properly (e.g. http://www.postgresql.org/docs/9.2/static/sql-keywords-appendix.html)
 - Schemaprefixes
+- Better parser errors 
 

@@ -308,20 +308,18 @@ class ExampleSuite extends Example {
   }
 
   test("Union") {
-    val q1 = sql(""" 
-                 select name,age from person where age < ?
-                 union 
-                 select name,age from person where age > ?
-                 """)
-    q1.apply(15, 20).tuples === List(("moe", 14), ("joe", 36))
+    sql(""" 
+        select name,age from person where age < ?
+        union 
+        select name,age from person where age > ?
+        """).apply(15, 20).tuples === List(("moe", 14), ("joe", 36))
 
-    val q2 = sql(""" 
-                 (select name from person where age < ?)
-                 union 
-                 (select name from person where age > ?)
-                 order by name desc limit ?
-                 """)
-    q2.apply(15, 20, 5) === List("moe", "joe")
+    sql(""" 
+        (select name from person where age < ?)
+        union all
+        (select name from person where age > ?)
+        order by name desc limit ?
+        """).apply(15, 20, 5) === List("moe", "joe")
   }
 
   test("Arithmetic") {

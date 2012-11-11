@@ -70,7 +70,7 @@ class Analyzer(typer: Typer) extends Ast.Resolved {
       case Update(_, _, _, _, _) => One
       case Delete(_, _) => One
       case Create() => One
-      case Union(s1, s2, _, _) => 
+      case SetStatement(s1, _, s2, _, _) => 
         analyzeResults(stmt.copy(stmt = s1)) max analyzeResults(stmt.copy(stmt = s2))
       case Composed(s1, s2) => 
         analyzeResults(stmt.copy(stmt = s1)) max analyzeResults(stmt.copy(stmt = s2))

@@ -121,7 +121,7 @@ private[sqltyped] object Ast {
     case u@Update(_, _, _, _, _) => resolveUpdate(u)()
     case Create() => Create[Table]().ok
     case i@Insert(_, _, _) => resolveInsert(i)()
-    case u@Union(_, _, _, _) => resolveUnion(u)()
+    case s@SetStatement(_, _, _, _, _) => resolveSetStatement(s)()
     case c@Composed(_, _) => resolveComposed(c)()
   }
 
@@ -235,14 +235,14 @@ private[sqltyped] object Ast {
     }) map (in => i.copy(insertInput = in))
   }
 
-  private def resolveUnion(u: Union[Option[String]])(env: List[Table] = u.tables): ?[Union[Table]] = {
+  private def resolveSetStatement(s: SetStatement[Option[String]])(env: List[Table] = s.tables): ?[SetStatement[Table]] = {
     val r = new ResolveEnv(env)
     for {
-      le <- resolveTables(u.left)
-      ri <- resolveTables(u.right)
-      o  <- r.resolveOrderByOpt(u.orderBy)
-      l  <- r.resolveLimitOpt(u.limit)
-    } yield Union(le, ri, o, l)
+      le <- resolveTables(s.left)
+      ri <- resolveTables(s.right)
+      o  <- r.resolveOrderByOpt(s.orderBy)
+      l  <- r.resolveLimitOpt(s.limit)
+    } yield SetStatement(le, s.op, ri, o, l)
   }
 
   private def resolveComposed(c: Composed[Option[String]])(env: List[Table] = c.tables): ?[Composed[Table]] = {
@@ -287,8 +287,8 @@ private[sqltyped] object Ast {
     def tables = table :: Nil
   }
 
-  case class Union[T](left: Statement[T], right: Statement[T], 
-                      orderBy: Option[OrderBy[T]], limit: Option[Limit[T]]) extends Statement[T] {
+  case class SetStatement[T](left: Statement[T], op: String, right: Statement[T], 
+                             orderBy: Option[OrderBy[T]], limit: Option[Limit[T]]) extends Statement[T] {
     def tables = left.tables ::: right.tables
     override def isQuery = true
   }

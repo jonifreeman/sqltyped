@@ -60,7 +60,7 @@ class Variables(typer: Typer) extends Ast.Resolved {
         case SelectedInput(select) => input(schema, select)
       }
 
-    case Union(left, right, orderBy, limit) => 
+    case SetStatement(left, op, right, orderBy, limit) => 
       input(schema, left) ::: input(schema, right) ::: limitInput(limit)
 
     case Composed(left, right) => 
@@ -145,7 +145,7 @@ class Variables(typer: Typer) extends Ast.Resolved {
   def output(stmt: Statement): List[Named] = stmt match {
     case Delete(_, _) => Nil
     case Insert(_, _, _) => Nil
-    case Union(left, _, _, _) => output(left)
+    case SetStatement(left, _, _, _, _) => output(left)
     case Composed(left, right) => output(left) ::: output(right)
     case Update(_, _, _, _, _) => Nil
     case Create() => Nil

@@ -11,14 +11,16 @@ trait SqlParser extends RegexParsers with Ast.Unresolved with PackratParsers {
     case err: NoSuccess => Left(err.msg)
   }
 
-  lazy val stmt = (unionStmt | selectStmt | insertStmt | updateStmt | deleteStmt | createStmt)
+  lazy val stmt = (setStmt | selectStmt | insertStmt | updateStmt | deleteStmt | createStmt)
 
   lazy val selectStmt = select ~ from ~ opt(where) ~ opt(groupBy) ~ opt(orderBy) ~ opt(limit) <~ opt("for".i ~ "update".i) ^^ {
     case s ~ f ~ w ~ g ~ o ~ l => Select(s, f, w, g, o, l)
   }
 
-  lazy val unionStmt = optParens(selectStmt) ~ "union".i ~ optParens(selectStmt) ~ opt(orderBy) ~ opt(limit) ^^ {
-    case s1 ~ _ ~ s2 ~ o ~ l => Union(s1, s2, o, l)
+  lazy val setOperator = ("union".i | "except".i | "intersect".i)
+
+  lazy val setStmt = optParens(selectStmt) ~ setOperator ~ opt("all".i) ~ optParens(selectStmt) ~ opt(orderBy) ~ opt(limit) ^^ {
+    case s1 ~ op ~ _ ~ s2 ~ o ~ l => SetStatement(s1, op, s2, o, l)
   }
 
   lazy val insertSyntax = insert ~> "into".i ~> table ~ opt(colNames) ~ (listValues | selectValues)
@@ -222,7 +224,7 @@ trait SqlParser extends RegexParsers with Ast.Unresolved with PackratParsers {
      "and".i | "or".i | "join".i | "inner".i | "outer".i | "left".i | "right".i | "on".i | "group".i |
      "by".i | "having".i | "limit".i | "offset".i | "order".i | "asc".i | "desc".i | "distinct".i | 
      "is".i | "not".i | "null".i | "between".i | "in".i | "exists".i | "values".i | "create".i | 
-     "set".i | "union".i)
+     "set".i | "union".i | "except".i | "intersect".i)
 
   private def col(name: String, table: Option[String]) = Column(name, table)
 
