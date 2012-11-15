@@ -34,7 +34,8 @@ Start console: ```sbt```, then ```project sqltyped``` and ```test:console```.
     object Tables { trait person; trait job_history }
     object Columns { object name; object age; object salary; }
     implicit val c = Configuration(Tables, Columns)
-    implicit def conn = DriverManager.getConnection("jdbc:mysql://localhost:3306/sqltyped", "root", "")
+    implicit def conn = DriverManager.getConnection("jdbc:mysql://localhost:3306/sqltyped", 
+                                                    "root", "")
     import Tables._
     import Columns._
 ```
@@ -63,7 +64,8 @@ Functions ```values``` and ```tuples``` can be used to drop record names and get
 
 ```scala
    scala> q().values
-   res1: List[shapeless.::[String,shapeless.::[Int,shapeless.HNil]]] = List(joe :: 36 :: HNil, moe :: 14 :: HNil)
+   res1: List[shapeless.::[String,shapeless.::[Int,shapeless.HNil]]] = 
+     List(joe :: 36 :: HNil, moe :: 14 :: HNil)
 
    scala> q().tuples
    res2: List[(String, Int)] = List((joe,36), (moe,14))
