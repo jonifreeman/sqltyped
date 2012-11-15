@@ -54,7 +54,7 @@ class TypeSigDSL(typer: Typer) {
   implicit def intTyped: Typed[int.type] = new Const[int.type](typeOf[Int])
   implicit def longTyped: Typed[long.type] = new Const[long.type](typeOf[Long])
   implicit def doubleTyped: Typed[double.type] = new Const[double.type](typeOf[Double])
-  implicit def dateTyped: Typed[date.type] = new Const[date.type](typeOf[java.util.Date])
+  implicit def dateTyped: Typed[date.type] = new Const[date.type](typeOf[java.sql.Date])
 
   class Const[A](tpe: Type) extends Typed[A] {
     def tpe(fname: String, e: Expr) = (tpe, false).ok
