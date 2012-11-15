@@ -1,8 +1,6 @@
 Macro which infers Scala types from database
 ============================================
 
-Intro
------
 
 > _Towards a perfect impedance match..._
 
