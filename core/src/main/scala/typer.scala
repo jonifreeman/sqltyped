@@ -92,8 +92,8 @@ class Variables(typer: Typer) extends Ast.Resolved {
     limitInput(s.limit)
 
   def input(t: TableReference): List[Named] = t match {
-    case ConcreteTable(_, join) => join flatMap (j => input(j.expr))
-    case DerivedTable(_, s, join) => input(s) ::: (join flatMap (j => input(j.expr)))
+    case ConcreteTable(_, join) => join flatMap (_.expr map input getOrElse Nil)
+    case DerivedTable(_, s, join) => input(s) ::: (join flatMap (_.expr map input getOrElse Nil))
   }
 
   def input(f: Function): List[Named] = f.params zip typer.inferArguments(f) flatMap {

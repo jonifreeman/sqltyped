@@ -33,7 +33,7 @@ trait SqlParser extends RegexParsers with Ast.Unresolved with PackratParsers {
 
   lazy val listValues = "values".i ~> "(" ~> repsep(term, ",") <~ ")" ^^ ListedInput.apply
 
-  lazy val selectValues = selectStmt ^^ SelectedInput.apply
+  lazy val selectValues = optParens(selectStmt) ^^ SelectedInput.apply
 
   lazy val updateStmt = update ~ rep1sep(table, ",") ~ "set".i ~ rep1sep(assignment, ",") ~ opt(where) ~ opt(orderBy) ~ opt(limit) ^^ {
     case _ ~ t ~ _ ~ a ~ w ~ o ~ l => Update(t, a, w, o, l)
@@ -63,8 +63,14 @@ trait SqlParser extends RegexParsers with Ast.Unresolved with PackratParsers {
 
   lazy val joinedTable = table ~ rep(joinSpec) ^^ { case t ~ j => ConcreteTable(t, j) }
 
-  lazy val joinSpec = opt("left".i | "right".i) ~ opt("inner".i | "outer".i) ~ "join".i ~ optParens(tableReference) ~ "on".i ~ expr ^^ {
-    case side ~ joinType ~ _ ~ table ~ _ ~ expr => 
+  lazy val joinSpec = (crossJoin | qualifiedJoin)
+
+  lazy val crossJoin = "cross".i ~ "join".i ~ optParens(tableReference) ^^ {
+    case _ ~ _ ~ table => Join(table, None, "cross join")
+  }
+
+  lazy val qualifiedJoin = opt("left".i | "right".i) ~ opt("inner".i | "outer".i) ~ "join".i ~ optParens(tableReference) ~ opt("on".i ~> expr) ^^ {
+    case side ~ joinType ~ _ ~ table ~ expr => 
       Join(table, expr, side.map(_ + " ").getOrElse("") + joinType.map(_ + " ").getOrElse("") + "join")
   }
 

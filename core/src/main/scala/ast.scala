@@ -169,7 +169,7 @@ private[sqltyped] object Ast {
     }
     def resolveJoin(join: Join[Option[String]]) = for {
       t <- resolveTableRef(join.table)
-      e <- resolveExpr(join.expr)
+      e <- sequenceO(join.expr map resolveExpr)
     } yield join.copy(table = t, expr = e)
     def resolveWhere(where: Where[Option[String]]) = resolveExpr(where.expr) map Where.apply
     def resolveWhereOpt(where: Option[Where[Option[String]]]) = sequenceO(where map resolveWhere)
@@ -327,7 +327,7 @@ private[sqltyped] object Ast {
 
   case class Where[T](expr: Expr[T])
 
-  case class Join[T](table: TableReference[T], expr: Expr[T], joinSpec: String)
+  case class Join[T](table: TableReference[T], expr: Option[Expr[T]], joinSpec: String)
 
   case class GroupBy[T](cols: List[Column[T]], having: Option[Having[T]])
 
