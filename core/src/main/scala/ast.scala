@@ -18,6 +18,7 @@ private[sqltyped] object Ast {
     type Constant       = Ast.Constant[Option[String]]
     type Select         = Ast.Select[Option[String]]
     type Join           = Ast.Join[Option[String]]
+    type JoinType       = Ast.JoinType[Option[String]]
     type TableReference = Ast.TableReference[Option[String]]
     type ConcreteTable  = Ast.ConcreteTable[Option[String]]
     type DerivedTable   = Ast.DerivedTable[Option[String]]
@@ -39,6 +40,7 @@ private[sqltyped] object Ast {
     type Constant       = Ast.Constant[Table]
     type Select         = Ast.Select[Table]
     type Join           = Ast.Join[Table]
+    type JoinType       = Ast.JoinType[Table]
     type TableReference = Ast.TableReference[Table]
     type ConcreteTable  = Ast.ConcreteTable[Table]
     type DerivedTable   = Ast.DerivedTable[Table]
@@ -169,8 +171,12 @@ private[sqltyped] object Ast {
     }
     def resolveJoin(join: Join[Option[String]]) = for {
       t <- resolveTableRef(join.table)
-      e <- sequenceO(join.expr map resolveExpr)
-    } yield join.copy(table = t, expr = e)
+      j <- sequenceO(join.joinType map resolveJoinType)
+    } yield join.copy(table = t, joinType = j)
+    def resolveJoinType(t: JoinType[Option[String]]): ?[JoinType[Table]] = t match {
+      case QualifiedJoin(e) => resolveExpr(e) map QualifiedJoin.apply
+      case NamedColumnsJoin(cs) => NamedColumnsJoin(cs).ok
+    }
     def resolveWhere(where: Where[Option[String]]) = resolveExpr(where.expr) map Where.apply
     def resolveWhereOpt(where: Option[Where[Option[String]]]) = sequenceO(where map resolveWhere)
     def resolveGroupBy(groupBy: GroupBy[Option[String]]) = for {
@@ -327,7 +333,11 @@ private[sqltyped] object Ast {
 
   case class Where[T](expr: Expr[T])
 
-  case class Join[T](table: TableReference[T], expr: Option[Expr[T]], joinSpec: String)
+  case class Join[T](table: TableReference[T], joinType: Option[JoinType[T]], joinDesc: String)
+
+  trait JoinType[T]
+  case class QualifiedJoin[T](expr: Expr[T]) extends JoinType[T]
+  case class NamedColumnsJoin[T](columns: List[String]) extends JoinType[T]
 
   case class GroupBy[T](cols: List[Column[T]], having: Option[Having[T]])
 

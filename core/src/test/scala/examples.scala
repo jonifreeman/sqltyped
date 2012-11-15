@@ -87,7 +87,7 @@ class ExampleSuite extends Example {
     sql("SELECT p.name FROM person p JOIN (job_history j) ON (p.id=j.person and j.name=?)").apply("IBM") ===
       List("joe", "moe")
 
-//    sql("select p.name from person p join person p2 using (id)").apply === List("joe", "moe")
+    sql("select p.name from person p join person p2 using (id)").apply === List("joe", "moe")
   }
 
   test("Query with join and column alias") {

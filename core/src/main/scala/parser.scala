@@ -61,20 +61,28 @@ trait SqlParser extends RegexParsers with Ast.Unresolved with PackratParsers {
     | table ^^ (t => ConcreteTable(t, Nil))
   )
 
-  lazy val joinedTable = table ~ rep(joinSpec) ^^ { case t ~ j => ConcreteTable(t, j) }
+  lazy val joinedTable = table ~ rep(joinType) ^^ { case t ~ j => ConcreteTable(t, j) }
 
-  lazy val joinSpec = (crossJoin | qualifiedJoin)
+  lazy val joinType = (crossJoin | qualifiedJoin)
 
   lazy val crossJoin = "cross".i ~ "join".i ~ optParens(tableReference) ^^ {
     case _ ~ _ ~ table => Join(table, None, "cross join")
   }
 
-  lazy val qualifiedJoin = opt("left".i | "right".i) ~ opt("inner".i | "outer".i) ~ "join".i ~ optParens(tableReference) ~ opt("on".i ~> expr) ^^ {
-    case side ~ joinType ~ _ ~ table ~ expr => 
-      Join(table, expr, side.map(_ + " ").getOrElse("") + joinType.map(_ + " ").getOrElse("") + "join")
+  lazy val qualifiedJoin = opt("left".i | "right".i) ~ opt("inner".i | "outer".i) ~ "join".i ~ optParens(tableReference) ~ opt(joinSpec) ^^ {
+    case side ~ style ~ _ ~ table ~ spec => 
+      Join(table, spec, side.map(_ + " ").getOrElse("") + style.map(_ + " ").getOrElse("") + "join")
   }
 
-  lazy val derivedTable = subselect ~ "as".i ~ ident ~ rep(joinSpec) ^^ { 
+  lazy val joinSpec = (joinCondition | namedColumnsJoin)
+
+  lazy val joinCondition = "on".i ~> expr ^^ QualifiedJoin.apply
+
+  lazy val namedColumnsJoin = "using".i ~> "(" ~> rep1sep(ident, ",") <~ ")" ^^ {
+    cols => NamedColumnsJoin[Option[String]](cols)
+  }
+
+  lazy val derivedTable = subselect ~ "as".i ~ ident ~ rep(joinType) ^^ { 
     case s ~ _ ~ a ~ j => DerivedTable(a, s.select, j)
   }
 
