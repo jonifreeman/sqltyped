@@ -4,11 +4,21 @@ Macro which infers Scala types from database
 Intro
 -----
 
-This experiment starts from following observations.
+> _Towards a perfect impedance match..._
 
-* The types and column names are already defined in the database schema or SQL query. Why not use those and infer types and accessor functions?
+* The types and column names are already defined in the database schema and SQL query. Why not use those and infer types and accessor functions?
 
 * SQL is a fine DSL for many queries. It is the native DSL of relational databases and wrapping it with another DSL is often unncessary (SQL sucks when one has to compose queries, or if you have to be database agnostic).
+
+
+> **sqlτyped converts SQL string literals into typed functions at compile time.**
+> 
+> ```"select age, name from person where age > ?"```
+>        
+>  ==>
+>
+> ```Int => List[{ age: Int, name: String }]```
+
 
 Examples
 --------
@@ -61,7 +71,7 @@ Functions ```values``` and ```tuples``` can be used to drop record names and get
    res2: List[(String, Int)] = List((joe,36), (moe,14))
 ```
 
-Input parameters are parsed and typed too.
+Input parameters are parsed and typed.
 
 ```scala
     scala> val q = sql("select name from person where age > ?")
@@ -164,6 +174,18 @@ See [wiki](https://github.com/jonifreeman/sqltyped/wiki).
 How to try it?
 --------------
 
+### Install ###
+
+Requires Scala 2.10.
+
+sqlτyped is published to Sonatype repositories.
+
+```scala
+    "fi.reaktor" %% "sqltyped" % "0.1.0"
+```
+
+### Build ###
+
     git clone https://github.com/jonifreeman/sqltyped.git
     cd sqltyped
 
@@ -178,11 +200,4 @@ or:
     sudo -u postgres createuser -P sqltypedtest  // Note, change the password from project/build.scala
     sudo -u postgres createdb -O sqltypedtest sqltyped
     sudo -u postgres psql sqltyped < core/src/test/resources/test-postgresql.sql
-
-
-Related
--------
-
-* [PG'OCaml](http://pgocaml.forge.ocamlcore.org)
-* [Slick](http://slick.typesafe.com)
 
