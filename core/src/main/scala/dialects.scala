@@ -1,7 +1,7 @@
 package sqltyped
 
 import schemacrawler.schema.Schema
-import scala.reflect.runtime.universe.Type
+import scala.reflect.runtime.universe.{Type, typeOf, glb}
 import Ast._
 
 trait Dialect {
@@ -26,11 +26,19 @@ object MysqlDialect extends Dialect {
     import dsl._
 
     override def extraScalarFunctions = Map(
-        "datediff"  -> (f2(date, date) -> option(int))
+        "datediff"  -> datediff _
       , "ifnull"    -> ifnull _
       , "coalesce"  -> ifnull _
       , "if"        -> iff _
     )
+
+    def datediff(fname: String, params: List[Expr]): ?[SqlFType] = 
+      if (params.length != 2) fail("Expected 2 parameters " + params)
+      else for {
+        (tpe0, opt0) <- tpeOf(params(0))
+        (tpe1, opt1) <- tpeOf(params(1))
+        tpe = glb(List(tpe0, tpe1, typeOf[java.util.Date]))
+      } yield (List((tpe, opt0), (tpe, opt1)), (typeOf[Int], true))
 
     def ifnull(fname: String, params: List[Expr]): ?[SqlFType] = 
       if (params.length != 2) fail("Expected 2 parameters " + params)

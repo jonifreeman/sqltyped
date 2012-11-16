@@ -340,6 +340,8 @@ object SqlMacro {
   }
 }
 
+// FIXME Replace all these with 'trait SqlF[R]' once Scala macros can create public members
+// (apply must be public)
 trait Query0[R] { 
   def apply()(implicit conn: Connection): R
 }
