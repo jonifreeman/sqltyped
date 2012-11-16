@@ -1,14 +1,14 @@
-Macro which infers Scala types from database
-============================================
+sqlτyped - a macro which infers Scala types from database
+=========================================================
 
 
 > _Towards a perfect impedance match..._
-
-* The types and column names are already defined in the database schema and SQL query. Why not use those and infer types and accessor functions?
-
-* SQL is a fine DSL for many queries. It is the native DSL of relational databases and wrapping it with another DSL is often unncessary (SQL sucks when one has to compose queries, or if you have to be database agnostic).
-
-
+>
+> * The types and column names are already defined in the database schema and SQL query. Why not use those and infer types and accessor functions?
+>
+> * SQL is a fine DSL for many queries. It is the native DSL of relational databases and wrapping it with another DSL is often unncessary (SQL sucks when one has to compose queries, or if you have to be database agnostic).
+> 
+> 
 > **sqlτyped converts SQL string literals into typed functions at compile time.**
 > 
 > ```"select age, name from person where age > ?"```
@@ -44,16 +44,16 @@ Now we are ready to query the data.
 
 ```scala
     scala> val q = sql("select name, age from person")
-    scala> q().map(p => p.get(age))
+    scala> q() map (_ get age)
     res0: List[Int] = List(36, 14)
 ```
 
 Notice how the type of 'age' was infered to be Int.
 
 ```scala
-   scala> q().map(p => p.get(salary))
-   <console>:24: error: No such column Columns.salary.type
-                  q().map(p => p.get(salary))
+   scala> q() map (_ get salary)
+   <console>:24: error: No such key Columns.salary.type
+                  q() map (_ get salary)
 ```
 
 Oops, a compilation failure. Can't access 'salary', it was not selected in the query.
@@ -74,15 +74,15 @@ Functions ```values``` and ```tuples``` can be used to drop record names and get
 Input parameters are parsed and typed.
 
 ```scala
-    scala> val q = sql("select name from person where age > ?")
+    scala> val q = sql("select name, age from person where age > ?")
 
-    scala> q("30").map(p => p.get(name))
+    scala> q("30") map (_ get name)
     <console>:24: error: type mismatch;
      found   : String("30")
      required: Int
-                  q("30").map(p => p.get(name))
+                  q("30") map (_ get name)
 
-    scala> q(30).map(p => p.get(name))
+    scala> q(30) map (_ get name)
     res4: List[String] = List(joe)
 ```
 
