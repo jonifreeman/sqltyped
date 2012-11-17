@@ -204,7 +204,7 @@ trait SqlParser extends RegexParsers with Ast.Unresolved with PackratParsers {
     orderSpecs => OrderBy(orderSpecs.unzip._1, orderSpecs.unzip._2)
   }
 
-  lazy val orderSpec = sortKey ~ opt(collate) ~ opt("asc".i ^^^ Asc | "desc".i ^^^ Desc) ^^ { 
+  lazy val orderSpec = optParens(sortKey) ~ opt(collate) ~ opt("asc".i ^^^ Asc | "desc".i ^^^ Desc) ^^ { 
     case s ~ _ ~ o => (s, o) 
   }
 

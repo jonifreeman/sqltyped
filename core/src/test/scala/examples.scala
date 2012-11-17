@@ -125,6 +125,9 @@ class ExampleSuite extends Example {
     sql("select p.name, p.age from person p where age > ? order by 2 desc").apply(1).tuples ===
       List(("joe", 36), ("moe", 14))
 
+    sql("select p.name, p.age from person p where age > ? order by (2) desc, (p.name)").apply(1).tuples ===
+      List(("joe", 36), ("moe", 14))
+
     sql("select p.name from person p where age > ? group by p.name collate latin1_swedish_ci order by p.name").apply(10) ===
       List("joe", "moe")
 
