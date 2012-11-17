@@ -8,7 +8,7 @@ trait SqlParser extends RegexParsers with Ast.Unresolved with PackratParsers {
 
   def parse(sql: String): ?[Statement] = parseAll(stmt, sql) match {
     case Success(r, q)  => Right(r)
-    case err: NoSuccess => Left(err.msg)
+    case err: NoSuccess => Left(sqltyped.Failure(err.msg, err.next.pos.column, err.next.pos.line))
   }
 
   lazy val stmt = (setStmt | selectStmt | insertStmt | updateStmt | deleteStmt | createStmt)

@@ -79,6 +79,11 @@ object SqlMacro {
       }
     }
 
+    def toPosition(f: Failure) = {
+      val lineOffset = sql.split("\n").take(f.line - 1).map(_.length).sum
+      c.enclosingPosition.withPoint(wrappingPos(List(s.tree)).startOrPoint + f.column + lineOffset)
+    }
+
     (for {
       url      <- sysProp("sqltyped.url")
       driver   <- sysProp("sqltyped.driver")
@@ -92,7 +97,7 @@ object SqlMacro {
       typed    <- typer.infer(useInputTags)
       meta     <- new Analyzer(typer).refine(typed)
     } yield meta) fold (
-      err => c.abort(c.enclosingPosition, err),
+      fail => c.abort(toPosition(fail), fail.message),
       meta => codeGen(meta, sql, c, keys)(config)
     )
   }

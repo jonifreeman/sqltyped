@@ -29,10 +29,12 @@ package object sqltyped {
     }
 
   // Internally ? is used to denote computations that may fail.
-  private[sqltyped] type ?[A] = Either[String, A]
+  case class Failure(message: String, column: Int, line: Int)
+  private[sqltyped] type ?[A] = Either[Failure, A]
   private[sqltyped] def ok[A](a: A): ?[A] = Right(a)
-  private[sqltyped] def fail[A](s: String): ?[A] = Left(s)
-  private[sqltyped] implicit def rightBias[A](x: ?[A]): Either.RightProjection[String, A] = x.right
+  private[sqltyped] def fail[A](s: String, column: Int = 0, line: Int = 0): ?[A] = 
+    Left(Failure(s, column, line))
+  private[sqltyped] implicit def rightBias[A](x: ?[A]): Either.RightProjection[Failure, A] = x.right
   private[sqltyped] implicit class ResultOps[A](a: A) {
     def ok = sqltyped.ok(a)
   }
