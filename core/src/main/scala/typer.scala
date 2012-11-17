@@ -101,7 +101,7 @@ class Variables(typer: Typer) extends Ast.Resolved {
     case _ => Nil
   }
 
-  def input(f: Function): List[Named] = f.params zip typer.inferArguments(f) flatMap {
+  def input(f: Function): List[Named] = f.params zip typer.inferArguments(f).getOrElse(Nil) flatMap {
     case (SimpleExpr(t), (tpe, _)) => t match {
       case Input() => Named("<farg>", None, Constant[Table](tpe, ())) :: Nil
       case _ => inputTerm(t)
@@ -308,8 +308,8 @@ class Typer(schema: Schema, stmt: Ast.Statement[Table]) extends Ast.Resolved {
 
   def inferArguments(f: Function) = 
     knownFunctions.get(f.name.toLowerCase) match {
-      case Some(func) => func(f.name, f.params).map(_._1).right.get // FIXME improve error handling
-      case None => f.params.map(_ => (typeOf[Any], true))
+      case Some(func) => func(f.name, f.params).map(_._1)
+      case None => f.params.map(_ => (typeOf[Any], true)).ok
     }
 
   def inferColumnType(col: Column) = for {
