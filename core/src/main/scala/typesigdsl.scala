@@ -9,7 +9,7 @@ class TypeSigDSL(typer: Typer) {
       if (params.length != 1) fail("Expected 1 parameter " + params)
       else for {
         a1 <- implicitly[Typed[A]].tpe(fname, params(0))
-        r  <- implicitly[Typed[R]].tpe(fname, params.head) // FIXME params.head ??
+        r  <- implicitly[Typed[R]].tpe(fname, params(0))
       } yield (List(a1), r)
   }
 
@@ -19,7 +19,7 @@ class TypeSigDSL(typer: Typer) {
       else for {
         a1 <- implicitly[Typed[A]].tpe(fname, params(0))
         a2 <- implicitly[Typed[B]].tpe(fname, params(1))
-        r  <- implicitly[Typed[R]].tpe(fname, params.head) // FIXME params.head ??
+        r  <- implicitly[Typed[R]].tpe(fname, if (a == r) params(0) else params(1))
       } yield (List(a1, a2), r)
   }
 

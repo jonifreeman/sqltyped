@@ -132,7 +132,7 @@ class Variables(typer: Typer) extends Ast.Resolved {
     case Comparison1(t, _)                    => inputTerm(t)
     case Comparison2(Input(), op, t)          => nameTerm(t) :: inputTerm(t)
     case Comparison2(t, op, Input())          => inputTerm(t) ::: List(nameTerm(t))
-    case Comparison2(t, op, Subselect(s))     => inputTerm(t) ::: s.where.map(w => input(w.expr)).getOrElse(Nil) // FIXME groupBy
+    case Comparison2(t, op, Subselect(s))     => inputTerm(t) ::: input(s)
     case Comparison2(t1, op, t2)              => inputTerm(t1) ::: inputTerm(t2)
     case Comparison3(t, op, Input(), Input()) => inputTerm(t) ::: (nameTerm(t) :: nameTerm(t) :: Nil)
     case Comparison3(t1, op, Input(), t2)     => inputTerm(t1) ::: (nameTerm(t1) :: inputTerm(t2))

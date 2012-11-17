@@ -4,7 +4,7 @@ sqlτyped - a macro which infers Scala types from database
 
 > _Towards a perfect impedance match..._
 >
-> * The types and column names are already defined in the database schema and SQL query. Why not use those and infer types and accessor functions?
+> * The types and column names are already defined in database schema and SQL query. Why not use those and infer types and accessor functions?
 >
 > * SQL is a fine DSL for many queries. It is the native DSL of relational databases and wrapping it with another DSL is often unncessary (SQL sucks when one has to compose queries, or if you have to be database agnostic).
 > 
