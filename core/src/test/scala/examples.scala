@@ -113,6 +113,9 @@ class ExampleSuite extends Example {
     sql("select p.name from person p where age > ? order by abs(salary - age)").apply(1) ===
       List("moe", "joe")
 
+    sql("select p.name from person p where age > ? order by ? desc").apply(5, 1) ===
+      List("moe", "joe")
+
     sql("select p.name from person p where age > ? order by abs(salary - ?)").apply(1, 500) ===
       List("moe", "joe")
 

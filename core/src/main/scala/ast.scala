@@ -23,6 +23,7 @@ private[sqltyped] object Ast {
     type ConcreteTable  = Ast.ConcreteTable[Option[String]]
     type DerivedTable   = Ast.DerivedTable[Option[String]]
     type Where          = Ast.Where[Option[String]]
+    type OrderBy        = Ast.OrderBy[Option[String]]
     type Limit          = Ast.Limit[Option[String]]
   }
   object Unresolved extends Unresolved
@@ -45,6 +46,7 @@ private[sqltyped] object Ast {
     type ConcreteTable  = Ast.ConcreteTable[Table]
     type DerivedTable   = Ast.DerivedTable[Table]
     type Where          = Ast.Where[Table]
+    type OrderBy        = Ast.OrderBy[Table]
     type Limit          = Ast.Limit[Table]
   }
   object Resolved extends Resolved
@@ -191,6 +193,7 @@ private[sqltyped] object Ast {
       case ColumnSort(c)   => resolveColumn(c) map ColumnSort.apply
       case FunctionSort(f) => resolveFunc(f) map FunctionSort.apply
       case PositionSort(p) => PositionSort(p).ok
+      case VariablePositionSort() => VariablePositionSort().ok
     }
     def resolveLimit(limit: Limit[Option[String]]) = 
       Limit[Table](
@@ -348,6 +351,7 @@ private[sqltyped] object Ast {
   case class ColumnSort[T](col: Column[T]) extends SortKey[T]
   case class FunctionSort[T](f: Function[T]) extends SortKey[T]
   case class PositionSort[T](pos: Int) extends SortKey[T]
+  case class VariablePositionSort[T]() extends SortKey[T]
 
   sealed trait Order
   case object Asc extends Order

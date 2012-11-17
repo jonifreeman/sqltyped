@@ -60,8 +60,8 @@ class Variables(typer: Typer) extends Ast.Resolved {
         case SelectedInput(select) => input(schema, select)
       }
 
-    case SetStatement(left, op, right, orderBy, limit) => 
-      input(schema, left) ::: input(schema, right) ::: limitInput(limit)
+    case SetStatement(l, op, r, orderBy, limit) => 
+      input(schema, l) ::: input(schema, r) ::: (orderBy map input).getOrElse(Nil) ::: limitInput(limit)
 
     case Composed(left, right) => 
       input(schema, left) ::: input(schema, right)
@@ -72,6 +72,7 @@ class Variables(typer: Typer) extends Ast.Resolved {
         case (col, t) => inputTerm(t)
       } :::
       where.map(w => input(w.expr)).getOrElse(Nil) ::: 
+      (orderBy map input).getOrElse(Nil) :::
       limitInput(limit)
 
     case Create() => Nil
@@ -89,13 +90,18 @@ class Variables(typer: Typer) extends Ast.Resolved {
     s.tableReferences.flatMap(input) :::
     s.where.map(w => input(w.expr)).getOrElse(Nil) ::: 
     s.groupBy.flatMap(g => g.having.map(h => input(h.expr))).getOrElse(Nil) :::
-    s.orderBy.map(o => o.sort.collect { case FunctionSort(f) => input(f) }.flatten).getOrElse(Nil) :::
+    s.orderBy.map(input).getOrElse(Nil) :::
     limitInput(s.limit)
 
   def input(t: TableReference): List[Named] = t match {
     case ConcreteTable(_, join) => join flatMap (_.joinType map input getOrElse Nil)
     case DerivedTable(_, s, join) => input(s) ::: (join flatMap (_.joinType map input getOrElse Nil))
   }
+
+  def input(o: OrderBy): List[Named] = (o.sort collect {
+    case FunctionSort(f) => input(f)
+    case VariablePositionSort() => Named("orderby", None, Input[Table]()) :: Nil
+  }).flatten
 
   def input(j: JoinType): List[Named] = j match {
     case QualifiedJoin(e) => input(e)

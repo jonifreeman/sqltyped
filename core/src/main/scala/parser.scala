@@ -208,9 +208,10 @@ trait SqlParser extends RegexParsers with Ast.Unresolved with PackratParsers {
   }
 
   lazy val sortKey: Parser[SortKey[Option[String]]] = (
-      function ^^ FunctionSort.apply
-    | column   ^^ ColumnSort.apply
-    | integer  ^^ PositionSort.apply
+      function ^^  FunctionSort.apply
+    | column   ^^  ColumnSort.apply
+    | "?"      ^^^ VariablePositionSort[Option[String]]()
+    | integer  ^^  PositionSort.apply
   )
 
   lazy val groupBy = "group".i ~> "by".i ~> rep1sep(column <~ opt(collate), ",") ~ opt(having) ^^ {
