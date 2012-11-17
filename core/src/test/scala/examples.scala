@@ -60,6 +60,9 @@ class ExampleSuite extends Example {
     q2().map(_.get(age)).sum === 50
 
     sql("select p.* from person p").apply.map(_.get(age)).sum === 50
+
+    sql("select (name) n, (age) as a from person").apply.tuples ===
+      List(("joe", 36), ("moe", 14))
   }
 
   test("Query with input") {
@@ -78,7 +81,7 @@ class ExampleSuite extends Example {
     sql("SELECT distinct p.name FROM person p JOIN job_history j ON p.id=j.person").apply ===
       List("joe", "moe")
 
-    sql("SELECT distinct p.name FROM person p INNER JOIN job_history j").apply ===
+    sql("SELECT distinct p.name FROM (person p) INNER JOIN job_history j").apply ===
       List("joe", "moe")
 
     sql("SELECT distinct p.name FROM person p CROSS JOIN job_history j").apply ===
