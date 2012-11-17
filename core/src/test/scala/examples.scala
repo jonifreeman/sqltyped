@@ -170,6 +170,12 @@ class ExampleSuite extends Example {
 
     sql("select age|? from person where age&?=0").apply(10, 2) ===
       List(46)
+
+    sql("select ? > 2 from person").apply(3) === 
+      List(true, true)
+
+    sql("select age > ? from person order by age").apply(18) ===
+      List(false, true)
   }
 
   test("Query with just one selected column") {

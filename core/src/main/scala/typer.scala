@@ -84,6 +84,7 @@ class Variables(typer: Typer) extends Ast.Resolved {
       case Named(n, a, f@Function(_, _)) => input(f) 
       case n@Named(_, _, Input())        => n :: Nil
       case Named(_, _, Subselect(s))     => input(s)
+      case Named(_, _, e: Expr)          => input(e)
     }.flatten :::
     s.tableReferences.flatMap(input) :::
     s.where.map(w => input(w.expr)).getOrElse(Nil) ::: 

@@ -59,8 +59,7 @@ private[sqltyped] object Ast {
   case class Column[T](name: String, table: T) extends Term[T]
   case class AllColumns[T](table: T) extends Term[T]
   case class Function[T](name: String, params: List[Expr[T]]) extends Term[T]
-  case class ArithExpr[T](lhs: Term[T], op: String, rhs: Term[T]) extends Term[T]
-  
+  case class ArithExpr[T](lhs: Term[T], op: String, rhs: Term[T]) extends Term[T]  
   case class Input[T]() extends Term[T]
   case class Subselect[T](select: Select[T]) extends Term[T]
   case class TermList[T](terms: List[Term[T]]) extends Term[T]
