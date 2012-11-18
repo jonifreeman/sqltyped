@@ -12,7 +12,8 @@ object SqltypedBuild extends Build with Publish {
     scalaVersion := "2.10.0-RC2",
     scalacOptions ++= Seq("-unchecked", "-deprecation"),
     javacOptions ++= Seq("-target", "1.6", "-source", "1.6"),
-    crossPaths := false,
+    crossVersion := CrossVersion.full,
+    crossScalaVersions := Seq("2.10.0-RC2"),
     parallelExecution in Test := false,
     resolvers ++= Seq(sonatypeNexusSnapshots, sonatypeNexusReleases)
   )
