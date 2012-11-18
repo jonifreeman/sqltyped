@@ -46,7 +46,7 @@ final class OptionOps[L <: HList](o: Option[L]) {
        tupler: TuplerAux[Out0, Out]) = o.map(_.values0.tupled)
 }
 
-@annotation.implicitNotFound(msg = "No such key ${K}")
+@annotation.implicitNotFound(msg = "No such key ${K} in record ${L}")
 trait Lookup[L <: HList, K] {
   type Out
   def apply(l: L): Out
@@ -64,7 +64,7 @@ object Lookup {
   }
 }
 
-@annotation.implicitNotFound(msg = "No such key ${K}")
+@annotation.implicitNotFound(msg = "No such key ${K} in record ${L}")
 trait RemoveKey[L <: HList, K] {
   type Out
   def apply(l: L): Out
@@ -92,7 +92,7 @@ object RemoveKeyAux {
     }
 }
 
-@annotation.implicitNotFound(msg = "No such key ${K1}")
+@annotation.implicitNotFound(msg = "No such key ${K1} in record ${L}")
 trait RenameKey[L <: HList, K1, K2] {
   type Out
   def apply(l: L, newKey: K2): Out
@@ -120,7 +120,7 @@ object RenameKeyAux {
     }
 }
 
-@annotation.implicitNotFound(msg = "No key ${K} with value of type ${A}")
+@annotation.implicitNotFound(msg = "No key ${K} with value of type ${A} in record ${L}")
 trait Modify[L <: HList, K, A, B] {
   type Out
   def apply(l: L, f: A => B): Out
