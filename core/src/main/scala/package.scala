@@ -21,12 +21,15 @@ package object sqltyped {
 
   def tag[U] = TypeOperators.tag[U]
 
-  def keyAsString(k: Any) = 
+  def keyAsString(k: Any) = {
+    def isNumeric(s: String) = s.toCharArray.forall(Character.isDigit)
+
     if (k.getClass == classOf[String]) k.toString
     else {
       val parts = k.getClass.getName.split("\\$")
-      parts(parts.length - 1)
+      parts.reverse.dropWhile(isNumeric).head
     }
+  }
 
   // Internally ? is used to denote computations that may fail.
   private[sqltyped] type ?[A] = Either[Failure, A]

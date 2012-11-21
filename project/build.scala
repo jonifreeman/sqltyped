@@ -37,6 +37,16 @@ object SqltypedBuild extends Build with Publish {
     )
   )
 
+  lazy val json4s = Project(
+    id = "sqltyped-json4s",
+    base = file("json4s"),
+    settings = sqltypedSettings ++ Seq(
+      libraryDependencies ++= Seq(
+        "org.json4s" % "json4s-native_2.10.0-RC1" % "3.1.0-SNAPSHOT"
+      )
+    )
+  ) dependsOn(core % "compile;test->test;provided->provided")
+
   lazy val slickIntegration = Project(
     id = "sqltyped-slick",
     base = file("slick-integration"),
