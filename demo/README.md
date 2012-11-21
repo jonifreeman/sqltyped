@@ -6,6 +6,7 @@ Demo app is a small REST server. Stack is:
 * Unfiltered (REST API)
 * json4s (JSON rendering)
 * sqlτyped (Database access)
+* Shapeless (Record emulation)
 * Slick (Database connection handling)
 * MySQL (Database)
 
