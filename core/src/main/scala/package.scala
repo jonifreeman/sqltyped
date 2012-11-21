@@ -29,7 +29,6 @@ package object sqltyped {
     }
 
   // Internally ? is used to denote computations that may fail.
-  case class Failure(message: String, column: Int, line: Int)
   private[sqltyped] type ?[A] = Either[Failure, A]
   private[sqltyped] def ok[A](a: A): ?[A] = Right(a)
   private[sqltyped] def fail[A](s: String, column: Int = 0, line: Int = 0): ?[A] = 
@@ -45,4 +44,8 @@ package object sqltyped {
     rs.foldRight(List[A]().ok) { (ra, ras) => for { as <- ras; a <- ra } yield a :: as }
   private[sqltyped] def sequenceO[A](rs: Option[?[A]]): ?[Option[A]] = 
     rs.foldRight(None.ok: ?[Option[A]]) { (ra, _) => for { a <- ra } yield Some(a) }
+}
+
+package sqltyped {
+  case class Failure(message: String, column: Int, line: Int)
 }

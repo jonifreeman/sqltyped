@@ -5,33 +5,32 @@ import org.scalatest._
 import shapeless._
 
 object JSON {
-  object fieldToJSON extends Poly1 {
-    implicit def numToJSON[K, V <% Number] = at[(K, V)] { 
-      case (k, v) => "\"" + keyAsString(k) + "\":" + v.toString 
+  object toJSON extends Poly1 {
+    implicit def numToJSON[V <% Number] = at[V](_.toString)
+    implicit def stringToJSON[V <% String] = at[V]("\"" + _.toString + "\"")
+    implicit def boolToJSON[V <% Boolean] = at[V](_.toString)
+    implicit def dateToJSON[V <% java.util.Date] = at[V]("\"" + _.toString + "\"")
+
+    implicit def seqToJSON[V, L <% Seq[V]](implicit c: Case1[V]) = 
+      at[L](_.map(v => toJSON(v)).mkString("[", ",", "]"))
+
+    implicit def recordToJSON[R <: HList](implicit foldMap: MapFolder[R, String, fieldToJSON.type]) = {
+      val concat = (s1: String, s2: String) => if (s2 != "") s1 + "," + s2 else s1
+
+      at[R](r => "{" + (r.foldMap("")(fieldToJSON)(concat)) + "}")
     }
-    implicit def stringToJSON[K, V <% String] = at[(K, V)] { 
-      case (k, v) => "\"" + keyAsString(k) + "\":\"" + v + "\""
-    }
-    implicit def boolToJSON[K, V <% Boolean] = at[(K, V)] { 
-      case (k, v) => "\"" + keyAsString(k) + "\":" + v.toString 
-    }
-    implicit def tstampToJSON[K, V <% java.sql.Timestamp] = at[(K, V)] { 
-      case (k, v) => "\"" + keyAsString(k) + "\":\"" + v.toString + "\""
-    }
-    implicit def optionToJSON[K, V](implicit c: Case1[(K, V)]) = at[(K, Option[V])] { 
-      case (k, Some(v)) => fieldToJSON((k, v)).toString
-      case (k, None) => ""
+
+    object fieldToJSON extends Poly1 {
+      implicit def value[K, V](implicit c: toJSON.Case1[V]) = at[(K, V)] {
+        case (k, v) => "\"" + keyAsString(k) + "\":" + toJSON(v)
+      }
+
+      implicit def option[K, V](implicit c: Case1[(K, V)]) = at[(K, Option[V])] { 
+        case (k, Some(v)) => fieldToJSON((k, v)).toString
+        case (k, None) => ""
+      } 
     }
   }
-
-  def toJSON[R <: HList](record: R)(implicit foldMap: MapFolder[R, String, fieldToJSON.type]): String = {
-    val concat = (s1: String, s2: String) => if (s2 != "") s1 + "," + s2 else s1
-
-    "{" + (record.foldMap("")(fieldToJSON)(concat)) + "}"
-  }
-
-  def toJSON[R <: HList](records: List[R])(implicit foldMap: MapFolder[R, String, fieldToJSON.type]): String = 
-    (records map (r => toJSON(r))).mkString("[", ",", "]")
 }
 
 class RecordExampleSuite extends Example {

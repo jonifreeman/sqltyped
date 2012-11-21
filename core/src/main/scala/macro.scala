@@ -67,7 +67,7 @@ object SqlMacro {
       case _ => c.abort(c.enclosingPosition, "Argument to macro must be a String literal")
     }
 
-    def sysProp(n: String) = util.Properties.propOrNone(n) orFail 
+    def sysProp(n: String) = scala.util.Properties.propOrNone(n) orFail 
         "System property '" + n + "' is required to get a compile time connection to the database"
 
     def cachedSchema(url: String, driver: String, username: String, password: String) = {
