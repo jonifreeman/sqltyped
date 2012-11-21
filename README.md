@@ -2,20 +2,24 @@ sqlτyped - a macro which infers Scala types from database
 =========================================================
 
 
-> _Towards a perfect impedance match..._
->
-> * The types and column names are already defined in database schema and SQL query. Why not use those and infer types and accessor functions?
->
-> * SQL is a fine DSL for many queries. It is the native DSL of relational databases and wrapping it with another DSL is often unncessary (SQL sucks when one has to compose queries, or if you have to be database agnostic).
-> 
-> 
-> **sqlτyped converts SQL string literals into typed functions at compile time.**
-> 
-> ```"select age, name from person where age > ?"```
->        
->  ==>
->
-> ```Int => List[{ age: Int, name: String }]```
+_Towards a perfect impedance match..._
+
+* The types and column names are already defined in database schema and SQL query. Why not use those and infer types and accessor functions?
+
+* SQL is a fine DSL for many queries. It is the native DSL of relational databases and wrapping it with another DSL is often unncessary (SQL sucks when one has to compose queries, or if you have to be database agnostic).
+ 
+ 
+**sqlτyped converts SQL string literals into typed functions at compile time.**
+ 
+```sql
+    "select age, name from person where age > ?"
+```
+        
+  ==>
+
+```scala
+    Int => List[{ age: Int, name: String }]
+```
 
 
 Examples
@@ -170,6 +174,8 @@ Documentation
 -------------
 
 See [wiki](https://github.com/jonifreeman/sqltyped/wiki).
+
+[Demo app](https://github.com/jonifreeman/sqltyped/tree/master/demo)
 
 How to try it?
 --------------
