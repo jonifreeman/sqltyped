@@ -26,7 +26,7 @@ object Db {
 
   def personWithInterviews(id: Long) = personById(id) map { p =>
     p.modify(interview) { (i: Option[Long @@ Tables.interview]) => 
-      (rating -> p.get(rating)) :: (held_by -> p.get(held_by)) :: ("comments" -> (i map comments.apply)) :: HNil
+      (rating, p.get(rating)) :: (held_by, p.get(held_by)) :: ("comments", (i map comments.apply)) :: HNil
     } removeKey(rating) removeKey(held_by)
   }
 }
