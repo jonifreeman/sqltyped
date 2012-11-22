@@ -15,32 +15,32 @@ Note, the current version compiles but does not boot :) I couldn't find Scala 2.
 Breakdown
 ---------
 
-### (schema.sql)[https://github.com/jonifreeman/sqltyped/blob/master/demo/src/main/resources/schema.sql] ###
+### [schema.sql](https://github.com/jonifreeman/sqltyped/blob/master/demo/src/main/resources/schema.sql) ###
 
 That's where the demo schema is defined. sqlτyped compiler will get an access to those definitions at compile time, which it then uses to infer Scala types of the SQL statements.
 
 ![Schema](http://yuml.me/d0e5d450)
 
 
-### (package.scala)[https://github.com/jonifreeman/sqltyped/blob/master/demo/src/main/scala/package.scala] ###
+### [package.scala](https://github.com/jonifreeman/sqltyped/blob/master/demo/src/main/scala/package.scala) ###
 
-Database connection and sqlτyped is configured at package object. Fairly trivial stuff. Note, we have defined a type for each table ((tagging)[https://github.com/jonifreeman/sqltyped/wiki/User-guide#wiki-tagging]) and for each column accessed by (record)[https://github.com/jonifreeman/sqltyped/wiki/User-guide#wiki-records] syntax. The plan is to automatically generate those once Scala macros can create public members. 
+Database connection and sqlτyped is configured at package object. Fairly trivial stuff. Note, we have defined a type for each table ([tagging](https://github.com/jonifreeman/sqltyped/wiki/User-guide#wiki-tagging)) and for each column accessed by [record](https://github.com/jonifreeman/sqltyped/wiki/User-guide#wiki-records) syntax. The plan is to automatically generate those once Scala macros can create public members. 
 
-### (testdata.scala)[https://github.com/jonifreeman/sqltyped/blob/master/demo/src/main/scala/testdata.scala] ###
+### [testdata.scala](https://github.com/jonifreeman/sqltyped/blob/master/demo/src/main/scala/testdata.scala) ###
 
 Initial testdata is created by executing SQL statements with function ```sqlk```. The SQL string literal is converted into a function by sqlτyped compiler. Why ```sqlk``` and not just ```sql```? Well, ```sqlk``` is a specialized version of function ```sql``` which returns generated keys instead of updated rows.
 
-### (server.scala)[https://github.com/jonifreeman/sqltyped/blob/master/demo/src/main/scala/server.scala] ###
+### [server.scala](https://github.com/jonifreeman/sqltyped/blob/master/demo/src/main/scala/server.scala) ###
 
 REST endpoints are defined as Unfiltered pattern matches. The server is booted to port 8080 after test data is initialized. Note, some sloppy error handling but this is not an Unfiltered demo after all.
 
-### (db.scala)[https://github.com/jonifreeman/sqltyped/blob/master/demo/src/main/scala/server.scala] ###
+### [db.scala](https://github.com/jonifreeman/sqltyped/blob/master/demo/src/main/scala/server.scala) ###
 
 This is where the meat of the demo is. sqlτyped promotes a style where SQL is used directly to define data access functions. It let's the programmer use all the available database features in a native form. It is a job of the compiler to integrate these two worlds as seamlessly as possible.
 
 Note the complete lack of type annotations in defined ```sql``` functions. The types are inferred from database. If you know SQL, you know how to define data access functions with sqlτyped.
 
-Processing results is slightly more involved and has some rough edges. sqlτyped returns results as list of (extensible records)[https://github.com/jonifreeman/sqltyped/wiki/User-guide#wiki-records]. Record sysytem is built on top of HList which sometimes leaks through as very cryptic compiler error messages. Nevertheless, extensible record is a nice abstraction for database results and it is very easy to convert a record to a more familiar tuple when needed (```record.values.tupled```). Function ```personWithInterviews``` shows an example usage. ```personById``` returns a record:
+Processing results is slightly more involved and has some rough edges. sqlτyped returns results as list of [extensible records](https://github.com/jonifreeman/sqltyped/wiki/User-guide#wiki-records). Record sysytem is built on top of HList which sometimes leaks through as very cryptic compiler error messages. Nevertheless, extensible record is a nice abstraction for database results and it is very easy to convert a record to a more familiar tuple when needed (```record.values.tupled```). Function ```personWithInterviews``` shows an example usage. ```personById``` returns a record:
 
 ```scala
 {
