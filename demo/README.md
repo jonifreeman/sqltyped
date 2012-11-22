@@ -34,7 +34,7 @@ Initial testdata is created by executing SQL statements with function ```sqlk```
 
 REST endpoints are defined as Unfiltered pattern matches. The server is booted to port 8080 after test data is initialized. Note, some sloppy error handling but this is not an Unfiltered demo after all.
 
-### [db.scala](https://github.com/jonifreeman/sqltyped/blob/master/demo/src/main/scala/server.scala) ###
+### [db.scala](https://github.com/jonifreeman/sqltyped/blob/master/demo/src/main/scala/db.scala) ###
 
 This is where the meat of the demo is. sqlτyped promotes a style where SQL is used directly to define data access functions. It let's the programmer use all the available database features in a native form. It is a job of the compiler to integrate these two worlds as seamlessly as possible.
 
