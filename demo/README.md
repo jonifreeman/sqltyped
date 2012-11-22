@@ -40,7 +40,7 @@ This is where the meat of the demo is. sqlτyped promotes a style where SQL is u
 
 Note the complete lack of type annotations in defined ```sql``` functions. The types are inferred from database. If you know SQL, you know how to define data access functions with sqlτyped.
 
-Processing results is slightly more involved and has some rough edges. sqlτyped returns results as list of [extensible records](https://github.com/jonifreeman/sqltyped/wiki/User-guide#wiki-records). Record sysytem is built on top of HList which sometimes leaks through as very cryptic compiler error messages. Nevertheless, extensible record is a nice abstraction for database results and it is very easy to convert a record to a more familiar tuple when needed (```record.values.tupled```). Function ```personWithInterviews``` shows an example usage. ```personById``` returns a record:
+Processing results is slightly more involved and has some rough edges. sqlτyped returns results as list of [extensible records](https://github.com/jonifreeman/sqltyped/wiki/User-guide#wiki-records). Record system is built on top of HList which sometimes leaks through as very cryptic compiler error messages. Nevertheless, extensible record is a nice abstraction for database results and it is very easy to convert a record to a more familiar tuple when needed (```record.values.tupled```). Function ```personWithInterviews``` shows an example usage. ```personById``` returns a record:
 
 ```scala
 {
