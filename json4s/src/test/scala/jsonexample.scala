@@ -23,8 +23,15 @@ class JSONExampleSuite extends FunSuite with matchers.ShouldMatchers {
 
   test("Nulls") {
     object key1; object key2
-    val foo: java.util.Date = null
+    val foo: String = null
     val bad = (key1 -> null) :: (key2 -> foo) :: HNil
     JSON.compact(bad) should equal("""{"key1":null,"key2":null}""")
+  }
+
+  test("Date") {
+    implicit val formats = org.json4s.DefaultFormats
+    object name; object birthdate
+    val p = (name -> "Joe") :: (birthdate -> new java.util.Date(0)) :: HNil
+    JSON.compact(p) should equal("""{"name":"Joe","birthdate":"1970-01-01T00:00:00Z"}""")
   }
 }

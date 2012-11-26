@@ -8,6 +8,7 @@ package object demo {
   val db = Database.forURL("jdbc:mysql://localhost:3306/sqltyped_demo", 
                            driver = "com.mysql.jdbc.Driver", user = "root", password = "")
 
+  implicit val formats = org.json4s.DefaultFormats
   implicit val config = Configuration(Tables, Columns)
   implicit def conn = Database.threadLocalSession.conn
 }

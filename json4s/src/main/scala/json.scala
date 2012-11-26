@@ -19,9 +19,8 @@ object toJSON extends Pullback1[JValue] {
   implicit def stringToJSON = at[String](s => if (s == null) JNull else JString(s))
   implicit def boolToJSON = at[Boolean](JBool(_))
 
-  // FIXME add support for date formats
-  implicit def dateToJSON[V <: java.util.Date] = 
-    at[V](s => if (s == null) JNull else JString(s.toString))
+  implicit def dateToJSON[V <: java.util.Date](implicit f: Formats) = 
+    at[V](s => if (s == null) JNull else JString(f.dateFormat.format(s)))
 
   implicit def traversableToJSON[V, C[V] <: Traversable[V]](implicit st: Pullback1[V, JValue]) = 
     at[C[V]](l => JArray(l.toList.map(v => toJSON(v))))
