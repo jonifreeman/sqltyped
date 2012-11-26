@@ -25,8 +25,8 @@ object Db {
            WHERE p.id = ? LIMIT 1""")
 
   def personWithInterviews(id: Long) = personById(id) map { p =>
-    p.modify(interview) { (i: Option[Long @@ Tables.interview]) => 
-      (rating, p.get(rating)) :: (held_by, p.get(held_by)) :: ("comments", (i map comments.apply)) :: HNil
-    } removeKey(rating) removeKey(held_by)
+    p.modify(interview) { (iw: Option[Long @@ Tables.interview]) => iw map (i =>
+      (rating, p.get(rating)) :: (held_by, p.get(held_by)) :: ("comments", comments(i)) :: HNil
+    )} removeKey(rating) removeKey(held_by)
   }
 }

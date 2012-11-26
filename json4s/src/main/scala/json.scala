@@ -12,11 +12,12 @@ object JSON {
 }
 
 // FIXME add tag support
+// FIXME handle nulls
 object toJSON extends Pullback1[JValue] {
   implicit def doubleToJSON = at[Double](JDouble(_))
   implicit def bigIntToJSON = at[BigInt](JInt(_))
   implicit def numToJSON[V <% Long] = at[V](i => JInt(BigInt(i)))
-  implicit def stringToJSON = at[String](s => JString(s.toString))
+  implicit def stringToJSON = at[String](s => JString(s))
   implicit def boolToJSON = at[Boolean](JBool(_))
 
   // FIXME add support for date formats
