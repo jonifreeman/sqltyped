@@ -6,9 +6,8 @@ import org.json4s._
 import org.json4s.native.JsonMethods._
 
 object JSON {
-  // FIXME eliminate cast
-  def compact[A: toJSON.Case1](a: A): String = 
-    org.json4s.native.JsonMethods.compact(render(toJSON(a).asInstanceOf[JValue]))
+  def compact[A](a: A)(implicit st: toJSON.Pullback1[A, JValue]): String = 
+    org.json4s.native.JsonMethods.compact(render(toJSON(a)))
 }
 
 object toJSON extends Pullback1[JValue] {
