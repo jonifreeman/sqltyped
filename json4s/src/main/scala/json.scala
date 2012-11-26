@@ -11,17 +11,17 @@ object JSON {
     org.json4s.native.JsonMethods.compact(render(toJSON(a).asInstanceOf[JValue]))
 }
 
-// FIXME add tag support
-// FIXME handle nulls
 object toJSON extends Pullback1[JValue] {
+  implicit def nullToJSON = at[Null](_ => JNull)
   implicit def doubleToJSON = at[Double](JDouble(_))
   implicit def bigIntToJSON = at[BigInt](JInt(_))
   implicit def numToJSON[V <% Long] = at[V](i => JInt(BigInt(i)))
-  implicit def stringToJSON = at[String](s => JString(s))
+  implicit def stringToJSON = at[String](s => if (s == null) JNull else JString(s))
   implicit def boolToJSON = at[Boolean](JBool(_))
 
   // FIXME add support for date formats
-  implicit def dateToJSON[V <: java.util.Date] = at[V](s => JString(s.toString))
+  implicit def dateToJSON[V <: java.util.Date] = 
+    at[V](s => if (s == null) JNull else JString(s.toString))
 
 /*  implicit def seqToJSON[V, C <% Traversable[V]](implicit st: Pullback1[V, JValue]) = 
     at[C](l => JArray(l.toList.map(v => toJSON(v)))) */
