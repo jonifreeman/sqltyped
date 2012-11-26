@@ -23,13 +23,8 @@ object toJSON extends Pullback1[JValue] {
   implicit def dateToJSON[V <: java.util.Date] = 
     at[V](s => if (s == null) JNull else JString(s.toString))
 
-/*  implicit def seqToJSON[V, C <% Traversable[V]](implicit st: Pullback1[V, JValue]) = 
-    at[C](l => JArray(l.toList.map(v => toJSON(v)))) */
-  implicit def seqToJSON[V](implicit st: Pullback1[V, JValue]) = 
-    at[Seq[V]](l => JArray(l.toList.map(v => toJSON(v))))
-
-  implicit def listToJSON[V](implicit st: Pullback1[V, JValue]) = 
-    at[List[V]](l => JArray(l.map(v => toJSON(v))))
+  implicit def traversableToJSON[V, C[V] <: Traversable[V]](implicit st: Pullback1[V, JValue]) = 
+    at[C[V]](l => JArray(l.toList.map(v => toJSON(v))))
 
   implicit def recordToJSON[R <: HList](implicit foldMap: MapFolder[R, List[JField], fieldToJSON.type]) = {
     at[R](r => JObject(r.foldMap(Nil: List[JField])(fieldToJSON)(_ ::: _)))
