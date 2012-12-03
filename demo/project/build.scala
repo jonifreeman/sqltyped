@@ -13,8 +13,9 @@ object DemoBuild extends Build {
       "fi.reaktor" % "sqltyped_2.10.0-RC3" % "0.1-SNAPSHOT",
       "fi.reaktor" % "sqltyped-json4s_2.10.0-RC3" % "0.1-SNAPSHOT",
       "com.typesafe" % "slick_2.10.0-RC3" % "0.11.2",
-      "net.databinder" % "unfiltered-filter_2.9.2" % "0.6.4",
-      "net.databinder" % "unfiltered-jetty_2.9.2" % "0.6.4",
+      "net.databinder" % "unfiltered_2.10" % "0.6.4",
+      "net.databinder" % "unfiltered-netty_2.10" % "0.6.4",
+      "net.databinder" % "unfiltered-netty-server_2.10" % "0.6.4",
       "mysql" % "mysql-connector-java" % "5.1.21"
     ),
     initialize ~= { _ => initSqltyped },

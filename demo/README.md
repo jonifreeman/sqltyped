@@ -10,7 +10,28 @@ Demo app is a small REST server. The stack is:
 * Slick (Database connection handling)
 * MySQL (Database)
 
-Note, the current version compiles but does not boot :) I couldn't find Scala 2.10 compatible Unfiltered binaries anywhere. Please ping me if you know where can I find those.
+Start
+-----
+
+In the directory 'demo':
+
+```
+mysql -u root -e 'create database sqltyped_demo'
+mysql -u root sqltyped_demo < src/main/resources/schema.sql
+sbt run
+```
+
+* List persons
+
+```curl http://localhost:8080/people```
+
+* View person details
+
+```curl http://localhost:8080/person/3```
+
+* Add a comment
+
+```curl -X PUT http://localhost:8080/person/3/comment?text=Hello```
 
 Breakdown
 ---------

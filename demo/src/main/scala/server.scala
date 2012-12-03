@@ -5,7 +5,7 @@ import unfiltered.response._
 import sqltyped.json4s.JSON.compact
 
 object Server extends scala.App {
-  val api = unfiltered.filter.Planify {
+  val api = unfiltered.netty.cycle.Planify {
     case GET(Path("/people")) =>
       Ok ~> Json(compact(Db.personNames.apply))
 
@@ -22,8 +22,8 @@ object Server extends scala.App {
   }
 
   db.withSession { TestData.drop; TestData.create }
-  unfiltered.jetty.Http.local(8080)
-    .filter(unfiltered.filter.Planify { case x => db.withSession(api.intent(x)) })
+  unfiltered.netty.Http(8080)
+    .plan(unfiltered.netty.cycle.Planify { case x => db.withSession(api.intent(x)) })
     .run(svr => println("Running: " + svr.url), svr => println("Shutting down."))
 
   def Json(s: String) = JsonContent ~> ResponseString(s)
