@@ -9,11 +9,11 @@ object SqltypedBuild extends Build with Publish {
   lazy val sqltypedSettings = Defaults.defaultSettings ++ publishSettings ++ Seq(
     organization := "fi.reaktor",
     version := "%s-SNAPSHOT" format majorVersion,
-    scalaVersion := "2.10.0-RC3",
+    scalaVersion := "2.10.0-RC5",
     scalacOptions ++= Seq("-unchecked", "-deprecation"),
     javacOptions ++= Seq("-target", "1.6", "-source", "1.6"),
     crossVersion := CrossVersion.full,
-    crossScalaVersions := Seq("2.10.0-RC3"),
+    crossScalaVersions := Seq("2.10.0-RC5"),
     parallelExecution in Test := false,
     resolvers ++= Seq(sonatypeNexusSnapshots, sonatypeNexusReleases)
   )
@@ -25,11 +25,11 @@ object SqltypedBuild extends Build with Publish {
     base = file("core"),
     settings = sqltypedSettings ++ Seq(
       libraryDependencies ++= Seq(
-        "com.chuusai" % "shapeless_2.10.0-RC3" % "1.2.3",
-        "org.scala-lang" % "scala-reflect" % "2.10.0-RC3",
+        "com.chuusai" % "shapeless_2.10.0-RC5" % "1.2.3",
+        "org.scala-lang" % "scala-reflect" % "2.10.0-RC5",
         "net.sourceforge.schemacrawler" % "schemacrawler" % "8.17",
-        "org.scalatest" % "scalatest_2.10.0-RC3" % "2.0.M5-B1" % "test",
-        "org.scala-lang" % "scala-actors" % "2.10.0-RC3" % "test",
+        "org.scalatest" % "scalatest_2.10.0-RC5" % "2.0.M5-B1" % "test",
+        "org.scala-lang" % "scala-actors" % "2.10.0-RC5" % "test",
         "mysql" % "mysql-connector-java" % "5.1.21" % "test",
         "postgresql" % "postgresql" % "9.1-901.jdbc4" % "test"
       ),
@@ -52,7 +52,7 @@ object SqltypedBuild extends Build with Publish {
     base = file("slick-integration"),
     settings = sqltypedSettings ++ Seq(
       libraryDependencies ++= Seq(
-        "com.typesafe" % "slick_2.10.0-RC3" % "0.11.2"
+        "com.typesafe" % "slick_2.10.0-RC5" % "0.11.2"
       ),
       initialize ~= { _ => initSqltyped }
     )
