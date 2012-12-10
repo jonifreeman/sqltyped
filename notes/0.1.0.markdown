@@ -1,26 +1,26 @@
 Initial release:
 
-* Infers Scala types from database.
+## Infers Scala types from database.
 
     scala> sql("select age from person").apply
     res0: List[Int] = List(36, 14)
 
-* Uses type tags for PKs and FKs.
+## Uses type tags for PKs and FKs.
 
     scala> sql("select id from person").apply
     res0: List[Long @@ Tables.person] = List(1, 2)
 
-* Analyzes the query and infers more exact type (e.g. Option instead of List).
+## Analyzes the query and infers more exact type (e.g. Option instead of List).
 
     scala> sql("select name from person where id=?").apply(123)
     res0: Some[String] = Some(joe)
 
-* Can return generated keys of a statement instead of updated rows.
+## Can return generated keys of a statement instead of updated rows.
 
     scala> sqlk("insert into person(name, age, salary) values (?, ?, ?)").apply("jill", 45, 30000)
     res0: Long @@ Tables.person = 3
 
-* Includes an extensible record system and returns query results as a List of records.
+## Includes an extensible record system and returns query results as a List of records.
 
     scala> object name; object age
     scala> val p = (name -> "Joe") :: (age -> 36) :: HNil
@@ -31,12 +31,12 @@ Initial release:
     scala> p get age
     res2: Int = 36
 
-* Includes a function which can convert records to JSON.
+## Includes a function which can convert records to JSON.
 
     scala> val p = (name -> "Joe") :: (age -> 36) :: HNil
     scala> sqltyped.json4s.JSON.compact(p)
     res0: String = {"name":"Joe","age":36}
 
-* Parses a subset of standard SQL syntax.
+## Parses a subset of standard SQL syntax.
 
-* Has some MySQL specific extensions (ON DUPLICATE KEY UPDATE, INTERVAL, ...)
+## Has some MySQL specific extensions (ON DUPLICATE KEY UPDATE, INTERVAL, ...)
