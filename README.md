@@ -184,7 +184,7 @@ How to try it?
 
 Requires Scala 2.10.
 
-sqlτyped is published to Sonatype repositories (note, 0.1.0 not released yet, see snapshots).
+sqlτyped is published to Sonatype repositories.
 
 ```scala
 "fi.reaktor" %% "sqltyped" % "0.1.0"

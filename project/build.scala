@@ -4,16 +4,18 @@ import Keys._
 object SqltypedBuild extends Build with Publish {
   import Resolvers._
 
-  lazy val majorVersion = "0.1"
+  lazy val majorVersion = "0.1.0"
+  lazy val versionFormat = "%s"
+//  lazy val majorVersion = "0.2"
+//  lazy val versionFormat = "%s-SNAPSHOT"
 
   lazy val sqltypedSettings = Defaults.defaultSettings ++ publishSettings ++ Seq(
     organization := "fi.reaktor",
-    version := "%s-SNAPSHOT" format majorVersion,
-    scalaVersion := "2.10.0-RC5",
+    version := versionFormat format majorVersion,
+    scalaVersion := "2.10.0",
     scalacOptions ++= Seq("-unchecked", "-deprecation"),
     javacOptions ++= Seq("-target", "1.6", "-source", "1.6"),
-    crossVersion := CrossVersion.full,
-    crossScalaVersions := Seq("2.10.0-RC5"),
+    crossScalaVersions := Seq("2.10"),
     parallelExecution in Test := false,
     resolvers ++= Seq(sonatypeNexusSnapshots, sonatypeNexusReleases)
   )
@@ -25,11 +27,11 @@ object SqltypedBuild extends Build with Publish {
     base = file("core"),
     settings = sqltypedSettings ++ Seq(
       libraryDependencies ++= Seq(
-        "com.chuusai" % "shapeless_2.10.0-RC5" % "1.2.3",
-        "org.scala-lang" % "scala-reflect" % "2.10.0-RC5",
+        "com.chuusai" %% "shapeless" % "1.2.3",
+        "org.scala-lang" % "scala-reflect" % "2.10.0",
         "net.sourceforge.schemacrawler" % "schemacrawler" % "8.17",
-        "org.scalatest" % "scalatest_2.10.0-RC5" % "2.0.M5-B1" % "test",
-        "org.scala-lang" % "scala-actors" % "2.10.0-RC5" % "test",
+        "org.scalatest" %% "scalatest" % "2.0.M5b" % "test",
+        "org.scala-lang" % "scala-actors" % "2.10.0" % "test",
         "mysql" % "mysql-connector-java" % "5.1.21" % "test",
         "postgresql" % "postgresql" % "9.1-901.jdbc4" % "test"
       ),
@@ -42,7 +44,7 @@ object SqltypedBuild extends Build with Publish {
     base = file("json4s"),
     settings = sqltypedSettings ++ Seq(
       libraryDependencies ++= Seq(
-        "org.json4s" % "json4s-native_2.10.0-RC3" % "3.1.0-SNAPSHOT"
+        "org.json4s" %% "json4s-native" % "3.1.0-SNAPSHOT"
       )
     )
   ) dependsOn(core % "compile;test->test;provided->provided")
@@ -52,18 +54,13 @@ object SqltypedBuild extends Build with Publish {
     base = file("slick-integration"),
     settings = sqltypedSettings ++ Seq(
       libraryDependencies ++= Seq(
-        "com.typesafe" % "slick_2.10.0-RC5" % "0.11.2"
+        "com.typesafe" %% "slick" % "1.0.0-RC1"
       ),
       initialize ~= { _ => initSqltyped }
     )
   ) dependsOn(core % "compile;test->test;provided->provided")
 
   def initSqltyped {
-/*
-        System.setProperty("sqltyped.url", "jdbc:postgresql://localhost/sqltyped")
-        System.setProperty("sqltyped.driver", "org.postgresql.Driver")
-        System.setProperty("sqltyped.username", "sqltypedtest")
-        System.setProperty("sqltyped.password", "secret") */
     System.setProperty("sqltyped.url", "jdbc:mysql://localhost:3306/sqltyped")
     System.setProperty("sqltyped.driver", "com.mysql.jdbc.Driver")
     System.setProperty("sqltyped.username", "root")
