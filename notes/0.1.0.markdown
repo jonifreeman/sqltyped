@@ -1,6 +1,8 @@
+[sqlτyped](https://github.com/jonifreeman/sqltyped) - a macro which infers Scala types from database.
+
 Initial release:
 
-## Infers Scala types from database.
+## Infers Scala types from SQL statements.
 
     scala> sql("select age from person").apply
     res0: List[Int] = List(36, 14)
