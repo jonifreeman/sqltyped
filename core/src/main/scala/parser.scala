@@ -6,7 +6,13 @@ import scala.reflect.runtime.universe.{Type, typeOf}
 trait SqlParser extends RegexParsers with Ast.Unresolved with PackratParsers {
   import Ast._
 
-  def parse(sql: String): ?[Statement] = parseAll(stmt, sql) match {
+  def parseAllWith(p: Parser[Statement], sql: String) = ok_?(parseAll(p, sql))
+
+  def parseWith(p: Parser[Statement], sql: String) = ok_?(parse(p, input(sql)))
+
+  def input(s: String) = new PackratReader(new scala.util.parsing.input.CharArrayReader(s.toCharArray))
+
+  def ok_?(res: ParseResult[Statement]) = res  match {
     case Success(r, q)  => Right(r)
     case err: NoSuccess => Left(sqltyped.Failure(err.msg, err.next.pos.column, err.next.pos.line))
   }

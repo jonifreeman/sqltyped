@@ -66,6 +66,40 @@ object SqlMacro {
       case Literal(Constant(sql: String)) => sql
       case _ => c.abort(c.enclosingPosition, "Argument to macro must be a String literal")
     }
+    compile(c, useInputTags, keys, inputsInferred = true, 
+            sql, (p, s) => p.parseAllWith(p.stmt, s))(config, Literal(Constant(sql)))
+  }
+
+  def dynsqlImpl[A: c.WeakTypeTag, B: c.WeakTypeTag]
+      (c: Context)(exprs: c.Expr[Any]*)
+      (config: c.Expr[Configuration[A, B]]): c.Expr[Any] = {
+
+    import c.universe._
+
+    def append(t1: Tree, t2: Tree) = Apply(Select(t1, newTermName("+").encoded), List(t2))
+
+    val Expr(Apply(_, List(Apply(_, parts)))) = c.prefix
+
+    val select = parts.head
+    val sqlExpr = exprs.zip(parts.tail).foldLeft(select) { 
+      case (acc, (Expr(expr), part)) => append(acc, append(expr, part)) 
+    }
+
+    val sql = select match {
+      case Literal(Constant(sql: String)) => sql
+      case _ => c.abort(c.enclosingPosition, "Expected String literal as first part of interpolation")
+    }
+
+    compile(c, useInputTags = false, keys = false, inputsInferred = false,
+            sql, (p, s) => p.parseWith(p.selectStmt, s))(config, sqlExpr)
+  }
+
+  def compile[A: c.WeakTypeTag, B: c.WeakTypeTag]
+      (c: Context, useInputTags: Boolean, keys: Boolean, inputsInferred: Boolean, sql: String,
+       parse: (SqlParser, String) => ?[Ast.Statement[Option[String]]])
+      (config: c.Expr[Configuration[A, B]], sqlExpr: c.Tree): c.Expr[Any] = {
+
+    import c.universe._
 
     def sysProp(n: String) = scala.util.Properties.propOrNone(n) orFail 
         "System property '" + n + "' is required to get a compile time connection to the database"
@@ -81,7 +115,7 @@ object SqlMacro {
 
     def toPosition(f: Failure) = {
       val lineOffset = sql.split("\n").take(f.line - 1).map(_.length).sum
-      c.enclosingPosition.withPoint(wrappingPos(List(s.tree)).startOrPoint + f.column + lineOffset)
+      c.enclosingPosition.withPoint(wrappingPos(List(c.prefix.tree)).startOrPoint + f.column + lineOffset)
     }
 
     (for {
@@ -90,7 +124,8 @@ object SqlMacro {
       username <- sysProp("sqltyped.username")
       password <- sysProp("sqltyped.password")
       dialect  = Dialect.choose(driver)
-      stmt     <- dialect.parser.parse(sql)
+      parser   = dialect.parser
+      stmt     <- parse(parser, sql)
       schema   <- cachedSchema(url, driver, username, password)
       resolved <- Ast.resolveTables(stmt)
       typer    = dialect.typer(schema, resolved)
@@ -98,13 +133,13 @@ object SqlMacro {
       meta     <- new Analyzer(typer).refine(typed)
     } yield meta) fold (
       fail => c.abort(toPosition(fail), fail.message),
-      meta => codeGen(meta, sql, c, keys)(config)
+      meta => codeGen(meta, sql, c, keys, inputsInferred)(config, sqlExpr)
     )
   }
 
   def codeGen[A: c.WeakTypeTag, B: c.WeakTypeTag]
-    (meta: TypedStatement, sql: String, c: Context, keys: Boolean)
-    (config: c.Expr[Configuration[A, B]]): c.Expr[Any] = {
+    (meta: TypedStatement, sql: String, c: Context, keys: Boolean, inputsInferred: Boolean)
+    (config: c.Expr[Configuration[A, B]], sqlExpr: c.Tree): c.Expr[Any] = {
 
     import c.universe._
 
@@ -171,7 +206,10 @@ object SqlMacro {
     def inputParam(x: TypedValue, pos: Int) = 
       ValDef(Modifiers(Flag.PARAM), newTermName("i" + pos), possiblyOptional(x, scalaType(x)), EmptyTree)
 
-    def inputTypeSig = meta.input.map(col => possiblyOptional(col, scalaType(col)))
+    def inputTypeSig = 
+      if (inputsInferred) meta.input.map(col => possiblyOptional(col, scalaType(col)))
+      else List(AppliedTypeTree(Ident(c.mirror.staticClass("scala.collection.Seq")), 
+                                List(Ident(c.mirror.staticClass("scala.Any")))))
 
     def possiblyOptional(x: TypedValue, tpe: Tree) = 
       if (x.nullable) AppliedTypeTree(Ident(c.mirror.staticClass("scala.Option")), List(tpe))
@@ -289,26 +327,58 @@ object SqlMacro {
     def prepareStatement = 
       Apply(
         Select(Ident(newTermName("conn")), newTermName("prepareStatement")), 
-        Literal(Constant(sql)) :: (if (keys) List(Literal(Constant(Statement.RETURN_GENERATED_KEYS))) else Nil))
+        sqlExpr :: (if (keys) List(Literal(Constant(Statement.RETURN_GENERATED_KEYS))) else Nil))
 
-    val queryF = 
+    def queryF = {
+      def argList = 
+        if (inputsInferred) meta.input.zipWithIndex.map { case (c, i) => inputParam(c, i) }
+        else List(ValDef(Modifiers(Flag.PARAM), newTermName("args$"), 
+                         AppliedTypeTree(Ident(c.mirror.staticClass("scala.collection.Seq")), 
+                                         List(Ident(c.mirror.staticClass("scala.Any")))), 
+                         EmptyTree))
+
+      def processArgs =
+        if (inputsInferred) meta.input.zipWithIndex.map { case (c, i) => setParam(c, i) }
+        else 
+          List(Block(
+            List(ValDef(Modifiers(Flag.MUTABLE), newTermName("count$"), TypeTree(), Literal(Constant(0)))), 
+            LabelDef(
+              newTermName("while$1"), 
+              List(), 
+              If(Apply(Select(Ident(newTermName("count$")), newTermName("$less")), 
+                       List(Select(Ident(newTermName("args$")), newTermName("length")))), 
+                 Block(
+                   List(
+                     Block(
+                       List(
+                         Apply(Select(Ident(newTermName("stmt")), newTermName("setObject")), 
+                               List(Apply(Select(Ident(newTermName("count$")), newTermName("$plus")), List(Literal(Constant(1)))), 
+                                    Apply(Select(Ident(newTermName("args$")), newTermName("apply")), List(Ident(newTermName("count$"))))))), 
+                       Assign(Ident(newTermName("count$")), 
+                              Apply(
+                                Select(Ident(newTermName("count$")), newTermName("$plus")), 
+                                List(Literal(Constant(1))))))), 
+                   Apply(Ident(newTermName("while$1")), List())), Literal(Constant(()))))))
+
+
       DefDef(
         Modifiers(), newTermName("apply"), List(), 
         List(
-          meta.input.zipWithIndex.map { case (c, i) => inputParam(c, i) },
+          argList,
           List(ValDef(Modifiers(Flag.IMPLICIT | Flag.PARAM), newTermName("conn"), Ident(c.mirror.staticClass("java.sql.Connection")), EmptyTree))), 
         TypeTree(), 
         Block(
-          ValDef(Modifiers(), newTermName("stmt"), TypeTree(), prepareStatement) :: meta.input.zipWithIndex.map { case (c, i) => setParam(c, i) },
+          ValDef(Modifiers(), newTermName("stmt"), TypeTree(), prepareStatement) :: processArgs,
           processStmt
         )
       )
+    }
 
     /* Generates following code:
        new Query1[I1, (name.type, String) :: (age.type, Int) :: HNil] { 
          def apply(i1: I1)(implicit conn: Connection) = {
            val stmt = conn.prepareStatement(sql)
-           stmt.setInt(i1)
+           stmt.setInt(1, i1)
            withResultSet(stmt) { rs =>
              val rows = collection.mutable.ListBuffer[(name.type, String) :: (age.type, Int) :: HNil]()
              while (rs.next) {
@@ -319,13 +389,15 @@ object SqlMacro {
          }
        }
     */
+    val inputLen = if (inputsInferred) meta.input.length else 1
+
     c.Expr {
       Block(
         List(
           ClassDef(Modifiers(Flag.FINAL), newTypeName("$anon"), List(), 
                    Template(List(
                      AppliedTypeTree(
-                       Ident(c.mirror.staticClass("sqltyped.Query" + meta.input.length)), inputTypeSig ::: List(resultTypeSig))), 
+                       Ident(c.mirror.staticClass("sqltyped.Query" + inputLen)), inputTypeSig ::: List(resultTypeSig))), 
                             emptyValDef, List(
                               DefDef(
                                 Modifiers(), 

@@ -1,19 +1,15 @@
-======== 0.1 ========
-
-
 ======== 0.2 ========
 
-- runtime querybuilding with Slick + interpolation: 
-    def personByAge(from: Int, to: Int) = Persons.filter(p => p.age >= from && p.age <= to)
-  then: 
-    sql"""select name, age from person where ${personByAge}"""
-- Generate meta types http://stackoverflow.com/questions/12295971/will-it-be-possible-to-generate-several-top-level-classes-with-one-macro-invocat
-- in operator
-- Infer function types from schema
-- Improve names of input arguments
-- A mechanism to merge, tranform or combine records
-- Lift input / output types
-- record to case class
+- Runtime query building with interpolation: sql"""select name, age from person where ${where}"""
+- Record to case class, case class to record
 - Handle dialect specific keywords properly (e.g. http://www.postgresql.org/docs/9.2/static/sql-keywords-appendix.html)
 - Schemaprefixes
+
+======== 0.3 ========
+
+- Generate meta types http://stackoverflow.com/questions/12295971/will-it-be-possible-to-generate-several-top-level-classes-with-one-macro-invocat
 - Replace Query(n) with SqlF
+- A function to merge records
+- Infer function types from schema
+- Improve names of input arguments
+- IN operator
