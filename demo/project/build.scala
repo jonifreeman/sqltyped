@@ -10,8 +10,8 @@ object DemoBuild extends Build {
     javacOptions ++= Seq("-target", "1.6", "-source", "1.6"),
     crossPaths := false,
     libraryDependencies ++= Seq(
-      "fi.reaktor" %% "sqltyped" % "0.1.0",
-      "fi.reaktor" %% "sqltyped-json4s" % "0.1.0",
+      "fi.reaktor" %% "sqltyped" % "0.1.1",
+      "fi.reaktor" %% "sqltyped-json4s" % "0.1.1",
       "com.typesafe" %% "slick" % "1.0.0-RC1",
       "net.databinder" %% "unfiltered" % "0.6.4",
       "net.databinder" %% "unfiltered-netty" % "0.6.4",
