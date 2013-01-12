@@ -13,7 +13,9 @@ Demo app is a small REST server. The stack is:
 Start
 -----
 
-In the directory 'demo':
+Start MySQL database.
+
+Then in the directory 'demo':
 
 ```
 mysql -u root -e 'create database sqltyped_demo'
