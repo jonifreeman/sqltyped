@@ -15,7 +15,8 @@ class DynamicExamples extends Example {
     sql"select name, age from person where $where order by $orderBy".apply(Seq(5)).tuples ===
       List(("moe", 14), ("joe", 36))
 
-    // FIXME add join example
+    sql"select j.name, p.name from person p join job_history j on p.id=j.person where $where".apply(Seq(15)).tuples ===
+      List(("Enron", "joe"), ("IBM", "joe"))
   }
 
   test("Simple expr library") {
