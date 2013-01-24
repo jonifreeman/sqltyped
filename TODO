@@ -1,6 +1,5 @@
 ======== 0.2 ========
 
-- Runtime query building with interpolation: sql"""select name, age from person where ${where}"""
 - Record to case class, case class to record
 - Handle dialect specific keywords properly (e.g. http://www.postgresql.org/docs/9.2/static/sql-keywords-appendix.html)
 - Schemaprefixes

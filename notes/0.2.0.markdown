@@ -1,0 +1,9 @@
+[sqlτyped](https://github.com/jonifreeman/sqltyped) - a macro which infers Scala types from database.
+
+This release adds following new features and improvements:
+
+## Runtime query building with interpolation syntax
+
+    scala> sql"select name from person where $where order by age".apply(Seq(5))
+    res0: List[String] = List("moe", "joe")
+
