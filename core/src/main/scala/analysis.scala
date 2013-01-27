@@ -4,8 +4,8 @@ import Ast._
 import NumOfResults._
 
 class Analyzer(typer: Typer) extends Ast.Resolved {
-  def refine(stmt: TypedStatement): ?[TypedStatement] = 
-    stmt.copy(numOfResults = analyzeResults(stmt)).ok
+  def refine(stmt: Statement, typed: TypedStatement): ?[TypedStatement] = 
+    typed.copy(numOfResults = analyzeResults(stmt, typed)).ok
 
   /**
    * Statement returns 0 - 1 rows if,
@@ -19,7 +19,7 @@ class Analyzer(typer: Typer) extends Ast.Resolved {
    *
    * - The projection contains aggregate function and there's no group by
    */
-  private def analyzeResults(stmt: TypedStatement): NumOfResults = {
+  private def analyzeResults(stmt: Statement, typed: TypedStatement): NumOfResults = {
     import scala.math.Ordering.Implicits._
 
     def hasNoOrExprs(s: Select) = 
@@ -55,25 +55,25 @@ class Analyzer(typer: Typer) extends Ast.Resolved {
       case DerivedTable(_, s, join) => join.length > 0
     }
 
-    stmt.stmt match {
+    stmt match {
       case s@Select(projection, _, _, None, _, _) if hasAggregate(projection) => One
       case s@Select(_, tableRefs, where, _, _, _) => 
         if ((tableRefs.length == 1 && !hasJoin(tableRefs.head) && 
              where.isDefined && hasNoOrExprs(s) && 
-             stmt.uniqueConstraints(tableRefs.head.tables.head).exists(c => inWhereClause(s, c))) || 
+             typed.uniqueConstraints(tableRefs.head.tables.head).exists(c => inWhereClause(s, c))) || 
             hasLimit1(s))
           ZeroOrOne
         else 
           Many
-      case Insert(_, _, SelectedInput(s)) => analyzeResults(stmt.copy(stmt = s))
+      case Insert(_, _, SelectedInput(s)) => analyzeResults(s, typed)
       case Insert(_, _, _) => One
       case Update(_, _, _, _, _) => One
       case Delete(_, _) => One
       case Create() => One
       case SetStatement(s1, _, s2, _, _) => 
-        analyzeResults(stmt.copy(stmt = s1)) max analyzeResults(stmt.copy(stmt = s2))
+        analyzeResults(s1, typed) max analyzeResults(s2, typed)
       case Composed(s1, s2) => 
-        analyzeResults(stmt.copy(stmt = s1)) max analyzeResults(stmt.copy(stmt = s2))
+        analyzeResults(s1, typed) max analyzeResults(s2, typed)
     }
   }
 }

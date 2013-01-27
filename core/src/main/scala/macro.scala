@@ -104,10 +104,10 @@ object SqlMacro {
     def sysProp(n: String) = scala.util.Properties.propOrNone(n) orFail 
         "System property '" + n + "' is required to get a compile time connection to the database"
 
-    def cachedSchema(url: String, driver: String, username: String, password: String) = {
+    def cachedSchema(config: DbConfig) = {
       val cached = schemaCache.get(c.enclosingRun)
       if (cached != null) cached else {
-        val s = DbSchema.read(url, driver, username, password)
+        val s = DbSchema.read(config)
         schemaCache.put(c.enclosingRun, s)
         s 
       }
@@ -118,22 +118,40 @@ object SqlMacro {
       c.enclosingPosition.withPoint(wrappingPos(List(c.prefix.tree)).startOrPoint + f.column + lineOffset)
     }
 
-    (for {
+    def dbConfig = for {
       url      <- sysProp("sqltyped.url")
       driver   <- sysProp("sqltyped.driver")
       username <- sysProp("sqltyped.username")
       password <- sysProp("sqltyped.password")
-      dialect  = Dialect.choose(driver)
+    } yield DbConfig(url, driver, username, password)
+
+    def generateCode(meta: TypedStatement) =
+      codeGen(meta, sql, c, keys, inputsInferred)(config, sqlExpr)
+
+    def fallback = for {
+      db   <- dbConfig
+      meta <- Jdbc.infer(db, sql)
+    } yield meta
+
+    (for {
+      db       <- dbConfig
+      dialect  = Dialect.choose(db.driver)
       parser   = dialect.parser
+      schema   <- cachedSchema(db)
       stmt     <- parse(parser, sql)
-      schema   <- cachedSchema(url, driver, username, password)
       resolved <- Ast.resolveTables(stmt)
       typer    = dialect.typer(schema, resolved)
       typed    <- typer.infer(useInputTags)
-      meta     <- new Analyzer(typer).refine(typed)
+      meta     <- new Analyzer(typer).refine(resolved, typed)
     } yield meta) fold (
-      fail => c.abort(toPosition(fail), fail.message),
-      meta => codeGen(meta, sql, c, keys, inputsInferred)(config, sqlExpr)
+      fail => fallback fold ( 
+        _ => c.abort(toPosition(fail), fail.message), 
+        meta => { 
+          c.warning(toPosition(fail), "Fallback to JDBC metadata. Please file a bug at https://github.com/jonifreeman/sqltyped/issues")
+          generateCode(meta) 
+        }
+      ),
+      meta => generateCode(meta)
     )
   }
 
@@ -293,7 +311,7 @@ object SqlMacro {
         Select(Select(Ident(newTermName("rows")), newTermName("toList")), newTermName("head"))
 
     def processStmt =
-      if (meta.stmt.isQuery) {
+      if (meta.isQuery) {
         Apply(
           Apply(Select(Select(Ident("sqltyped"), newTermName("SqlMacro")), newTermName("withResultSet")), List(Ident(newTermName("stmt")))), 
           List(Function(List(ValDef(Modifiers(Flag.PARAM), newTermName("rs"), TypeTree(), EmptyTree)), 

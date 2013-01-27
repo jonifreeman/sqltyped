@@ -1,8 +1,6 @@
 package sqltyped
 
-import schemacrawler.schemacrawler._
 import schemacrawler.schema.{ColumnDataType, Schema}
-import schemacrawler.utility.SchemaCrawlerUtility
 import scala.reflect.runtime.universe.{Type, typeOf}
 import Ast._
 
@@ -11,7 +9,7 @@ case class TypedValue(name: String, tpe: Type, nullable: Boolean, tag: Option[St
 case class TypedStatement(
     input: List[TypedValue]
   , output: List[TypedValue]
-  , stmt: Statement[Table]
+  , isQuery: Boolean
   , uniqueConstraints: Map[Table, List[List[Column[Table]]]]
   , generatedKeyTypes: List[TypedValue]
   , numOfResults: NumOfResults.NumOfResults = NumOfResults.Many)
@@ -19,30 +17,6 @@ case class TypedStatement(
 object NumOfResults extends Enumeration {
   type NumOfResults = Value
   val ZeroOrOne, One, Many = Value
-}
-
-object DbSchema {
-  def read(url: String, driver: String, username: String, password: String): ?[Schema] = try {
-    Class.forName(driver)
-    val options = new SchemaCrawlerOptions
-    val level = new SchemaInfoLevel
-    level.setRetrieveTables(true)
-    level.setRetrieveColumnDataTypes(true)
-    level.setRetrieveTableColumns(true)
-    level.setRetrieveIndices(true)
-    level.setRetrieveForeignKeys(true)
-    options.setSchemaInfoLevel(level)
-    val schemaName = url.split('?')(0).split('/').reverse.head
-    options.setSchemaInclusionRule(new InclusionRule(schemaName, ""))
-    val conn = getConnection(url, username, password)
-    val database = SchemaCrawlerUtility.getDatabase(conn, options)
-    Option(database.getSchema(schemaName)) orFail ("Can't read schema '" + schemaName + "'")
-  } catch {
-    case e: Exception => fail(e.getMessage)
-  }
-
-  private def getConnection(url: String, username: String, password: String) =
-    java.sql.DriverManager.getConnection(url, username, password)
 }
 
 class Variables(typer: Typer) extends Ast.Resolved {
@@ -259,7 +233,7 @@ class Typer(schema: Schema, stmt: Ast.Statement[Table]) extends Ast.Resolved {
       out <- sequence(vars.output(stmt) map typeTerm(useTags = true))
       ucs <- uniqueConstraints
       key <- generatedKeyTypes(stmt.tables.head)
-    } yield TypedStatement(in.flatten, out.flatten, stmt, ucs, key)
+    } yield TypedStatement(in.flatten, out.flatten, stmt.isQuery, ucs, key)
   }
 
   def isAggregate(fname: String): Boolean = aggregateFunctions.contains(fname.toLowerCase)
@@ -329,25 +303,7 @@ class Typer(schema: Schema, stmt: Ast.Statement[Table]) extends Ast.Resolved {
     else Option(schema.getTable(t.name)) orElse derivedTable(t.name) orFail ("Unknown table " + t.name)
 
   private def derivedTable(name: String) = DerivedTables(schema, stmt, name)
-
-  private def mkType(t: ColumnDataType): Type = t.getTypeClassName match {
-    case "java.lang.String" => typeOf[String]
-    case "java.lang.Short" => typeOf[Short]
-    case "java.lang.Integer" => typeOf[Int]
-    case "java.lang.Long" => typeOf[Long]
-    case "java.lang.Float" => typeOf[Float]
-    case "java.lang.Double" => typeOf[Double]
-    case "java.lang.Boolean" => typeOf[Boolean]
-    case "java.lang.Byte" => typeOf[Byte]
-    case "java.sql.Timestamp" => typeOf[java.sql.Timestamp]
-    case "java.sql.Date" => typeOf[java.sql.Date]
-    case "java.sql.Time" => typeOf[java.sql.Time]
-    case "byte[]" => typeOf[java.sql.Blob]
-    case "byte" => typeOf[Byte]
-    case "java.math.BigInteger" => typeOf[java.math.BigInteger]
-    case "java.math.BigDecimal" => typeOf[java.math.BigDecimal]
-    case x => sys.error("Unknown type " + x)
-  }
+  private def mkType(t: ColumnDataType) = Jdbc.mkType(t.getTypeClassName)
 }
 
 object DualTable {

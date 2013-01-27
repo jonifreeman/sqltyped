@@ -12,7 +12,7 @@ trait SqlParser extends RegexParsers with Ast.Unresolved with PackratParsers {
 
   def input(s: String) = new PackratReader(new scala.util.parsing.input.CharArrayReader(s.toCharArray))
 
-  def ok_?(res: ParseResult[Statement]) = res  match {
+  def ok_?(res: ParseResult[Statement]) = res match {
     case Success(r, q)  => Right(r)
     case err: NoSuccess => Left(sqltyped.Failure(err.msg, err.next.pos.column, err.next.pos.line))
   }
@@ -275,5 +275,5 @@ trait SqlParser extends RegexParsers with Ast.Unresolved with PackratParsers {
 
   lazy val identValue: Parser[String] = "[a-zA-Z][a-zA-Z0-9_-]*".r
   lazy val numericLit: Parser[String] = """(-)?(\d+(\.\d*)?|\d*\.\d+)""".r
-  lazy val integer: Parser[Int] = """\d*""".r ^^ (s => s.toInt)
+  lazy val integer: Parser[Int] = """\d+""".r ^^ (s => s.toInt)
 }

@@ -1,8 +1,6 @@
 ======== 0.2 ========
 
 - Record to case class, case class to record
-- Handle dialect specific keywords properly (e.g. http://www.postgresql.org/docs/9.2/static/sql-keywords-appendix.html)
-- Schemaprefixes
 
 ======== 0.3 ========
 
@@ -12,3 +10,5 @@
 - Infer function types from schema
 - Improve names of input arguments
 - IN operator
+- Handle dialect specific keywords properly (e.g. http://www.postgresql.org/docs/9.2/static/sql-keywords-appendix.html)
+- Schemaprefixes

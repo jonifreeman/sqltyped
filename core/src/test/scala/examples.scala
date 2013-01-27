@@ -393,4 +393,12 @@ class ExampleSuite extends Example {
         from person p order by p.name
         """).apply(20).tuples === List(("joe", Some("Enron")), ("moe", None))
   }
+
+  test("Fallback by using an obscure unsupported MySQL syntax (order by NULL)") {
+    sql("select name, age from person where age > ? order by NULL").apply(5).tuples ===
+      List(("joe", 36), ("moe", 14))
+
+    sql("select name, age from person where age > ? order by NULL LIMIT 1").apply(5).tuples ===
+      List(("joe", 36))
+  }
 }
