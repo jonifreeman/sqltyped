@@ -39,7 +39,8 @@ create table alltypes(
   p VARCHAR(255) NOT NULL,
   q TEXT NOT NULL,
   r ENUM('v1','v2') NOT NULL,
-  s SET('v1','v2') NOT NULL
+  s SET('v1','v2') NOT NULL,
+  t DECIMAL NOT NULL
 ) ENGINE=InnoDB;
 
 insert into person values (1, 'joe', 36, 9500, NULL);
@@ -68,5 +69,6 @@ insert into alltypes values(
   'a',
   'a',
   'v1',
-  'v1'
+  'v1',
+  1.0
 );

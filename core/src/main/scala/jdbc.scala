@@ -38,7 +38,6 @@ private[sqltyped] object Jdbc {
     conn.close 
   }
 
-  // FIXME java.math.{BigInteger, BigDecimal} => scala.{BigInteger, BigDecimal}
   def mkType(className: String): Type = className match {
     case "java.lang.String" => typeOf[String]
     case "java.lang.Short" => typeOf[Short]
@@ -54,8 +53,7 @@ private[sqltyped] object Jdbc {
     case "byte[]" => typeOf[java.sql.Blob]
     case "[B" => typeOf[java.sql.Blob]
     case "byte" => typeOf[Byte]
-    case "java.math.BigInteger" => typeOf[java.math.BigInteger]
-    case "java.math.BigDecimal" => typeOf[java.math.BigDecimal]
+    case "java.math.BigDecimal" => typeOf[BigDecimal]
     case x => sys.error("Unknown type " + x)
   }
 }

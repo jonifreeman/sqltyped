@@ -171,8 +171,8 @@ object SqlMacro {
       } else getValue(x, pos)
 
     def getValue(x: TypedValue, pos: Int) = {
-      def baseValue = Apply(Select(Ident(newTermName("rs")), newTermName(rsGetterName(x))), 
-                            List(Literal(Constant(pos))))
+      def baseValue = Typed(Apply(Select(Ident(newTermName("rs")), newTermName(rsGetterName(x))), 
+                                  List(Literal(Constant(pos)))), scalaBaseType(x))
       
       x.tag.map(t =>
         Apply(
@@ -183,14 +183,14 @@ object SqlMacro {
       ) getOrElse baseValue
     }
 
-    def scalaType(x: TypedValue) = {
-      def baseType = Ident(c.mirror.staticClass(x.tpe.typeSymbol.fullName))
+    def scalaBaseType(x: TypedValue) = Ident(c.mirror.staticClass(x.tpe.typeSymbol.fullName))
 
+    def scalaType(x: TypedValue) = {
       x.tag.map(t => 
         AppliedTypeTree(
           Select(Select(Ident("shapeless"), newTermName("TypeOperators")), newTypeName("$at$at")), 
-          List(baseType, tagType(t)))
-      ) getOrElse baseType
+          List(scalaBaseType(x), tagType(t)))
+      ) getOrElse scalaBaseType(x)
     }
 
     def colKey(name: String) = 

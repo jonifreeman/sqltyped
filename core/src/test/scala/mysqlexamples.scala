@@ -62,7 +62,7 @@ class MySQLExamples extends Example {
                 datetime("2012-10-10 00:00:00.0"),
                 tstamp("2012-10-10 00:00:00.0"),
                 date("2012-01-01"),
-                "a", "a", "a", "v1", "v1"))
+                "a", "a", "a", "v1", "v1", BigDecimal(1.0)))
   }
 }
 
