@@ -1,7 +1,3 @@
-======== 0.2 ========
-
-- Record to case class, case class to record
-
 ======== 0.3 ========
 
 - Generate meta types http://stackoverflow.com/questions/12295971/will-it-be-possible-to-generate-several-top-level-classes-with-one-macro-invocat

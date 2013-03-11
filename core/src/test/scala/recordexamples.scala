@@ -73,10 +73,36 @@ class RecordExampleSuite extends Example {
     joe4.get(lastname) === "Doe"
   }
 
+  case class Address(street: String, city: String)
+  case class Person(name: String, age: Int, address: Address)
+
 /*
-  test("Query to a case class") {
+  test("Record to a case class") {
+    object street; object city; object name; object age; object address; object zipcode
+    val addr = (city -> "Helsinki") :: (zipcode -> "00100") :: (street -> "Mansku 2") :: HNil
+    val p = (name -> "Joe") :: (age -> 35) :: (address -> addr) :: HNil
+
+    (p: Person) === Person("Joe", 35, Address("Mansku 2", "Helsinki"))
+  }
+*/
+
+  test("Record from a case class") {
+    object street; object city; object name; object age; object address
+    val addr = (street -> "Mansku 2") :: (city -> "Helsinki") :: HNil
+    val p = (name -> "Joe") :: (age -> 35) :: (address -> addr) :: HNil
+
+    toRecord(Person("Joe", 35, Address("Mansku 2", "Helsinki"))) === p
+    // FIXME?
+    //Person("Joe", 35, Address("Mansku 2", "Helsinki")) === p
   }
   
+  // implicit macro conversion must be isomorphic!??
+  // 1st convert to: (names: List[String], values: HList) ??
+
+  // convert case class to (name1, value1) :: (name2, value2) :: HNil
+
+
+/*
   test("Merge records") {
   }
 */

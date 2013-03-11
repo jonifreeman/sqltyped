@@ -173,3 +173,31 @@ object ValueProjectionAux {
     def apply(x: (K, V) :: T) = x.head._2 :: st(x.tail)
   }
 }
+
+object RecordMacro {
+  import scala.reflect.macros._
+
+/*
+  def toCaseClass[R: c.WeakTypeTag, A: c.WeakTypeTag](c: Context)(r: c.Expr[R]): c.Expr[A] = {
+    import c.universe._
+
+    val tpe = c.weakTypeOf[A]
+    val sym = tpe.typeSymbol
+    if (!sym.isClass || !sym.asClass.isCaseClass)
+      c.abort(c.enclosingPosition, s"$sym is not a case class")
+
+    val fields = tpe.declarations.toList.collect {
+      case x: TermSymbol if x.isVal && x.isCaseAccessor => x
+    }
+
+    reify { null.asInstanceOf[A] }
+  }
+  */
+
+  def fromCaseClass[A: c.WeakTypeTag, B: c.WeakTypeTag, C: c.WeakTypeTag]
+      (c: Context)(config: c.Expr[Configuration[A, B]])(caseClass: c.Expr[C]): c.Expr[Any] = {
+    import c.universe._
+
+    reify { HNil }
+  }
+}

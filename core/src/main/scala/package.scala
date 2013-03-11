@@ -15,11 +15,17 @@ package object sqltyped {
     def sql[A, B](exprs: Any*)(implicit config: Configuration[A, B]) = macro SqlMacro.dynsqlImpl[A, B]
   }
 
-  implicit def recordOps[L <: HList](l: L): RecordOps[L] = new RecordOps(l)
+  implicit def recordOps[R <: HList](r: R): RecordOps[R] = new RecordOps(r)
 
   implicit def listOps[L <: HList](l: List[L]): ListOps[L] = new ListOps(l)  
 
-  implicit def optionOps[L <: HList](l: Option[L]): OptionOps[L] = new OptionOps(l)  
+  implicit def optionOps[L <: HList](l: Option[L]): OptionOps[L] = new OptionOps(l)
+
+//  implicit def recordToCaseClass[R <: HList, A](r: R): A = macro RecordMacro.toCaseClass[R, A]
+
+//  implicit def recordFromCaseClass[A, R <: HList](a: A): R = macro RecordMacro.fromCaseClass[A, R]
+  def toRecord[A, B, C](caseClass: C)(implicit config: Configuration[A, B]) = 
+    macro RecordMacro.fromCaseClass[A, B, C]
 
   type @@[T, U] = TypeOperators.@@[T, U]
 

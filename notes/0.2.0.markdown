@@ -7,6 +7,8 @@ This release adds following new features and improvements:
     scala> sql"select name from person where $where order by age".apply(Seq(5))
     res0: List[String] = List("moe", "joe")
 
+https://github.com/jonifreeman/sqltyped/wiki/User-guide#wiki-runtime
+
 ## Fallback to JDBC based inference when SQL parsing fails
 
 sqlτyped uses custom SQL parsers to parse the SQL statements. The advantage of custom parsing is that it enables better type inference. It is possible to do more thorough query analysis compared to what JDBC API provides. In addition, some JDBC drivers are notoriously bad when it comes to query analysis (MySQL, I'm looking at you ;). The disadvantage of custom parsing is that it will take some time to polish parsers to support all quirks and nonstandard syntax of all SQL dialects. To get a best of both worlds, sqlτyped first tries its more exact inference analysis and if it fails fallsback to JDBC based analysis.
