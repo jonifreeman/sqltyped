@@ -100,8 +100,9 @@ object SqlMacro {
       (config: c.Expr[Configuration[A, B]], sqlExpr: c.Tree): c.Expr[Any] = {
 
     import c.universe._
+    import scala.util.Properties
 
-    def sysProp(n: String) = scala.util.Properties.propOrNone(n) orFail 
+    def sysProp(n: String) = Properties.propOrNone(n) orFail 
         "System property '" + n + "' is required to get a compile time connection to the database"
 
     def cachedSchema(config: DbConfig) = {
@@ -123,7 +124,7 @@ object SqlMacro {
       driver   <- sysProp("sqltyped.driver")
       username <- sysProp("sqltyped.username")
       password <- sysProp("sqltyped.password")
-    } yield DbConfig(url, driver, username, password)
+    } yield DbConfig(url, driver, username, password, Properties.propOrNone("sqltyped.schema"))
 
     def generateCode(meta: TypedStatement) =
       codeGen(meta, sql, c, keys, inputsInferred)(config, sqlExpr)
