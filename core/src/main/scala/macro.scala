@@ -1,15 +1,14 @@
 package sqltyped
 
 import java.sql._
+import shapeless._
+import scala.reflect.macros._
 import schemacrawler.schema.Schema
 import NumOfResults._
 
 case class Configuration[A, B](tables: A, columns: B)
 
 object SqlMacro {
-  import shapeless._
-  import scala.reflect.macros._
-
   private val schemaCache = new java.util.WeakHashMap[Context#Run, ?[Schema]]()
 
   def withResultSet[A](stmt: PreparedStatement)(f: ResultSet => A) = {
@@ -160,6 +159,7 @@ object SqlMacro {
     (config: c.Expr[Configuration[A, B]], sqlExpr: c.Tree): c.Expr[Any] = {
 
     import c.universe._
+    import MacroSupport._
 
     def rs(x: TypedValue, pos: Int) = 
       if (x.nullable) {
@@ -244,59 +244,16 @@ object SqlMacro {
         Ident(c.mirror.staticClass("shapeless.$colon$colon")), 
         List(AppliedTypeTree(
           Ident(c.mirror.staticClass("scala.Tuple2")), 
-          List(recordKeyType(x.name), possiblyOptional(x, scalaType(x)))), sig)
+          List(recordKeyType(c)(x.name, config.tree), possiblyOptional(x, scalaType(x)))), sig)
       )
     })
 
     def returnTypeSigScalar = List(possiblyOptional(meta.output.head, scalaType(meta.output.head)))
 
-    def mkTuple2(a: Tree, b: Tree) = 
-      Apply(Select(Apply(
-        Select(Ident(c.mirror.staticModule("scala.Predef")), newTermName("any2ArrowAssoc")),
-        List(a)), newTermName("->").encoded), List(b))
-
-    def recordKey(name: String) = 
-      if (c.typeCheck(Select(Select(config.tree, "columns"), name), silent = true) == EmptyTree)
-        Literal(Constant(name))
-      else Select(Select(config.tree, "columns"), name)
-
-    def recordKeyType(name: String) = 
-      if (c.typeCheck(Select(Select(config.tree, "columns"), name), silent = true) == EmptyTree)
-        Ident(newTypeName("String"))
-      else SingletonTypeTree(Select(Select(config.tree, "columns"), name))
-
-    def mkRecord[A](xs: Seq[A], fieldBuilder: (A, Int) => Tree): List[Tree] = {
-      def mkFieldVal(a: A, i: Int) = 
-        ValDef(Modifiers(/*Flag.SYNTHETIC*/), 
-               newTermName("x$" + (i+1)), 
-               TypeTree(), 
-               fieldBuilder(a, i))
-
-      val init: Tree = 
-        Block(List(
-          mkFieldVal(xs.last, 0)), 
-          Apply(
-            Select(Select(Ident("shapeless"), newTermName("HNil")), newTermName("$colon$colon")),
-            List(Ident(newTermName("x$1")))
-        ))
-
-      List(xs.reverse.drop(1).zipWithIndex.foldLeft(init) { case (ast, (x, i)) =>
-        Block(
-          mkFieldVal(x, i+1),
-          Apply(
-            Select(
-              Apply(
-                Select(Ident(c.mirror.staticModule("shapeless.HList")), newTermName("hlistOps")),
-                List(Block(ast))
-              ), 
-              newTermName("$colon$colon")), List(Ident(newTermName("x$" + (i+2))))))
-         })
-    }
-
     def appendRowRecord = 
-      mkRecord(
+      mkRecord(c)(
         meta.output, 
-        (x: TypedValue, i: Int) => mkTuple2(recordKey(x.name), rs(x, meta.output.length - i)))
+        (x: TypedValue, i: Int) => mkTuple2(c)(recordKey(c)(x.name, config.tree), rs(x, meta.output.length - i))) :: Nil
 
     def appendRowScalar = List(rs(meta.output.head, 1))
 
@@ -440,6 +397,63 @@ object SqlMacro {
         Apply(Select(New(Ident(newTypeName("$anon"))), nme.CONSTRUCTOR), List())
       )
     }
+  }
+}
+
+// FIXME cleanup by moving Context parameter 
+object MacroSupport {
+  def mkTuple2(c: Context)(a: c.universe.Tree, b: c.universe.Tree) = {
+    import c.universe._
+    
+    Apply(Select(Apply(
+      Select(Ident(c.mirror.staticModule("scala.Predef")), newTermName("any2ArrowAssoc")),
+      List(a)), newTermName("->").encoded), List(b))
+  }
+
+  def recordKey(c: Context)(name: String, config: c.universe.Tree) = {
+    import c.universe._
+    
+    if (c.typeCheck(Select(Select(config, "columns"), name), silent = true) == EmptyTree)
+      Literal(Constant(name))
+    else Select(Select(config, "columns"), name)
+  }
+
+  def recordKeyType(c: Context)(name: String, config: c.universe.Tree) = {
+    import c.universe._
+
+    if (c.typeCheck(Select(Select(config, "columns"), name), silent = true) == EmptyTree)
+      Ident(newTypeName("String"))
+    else SingletonTypeTree(Select(Select(config, "columns"), name))
+  }
+
+  def mkRecord[A](c: Context)(xs: Seq[A], fieldBuilder: (A, Int) => c.universe.Tree) = {
+    import c.universe._
+
+    def mkFieldVal(a: A, i: Int) = 
+      ValDef(Modifiers(/*Flag.SYNTHETIC*/), 
+             newTermName("x$" + (i+1)), 
+             TypeTree(), 
+             fieldBuilder(a, i))
+
+    val init: Tree = 
+      Block(List(
+        mkFieldVal(xs.last, 0)), 
+            Apply(
+              Select(Select(Ident("shapeless"), newTermName("HNil")), newTermName("$colon$colon")),
+              List(Ident(newTermName("x$1")))
+            ))
+
+    xs.reverse.drop(1).zipWithIndex.foldLeft(init) { case (ast, (x, i)) =>
+      Block(
+        mkFieldVal(x, i+1),
+        Apply(
+          Select(
+            Apply(
+              Select(Ident(c.mirror.staticModule("shapeless.HList")), newTermName("hlistOps")),
+              List(Block(ast))
+            ), 
+            newTermName("$colon$colon")), List(Ident(newTermName("x$" + (i+2))))))
+      }
   }
 }
 

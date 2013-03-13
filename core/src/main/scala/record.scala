@@ -180,6 +180,7 @@ object RecordMacro {
   def fromCaseClass[A: c.WeakTypeTag, B: c.WeakTypeTag, C: c.WeakTypeTag]
       (c: Context)(caseClass: c.Expr[C])(config: c.Expr[Configuration[A, B]]): c.Expr[Any] = {
     import c.universe._
+    import MacroSupport._
 
     val tpe = c.weakTypeOf[C]
     val sym = tpe.typeSymbol
@@ -189,7 +190,11 @@ object RecordMacro {
     val fields = tpe.declarations.toList.collect {
       case x: TermSymbol if x.isVal && x.isCaseAccessor => x
     }
-
-    reify { HNil }
+    
+    c.Expr {
+      mkRecord(c)(
+        fields, 
+        (x: TermSymbol, i: Int) => mkTuple2(c)(recordKey(c)(x.name.toString.trim, config.tree), Select(caseClass.tree, x.name.toString.trim)))
+    }
   }
 }
