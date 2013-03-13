@@ -193,16 +193,6 @@ object SqlMacro {
       ) getOrElse scalaBaseType(x)
     }
 
-    def colKey(name: String) = 
-      if (c.typeCheck(Select(Select(config.tree, "columns"), name), silent = true) == EmptyTree)
-        Literal(Constant(name))
-      else Select(Select(config.tree, "columns"), name)
-
-    def colKeyType(name: String) = 
-      if (c.typeCheck(Select(Select(config.tree, "columns"), name), silent = true) == EmptyTree)
-        Ident(newTypeName("String"))
-      else SingletonTypeTree(Select(Select(config.tree, "columns"), name))
-
     def tagType(tag: String) = SelectFromTypeTree(Select(config.tree, "tables"), tag)
     def stmtSetterName(x: TypedValue) = "set" + javaName(x)
     def rsGetterName(x: TypedValue)   = "get" + javaName(x)
@@ -254,32 +244,45 @@ object SqlMacro {
         Ident(c.mirror.staticClass("shapeless.$colon$colon")), 
         List(AppliedTypeTree(
           Ident(c.mirror.staticClass("scala.Tuple2")), 
-          List(colKeyType(x.name), possiblyOptional(x, scalaType(x)))), sig)
+          List(recordKeyType(x.name), possiblyOptional(x, scalaType(x)))), sig)
       )
     })
 
     def returnTypeSigScalar = List(possiblyOptional(meta.output.head, scalaType(meta.output.head)))
 
-    def appendRowRecord = {
-      def processRow(x: TypedValue, i: Int): Tree = 
+    def mkTuple2(a: Tree, b: Tree) = 
+      Apply(Select(Apply(
+        Select(Ident(c.mirror.staticModule("scala.Predef")), newTermName("any2ArrowAssoc")),
+        List(a)), newTermName("->").encoded), List(b))
+
+    def recordKey(name: String) = 
+      if (c.typeCheck(Select(Select(config.tree, "columns"), name), silent = true) == EmptyTree)
+        Literal(Constant(name))
+      else Select(Select(config.tree, "columns"), name)
+
+    def recordKeyType(name: String) = 
+      if (c.typeCheck(Select(Select(config.tree, "columns"), name), silent = true) == EmptyTree)
+        Ident(newTypeName("String"))
+      else SingletonTypeTree(Select(Select(config.tree, "columns"), name))
+
+    def mkRecord[A](xs: Seq[A], fieldBuilder: (A, Int) => Tree): List[Tree] = {
+      def mkFieldVal(a: A, i: Int) = 
         ValDef(Modifiers(/*Flag.SYNTHETIC*/), 
                newTermName("x$" + (i+1)), 
                TypeTree(), 
-               Apply(Select(Apply(
-                 Select(Ident(c.mirror.staticModule("scala.Predef")), newTermName("any2ArrowAssoc")),
-                 List(colKey(x.name))), newTermName("$minus$greater")), List(rs(x, meta.output.length - i))))
+               fieldBuilder(a, i))
 
       val init: Tree = 
         Block(List(
-          processRow(meta.output.last, 0)), 
+          mkFieldVal(xs.last, 0)), 
           Apply(
             Select(Select(Ident("shapeless"), newTermName("HNil")), newTermName("$colon$colon")),
             List(Ident(newTermName("x$1")))
         ))
 
-      List(meta.output.reverse.drop(1).zipWithIndex.foldLeft(init) { case (ast, (x, i)) =>
+      List(xs.reverse.drop(1).zipWithIndex.foldLeft(init) { case (ast, (x, i)) =>
         Block(
-          processRow(x, i+1),
+          mkFieldVal(x, i+1),
           Apply(
             Select(
               Apply(
@@ -289,6 +292,11 @@ object SqlMacro {
               newTermName("$colon$colon")), List(Ident(newTermName("x$" + (i+2))))))
          })
     }
+
+    def appendRowRecord = 
+      mkRecord(
+        meta.output, 
+        (x: TypedValue, i: Int) => mkTuple2(recordKey(x.name), rs(x, meta.output.length - i)))
 
     def appendRowScalar = List(rs(meta.output.head, 1))
 
