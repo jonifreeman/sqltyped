@@ -184,7 +184,7 @@ object RecordMacro {
 
     val tpe = c.weakTypeOf[C]
 
-    def toRecord[X](tpe: Type, caseClass: c.Expr[X]): c.Expr[Any] = {
+    def toRecord(tpe: Type, caseClass: c.Tree): c.Expr[Any] = {
       val sym = tpe.typeSymbol
       if (!sym.isClass || !sym.asClass.isCaseClass)
         c.abort(c.enclosingPosition, s"$sym is not a case class")
@@ -197,20 +197,18 @@ object RecordMacro {
         mkRecord(c)(
           fields, 
           (x: TermSymbol, i: Int) => {
-            val value = Select(caseClass.tree, x.name.toString.trim)
-            val typed = c.typeCheck(value)
-            val valueTpe = typed.tpe
+            val value = Select(caseClass, x.name.toString.trim)
+            val valueTpe = c.typeCheck(value).tpe
+            val valueSym = valueTpe.typeSymbol
             val recursed = 
-              if      (valueTpe =:= typeOf[Int]) value
-              else if (valueTpe =:= typeOf[Long]) value
-              else if (valueTpe =:= typeOf[String]) value
-              else (toRecord(valueTpe, c.Expr(typed))).tree
+              if (valueSym.isClass && valueSym.asClass.isCaseClass) toRecord(valueTpe, value).tree
+              else value
 
             mkTuple2(c)(recordKey(c)(x.name.toString.trim, config.tree), recursed)
           })
       }
     }
         
-    toRecord(tpe, caseClass)
+    toRecord(tpe, caseClass.tree)
   }
 }
