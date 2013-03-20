@@ -1,8 +1,6 @@
-======== 0.2 ========
+========   0.3   ========
 
-- Record to case class, case class to record
-
-======== 0.3 ========
+======== Backlog ========
 
 - Generate meta types http://stackoverflow.com/questions/12295971/will-it-be-possible-to-generate-several-top-level-classes-with-one-macro-invocat
 - Replace Query(n) with SqlF
@@ -12,3 +10,5 @@
 - IN operator
 - Handle dialect specific keywords properly (e.g. http://www.postgresql.org/docs/9.2/static/sql-keywords-appendix.html)
 - Schemaprefixes
+- Conversions between records and normal scala types
+

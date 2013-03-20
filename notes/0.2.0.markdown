@@ -2,7 +2,7 @@
 
 This release adds following new features and improvements:
 
-## Runtime query building with interpolation syntax
+## [Runtime query building](https://github.com/jonifreeman/sqltyped/wiki/User-guide#wiki-runtime) with interpolation syntax
 
     scala> sql"select name from person where $where order by age".apply(Seq(5))
     res0: List[String] = List("moe", "joe")
