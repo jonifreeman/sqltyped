@@ -87,26 +87,20 @@ class RecordExampleSuite extends Example {
 */
 
   test("Record from a case class") {
-    object Tables
+    object Tags
     object Keys { object street; object city; object name; object age; object address }
     import Keys._
 
     val addr = (street -> "Mansku 2") :: (city -> "Helsinki") :: HNil
     val p = (name -> "Joe") :: (age -> 35) :: (address -> addr) :: HNil
 
-    implicit val c = Configuration(Tables, Keys)
+    implicit val c = Configuration(Tags, Keys)
 
     toRecord(Address("Mansku 2", "Helsinki")) === addr
-//    toRecord(Person("Joe", 35, Address("Mansku 2", "Helsinki"))) === p
+    toRecord(Person("Joe", 35, Address("Mansku 2", "Helsinki"))) === p
     // FIXME?
     //Person("Joe", 35, Address("Mansku 2", "Helsinki")) === p
   }
-  
-  // implicit macro conversion must be isomorphic!??
-  // 1st convert to: (names: List[String], values: HList) ??
-
-  // convert case class to (name1, value1) :: (name2, value2) :: HNil
-
 
 /*
   test("Merge records") {

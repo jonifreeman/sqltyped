@@ -183,18 +183,34 @@ object RecordMacro {
     import MacroSupport._
 
     val tpe = c.weakTypeOf[C]
-    val sym = tpe.typeSymbol
-    if (!sym.isClass || !sym.asClass.isCaseClass)
-      c.abort(c.enclosingPosition, s"$sym is not a case class")
 
-    val fields = tpe.declarations.toList.collect {
-      case x: TermSymbol if x.isVal && x.isCaseAccessor => x
+    def toRecord[X](tpe: Type, caseClass: c.Expr[X]): c.Expr[Any] = {
+      val sym = tpe.typeSymbol
+      if (!sym.isClass || !sym.asClass.isCaseClass)
+        c.abort(c.enclosingPosition, s"$sym is not a case class")
+
+      val fields = tpe.declarations.toList.collect {
+        case x: TermSymbol if x.isVal && x.isCaseAccessor => x
+      }
+
+      c.Expr {
+        mkRecord(c)(
+          fields, 
+          (x: TermSymbol, i: Int) => {
+            val value = Select(caseClass.tree, x.name.toString.trim)
+            val typed = c.typeCheck(value)
+            val valueTpe = typed.tpe
+            val recursed = 
+              if      (valueTpe =:= typeOf[Int]) value
+              else if (valueTpe =:= typeOf[Long]) value
+              else if (valueTpe =:= typeOf[String]) value
+              else (toRecord(valueTpe, c.Expr(typed))).tree
+
+            mkTuple2(c)(recordKey(c)(x.name.toString.trim, config.tree), recursed)
+          })
+      }
     }
-    
-    c.Expr {
-      mkRecord(c)(
-        fields, 
-        (x: TermSymbol, i: Int) => mkTuple2(c)(recordKey(c)(x.name.toString.trim, config.tree), Select(caseClass.tree, x.name.toString.trim)))
-    }
+        
+    toRecord(tpe, caseClass)
   }
 }

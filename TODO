@@ -2,6 +2,7 @@
 
 - Generate meta types http://stackoverflow.com/questions/12295971/will-it-be-possible-to-generate-several-top-level-classes-with-one-macro-invocat
 - Replace Query(n) with SqlF
+- Recrod to case class conversion
 - A function to merge records
 - Infer function types from schema
 - Improve names of input arguments
