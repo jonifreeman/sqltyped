@@ -264,7 +264,7 @@ class Typer(schema: Schema, stmt: Ast.Statement[Table]) extends Ast.Resolved {
 
   def extraAggregateFunctions: Map[String, (String, List[Expr]) => ?[SqlFType]] = Map()
   def extraScalarFunctions: Map[String, (String, List[Expr]) => ?[SqlFType]] = Map()
-
+  
   def tpeOf(e: Expr): ?[SqlType] = e match {
     case SimpleExpr(t) => t match {
       case Constant(tpe, x) if x == null => (tpe, true).ok
@@ -296,7 +296,12 @@ class Typer(schema: Schema, stmt: Ast.Statement[Table]) extends Ast.Resolved {
   def inferColumnType(col: Column) = for {
     t <- tableSchema(col.table)
     c <- Option(t.getColumn(col.name)) orFail ("No such column " + col)
-  } yield (mkType(c.getType), c.isNullable)
+  } yield (mkType(c.getType), c.isNullable || isNullableByJoin(col))
+
+  def isNullableByJoin(col: Column) = isProjectedByJoin(stmt, col) map (_.joinDesc) exists {
+    case LeftOuter | RightOuter | FullOuter => true
+    case Inner | Cross => false
+  }
 
   private def tableSchema(t: Table) =
     if (t.name.toLowerCase == "dual") DualTable(schema).ok

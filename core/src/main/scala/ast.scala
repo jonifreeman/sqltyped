@@ -115,6 +115,24 @@ private[sqltyped] object Ast {
     def isQuery = false
   }
 
+  def isProjectedByJoin(stmt: Statement[Table], col: Column[Table]): Option[Join[Table]] = stmt match {
+    case Select(_, tableRefs, _, _, _, _) => (tableRefs flatMap {
+      case ConcreteTable(t, joins) => if (col.table == t) None else isProjectedByJoin(joins, col)
+      case DerivedTable(_, _, joins) => isProjectedByJoin(joins, col)
+    }).headOption
+    case Composed(l, r) => isProjectedByJoin(l, col) orElse isProjectedByJoin(r, col)
+    case SetStatement(l, _, r, _, _) => isProjectedByJoin(l, col) orElse isProjectedByJoin(r, col)
+    case _ => None
+  }
+
+  def isProjectedByJoin(joins: List[Join[Table]], col: Column[Table]): Option[Join[Table]] =
+    joins.flatMap(j => isProjectedByJoin(j, col)).headOption
+
+  def isProjectedByJoin(join: Join[Table], col: Column[Table]): Option[Join[Table]] = join.table match {
+    case ConcreteTable(t, joins) => if (col.table == t) Some(join) else isProjectedByJoin(joins, col)
+    case DerivedTable(_, _, joins) => isProjectedByJoin(joins, col)
+  }
+
   /**
    * Returns a Statement where all columns have their tables resolved.
    */
@@ -323,7 +341,7 @@ private[sqltyped] object Ast {
     override def isQuery = true
   }
 
-  trait TableReference[T] {
+  sealed trait TableReference[T] {
     def tables: List[Table]
   }
   case class ConcreteTable[T](table: Table, join: List[Join[T]]) extends TableReference[T] {
@@ -335,7 +353,14 @@ private[sqltyped] object Ast {
 
   case class Where[T](expr: Expr[T])
 
-  case class Join[T](table: TableReference[T], joinType: Option[JoinType[T]], joinDesc: String)
+  case class Join[T](table: TableReference[T], joinType: Option[JoinType[T]], joinDesc: JoinDesc)
+
+  sealed trait JoinDesc
+  case object Inner extends JoinDesc
+  case object LeftOuter extends JoinDesc
+  case object RightOuter extends JoinDesc
+  case object FullOuter extends JoinDesc
+  case object Cross extends JoinDesc
 
   trait JoinType[T]
   case class QualifiedJoin[T](expr: Expr[T]) extends JoinType[T]

@@ -91,6 +91,24 @@ class ExampleSuite extends Example {
       List("joe", "moe")
 
     sql("select p.name from person p join person p2 using (id)").apply === List("joe", "moe")
+
+    val qNullable = sql("""
+    select j.resigned from person p left join job_history j on p.id=j.person 
+    where p.name=? and j.name=? LIMIT 1
+    """)
+
+    qNullable.apply("unknown", Some("IBM")) === None
+    qNullable.apply("joe", Some("IBM"))     === Some(None)
+    qNullable.apply("joe", Some("Enron"))   === Some(Some(tstamp("2004-06-22 18:00:00.0")))
+
+    val qNonNullable = sql("""
+    select j.started from person p left join job_history j on p.id=j.person 
+    where p.name=? and j.name=? LIMIT 1
+    """)
+
+    qNonNullable.apply("unknown", Some("IBM")) === None
+    qNonNullable.apply("joe", Some("unknown")) === None
+    qNonNullable.apply("joe", Some("Enron"))   === Some(Some(tstamp("2002-08-02 08:00:00.0")))
   }
 
   test("Query with join and column alias") {

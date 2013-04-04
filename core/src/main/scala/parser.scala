@@ -72,12 +72,18 @@ trait SqlParser extends RegexParsers with Ast.Unresolved with PackratParsers {
   lazy val joinType = (crossJoin | qualifiedJoin)
 
   lazy val crossJoin = "cross".i ~ "join".i ~ optParens(tableReference) ^^ {
-    case _ ~ _ ~ table => Join(table, None, "cross join")
+    case _ ~ _ ~ table => Join(table, None, Cross)
   }
 
-  lazy val qualifiedJoin = opt("left".i | "right".i) ~ opt("inner".i | "outer".i) ~ "join".i ~ optParens(tableReference) ~ opt(joinSpec) ^^ {
-    case side ~ style ~ _ ~ table ~ spec => 
-      Join(table, spec, side.map(_ + " ").getOrElse("") + style.map(_ + " ").getOrElse("") + "join")
+  lazy val joinDesc = (
+      "left".i  ~ opt("outer".i) ^^^ LeftOuter
+    | "right".i ~ opt("outer".i) ^^^ RightOuter
+    | "full".i  ~ opt("outer".i) ^^^ FullOuter
+    | "inner".i                  ^^^ Inner
+  )
+
+  lazy val qualifiedJoin = opt(joinDesc) ~ "join".i ~ optParens(tableReference) ~ opt(joinSpec) ^^ {
+    case joinDesc ~ _ ~ table ~ spec => Join(table, spec, joinDesc getOrElse Inner)
   }
 
   lazy val joinSpec = (joinCondition | namedColumnsJoin)
