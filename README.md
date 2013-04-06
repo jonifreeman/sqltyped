@@ -187,7 +187,7 @@ Requires Scala 2.10.
 sqlτyped is published to Sonatype repositories.
 
 ```scala
-"fi.reaktor" %% "sqltyped" % "0.2.0"
+"fi.reaktor" %% "sqltyped" % "0.2.1"
 ```
 
 ### Build ###

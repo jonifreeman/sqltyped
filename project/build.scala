@@ -4,10 +4,9 @@ import Keys._
 object SqltypedBuild extends Build with Publish {
   import Resolvers._
 
-//  lazy val majorVersion = "0.1.1"
-//  lazy val versionFormat = "%s"
-  lazy val majorVersion = "0.3.0"
-  lazy val versionFormat = "%s-SNAPSHOT"
+  lazy val versionFormat = "%s"
+  lazy val majorVersion = "0.2.1"
+//  lazy val versionFormat = "%s-SNAPSHOT"
 
   lazy val sqltypedSettings = Defaults.defaultSettings ++ publishSettings ++ Seq(
     organization := "fi.reaktor",
@@ -44,7 +43,7 @@ object SqltypedBuild extends Build with Publish {
     base = file("json4s"),
     settings = sqltypedSettings ++ Seq(
       libraryDependencies ++= Seq(
-        "org.json4s" %% "json4s-native" % "3.1.0"
+        "org.json4s" %% "json4s-native" % "3.2.4"
       )
     )
   ) dependsOn(core % "compile;test->test;provided->provided")
