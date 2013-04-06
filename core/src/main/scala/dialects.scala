@@ -6,6 +6,7 @@ import Ast._
 
 trait Dialect {
   def parser: SqlParser
+  def validator: Validator
   def typer(schema: Schema, stmt: Statement[Table]): Typer
 }
 
@@ -18,10 +19,13 @@ object Dialect {
 
 object GenericDialect extends Dialect {
   val parser = new SqlParser {}
+  def validator = JdbcValidator
   def typer(schema: Schema, stmt: Statement[Table]) = new Typer(schema, stmt)
 }
 
 object MysqlDialect extends Dialect {
+  def validator = MySQLValidator
+
   def typer(schema: Schema, stmt: Statement[Table]) = new Typer(schema, stmt) {
     import dsl._
 

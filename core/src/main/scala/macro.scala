@@ -66,7 +66,7 @@ object SqlMacro {
       case Literal(Constant(sql: String)) => sql
       case _ => c.abort(c.enclosingPosition, "Argument to macro must be a String literal")
     }
-    compile(c, useInputTags, keys, inputsInferred = true, 
+    compile(c, useInputTags, keys, inputsInferred = true, validate = true,
             sql, (p, s) => p.parseAllWith(p.stmt, s))(config, Literal(Constant(sql)))
   }
 
@@ -90,13 +90,13 @@ object SqlMacro {
       case _ => c.abort(c.enclosingPosition, "Expected String literal as first part of interpolation")
     }
 
-    compile(c, useInputTags = false, keys = false, inputsInferred = false,
+    compile(c, useInputTags = false, keys = false, inputsInferred = false, validate = false,
             sql, (p, s) => p.parseWith(p.selectStmt, s))(config, sqlExpr)
   }
 
   def compile[A: c.WeakTypeTag, B: c.WeakTypeTag]
-      (c: Context, useInputTags: Boolean, keys: Boolean, inputsInferred: Boolean, sql: String,
-       parse: (SqlParser, String) => ?[Ast.Statement[Option[String]]])
+      (c: Context, useInputTags: Boolean, keys: Boolean, inputsInferred: Boolean, validate: Boolean,
+       sql: String, parse: (SqlParser, String) => ?[Ast.Statement[Option[String]]])
       (config: c.Expr[Configuration[A, B]], sqlExpr: c.Tree): c.Expr[Any] = {
 
     import c.universe._
@@ -135,15 +135,17 @@ object SqlMacro {
     } yield meta
 
     (for {
-      db       <- dbConfig
-      dialect  = Dialect.choose(db.driver)
-      parser   = dialect.parser
-      schema   <- cachedSchema(db)
-      stmt     <- parse(parser, sql)
-      resolved <- Ast.resolveTables(stmt)
-      typer    = dialect.typer(schema, resolved)
-      typed    <- typer.infer(useInputTags)
-      meta     <- new Analyzer(typer).refine(resolved, typed)
+      db        <- dbConfig
+      dialect   = Dialect.choose(db.driver)
+      parser    = dialect.parser
+      schema    <- cachedSchema(db)
+      validator = if (validate) dialect.validator else NOPValidator
+      _         <- validator.validate(db, sql)
+      stmt      <- parse(parser, sql)
+      resolved  <- Ast.resolveTables(stmt)
+      typer     = dialect.typer(schema, resolved)
+      typed     <- typer.infer(useInputTags)
+      meta      <- new Analyzer(typer).refine(resolved, typed)
     } yield meta) fold (
       fail => fallback fold ( 
         _ => c.abort(toPosition(fail), fail.message), 
