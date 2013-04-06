@@ -235,6 +235,10 @@ class ExampleSuite extends Example {
 
     val q5 = sql("select age from person order by age desc limit 1")
     q5() === Some(36)
+
+    sql("select count(1) from person where id=?").apply(1) === 1
+    sql("select count(1) from person where id=?").apply(999) === 0
+    sql("select count(1) > 0 from person where id=?").apply(1) === true
   }
 
   test("Query with limit") {

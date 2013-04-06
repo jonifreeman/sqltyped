@@ -48,7 +48,11 @@ class Analyzer(typer: Typer) extends Ast.Resolved {
     } getOrElse false
 
     def hasAggregate(projection: List[Named]) = 
-      projection collect { case Named(_, _, Function(n, _)) => n } exists typer.isAggregate
+      projection collect { 
+        case Named(_, _, Function(n, _)) => n 
+        case Named(_, _, Comparison2(Function(n, _), _, _)) => n
+        case Named(_, _, Comparison2(_, _, Function(n, _))) => n
+      } exists typer.isAggregate
 
     def hasJoin(t: TableReference) = t match {
       case ConcreteTable(_, join) => join.length > 0
