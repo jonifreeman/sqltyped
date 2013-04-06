@@ -257,7 +257,10 @@ private[sqltyped] object Ast {
     val r = new ResolveEnv(env)
     (i.insertInput match {
       case SelectedInput(select) => resolveSelect(select)() map SelectedInput.apply
-      case ListedInput(vals) => sequence(vals map r.resolve) map ListedInput.apply
+      case ListedInput(vals) => 
+        if (i.colNames map (_.length != vals.length) getOrElse false) 
+          fail("Number of column names do not match with number of inputs")
+        else sequence(vals map r.resolve) map ListedInput.apply
     }) map (in => i.copy(insertInput = in))
   }
 

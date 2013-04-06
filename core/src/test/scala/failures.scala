@@ -14,9 +14,19 @@ class FailureSuite extends Example {
     """)
   }
 
-  test("INSERT references unknown column") {
+  test("INSERT references unknown table") {
     illTyped("""
       sql("insert into peson(id, name, age, salary) values (?, ?, ?, ?)")
+    """)
+  }
+
+  test("INSERT has unmatching number of listed columns and input") {
+    illTyped("""
+      sql("insert into person(id, name, age) values (?, ?, ?, ?)")
+    """)
+
+    illTyped("""
+      sql("insert into person(id, name, age) values (?, ?, 10, ?)")
     """)
   }
 }

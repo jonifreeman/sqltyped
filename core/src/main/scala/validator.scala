@@ -3,7 +3,7 @@ package sqltyped
 import schemacrawler.schema.Schema
 import Ast._
 
-trait Validator extends Ast.Resolved {
+trait Validator {
   def validate(db: DbConfig, sql: String): ?[Unit]
 }
 
