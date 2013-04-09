@@ -150,7 +150,7 @@ object SqlMacro {
       fail => fallback fold ( 
         _ => c.abort(toPosition(fail), fail.message), 
         meta => { 
-          c.warning(toPosition(fail), "Fallback to JDBC metadata. Please file a bug at https://github.com/jonifreeman/sqltyped/issues")
+          c.warning(toPosition(fail), fail.message + "\nFallback to JDBC metadata. Please file a bug at https://github.com/jonifreeman/sqltyped/issues")
           generateCode(meta) 
         }
       ),
