@@ -1,12 +1,15 @@
 ========   0.3   ========
 
+- Improve names of input arguments
+- Better interpolation support (table + column names etc.)
+- MySQL convert and cast support: http://dev.mysql.com/doc/refman/5.0/en/cast-functions.html
+
 ======== Backlog ========
 
 - Generate meta types http://stackoverflow.com/questions/12295971/will-it-be-possible-to-generate-several-top-level-classes-with-one-macro-invocat
 - Replace Query(n) with SqlF
 - A function to merge records
 - Infer function types from schema
-- Improve names of input arguments
 - IN operator
 - Handle dialect specific keywords properly (e.g. http://www.postgresql.org/docs/9.2/static/sql-keywords-appendix.html)
 - Schemaprefixes

@@ -63,6 +63,9 @@ class ExampleSuite extends Example {
 
     sql("select (name) n, (age) as a from person").apply.tuples ===
       List(("joe", 36), ("moe", 14))
+
+    sql("select 'success' as status from person").apply ===
+      List("success", "success")
   }
 
   test("Query with input") {
