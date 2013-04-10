@@ -20,6 +20,7 @@ object toJSON extends Pullback1[JValue] {
   implicit def numToJSON[V <% Long] = at[V](i => JInt(BigInt(i)))
   implicit def stringToJSON = at[String](s => if (s == null) JNull else JString(s))
   implicit def boolToJSON = at[Boolean](JBool(_))
+  implicit def jsonToJSON[V <: JValue] = at[V](identity)
 
   implicit def dateToJSON[V <: java.util.Date](implicit f: Formats) = 
     at[V](s => if (s == null) JNull else JString(f.dateFormat.format(s)))

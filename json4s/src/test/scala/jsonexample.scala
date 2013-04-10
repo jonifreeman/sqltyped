@@ -34,4 +34,12 @@ class JSONExampleSuite extends FunSuite with matchers.ShouldMatchers {
     val p = (name -> "Joe") :: (birthdate -> new java.util.Date(0)) :: HNil
     JSON.compact(p) should equal("""{"name":"Joe","birthdate":"1970-01-01T00:00:00Z"}""")
   }
+
+  test("Data which is already in JSON format") {
+    import org.json4s._
+
+    object name; object addr
+    val p = (name -> "Joe") :: (addr -> JObject(List("street" -> JString("Boulevard"), "city" -> JString("Helsinki")))) :: HNil
+    JSON.compact(p) should equal("""{"name":"Joe","addr":{"street":"Boulevard","city":"Helsinki"}}""")
+  }
 }
