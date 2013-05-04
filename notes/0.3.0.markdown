@@ -1,4 +1,4 @@
-[sqlτyped](https://github.com/jonifreeman/sqltyped) - a macro which infers Scala types from database.
+[sqlτyped](https://github.com/jonifreeman/sqltyped) - a macro which infers Scala types by analysing SQL statements.
 
 This release adds following new features and improvements:
 

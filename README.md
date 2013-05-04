@@ -1,5 +1,5 @@
-sqlτyped - a macro which infers Scala types from database
-=========================================================
+sqlτyped - a macro which infers Scala types by analysing SQL statements
+=======================================================================
 
 
 _Towards a perfect impedance match..._
