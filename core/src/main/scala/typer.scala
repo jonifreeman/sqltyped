@@ -122,6 +122,7 @@ class Variables(typer: Typer) extends Ast.Resolved {
     case And(e1, e2)                          => input(e1) ::: input(e2)
     case Or(e1, e2)                           => input(e1) ::: input(e2)
     case Not(e)                               => input(e)
+    case TypeExpr(d)                          => Nil
   }
 
   def limitInput(limit: Option[Limit]) =

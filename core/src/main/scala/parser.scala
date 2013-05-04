@@ -163,6 +163,10 @@ trait SqlParser extends RegexParsers with Ast.Unresolved with PackratParsers {
   }
 
   def extraTerms: PackratParser[Term] = failure("expected a term")
+  
+  def dataTypes: List[Parser[DataType]] = Nil
+
+  lazy val dataType: Parser[Expr] = dataTypes.reduceLeft(_ | _) ^^ TypeExpr.apply
 
   lazy val column = (
       ident ~ "." ~ ident ^^ { case t ~ _ ~ c => col(c, Some(t)) }
@@ -172,7 +176,7 @@ trait SqlParser extends RegexParsers with Ast.Unresolved with PackratParsers {
   lazy val allColumns = 
     opt(ident <~ ".") <~ "*" ^^ (t => AllColumns(t))
 
-  lazy val functionArg: PackratParser[Expr] = (expr | term ^^ SimpleExpr.apply)
+  lazy val functionArg: PackratParser[Expr] = (expr | dataType | term ^^ SimpleExpr.apply)
   lazy val infixFunctionArg = term ^^ SimpleExpr.apply
 
   lazy val function = (prefixFunction | infixFunction)

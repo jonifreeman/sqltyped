@@ -1,0 +1,9 @@
+[sqlτyped](https://github.com/jonifreeman/sqltyped) - a macro which infers Scala types from database.
+
+This release adds following new features and improvements:
+
+## MySQL type conversion support
+
+    scala> sql("select convert(age, char(10)) from person").apply
+    res0: List[String] = List("36", "14")
+

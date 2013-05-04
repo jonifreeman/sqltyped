@@ -64,5 +64,19 @@ class MySQLExamples extends Example {
                 date("2012-01-01"),
                 "a", "a", "a", "v1", "v1", BigDecimal(1.0)))
   }
+
+  test("Cast functions") {
+    sql("select binary(name) from person").apply === List("joe", "moe")
+
+    sql("select binary(age) from person").apply === List(36, 14)
+
+    val res1: List[String] = sql("select convert(age, char(10)) from person").apply
+    res1 === List("36", "14")
+
+    val res2: List[Int] = sql("select convert(name, signed) from person").apply
+    res2 === List(0, 0)
+
+    sql("select convert(name using utf8) from person").apply === List(Option("joe"), Option("moe"))
+  }
 }
 
