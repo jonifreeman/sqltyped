@@ -1,12 +1,10 @@
 ========   0.3   ========
 
-- MySQL convert and cast support: http://dev.mysql.com/doc/refman/5.0/en/cast-functions.html
-
 ======== Backlog ========
 
-- Batch insert and update 
 - 2.11: Generate meta types http://stackoverflow.com/questions/12295971/will-it-be-possible-to-generate-several-top-level-classes-with-one-macro-invocat
 - 2.11: Replace Query(n) with SqlF
+- 2.11: Batch insert and update (after SqlF)
 - 2.11: A function to merge records
 - Infer function types from schema
 - IN operator
@@ -14,4 +12,4 @@
 - Schemaprefixes
 - 2.11: Conversions between records and normal scala types
 - 2.11: Better interpolation support (table + column names etc.)
-
+- DB REPL

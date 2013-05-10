@@ -2,7 +2,7 @@ package sqltyped
 
 import java.sql._
 import org.scalatest._
-import shapeless._
+import shapeless._, TypeOperators._
 
 trait Example extends FunSuite with BeforeAndAfterEach with matchers.ShouldMatchers {
   Class.forName("com.mysql.jdbc.Driver")

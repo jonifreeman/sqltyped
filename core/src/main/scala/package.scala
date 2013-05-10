@@ -21,10 +21,6 @@ package object sqltyped {
 
   implicit def optionOps[L <: HList](l: Option[L]): OptionOps[L] = new OptionOps(l)  
 
-  type @@[T, U] = TypeOperators.@@[T, U]
-
-  def tag[U] = TypeOperators.tag[U]
-
   def keyAsString(k: Any) = {
     def isNumeric(s: String) = s.toCharArray.forall(Character.isDigit)
 

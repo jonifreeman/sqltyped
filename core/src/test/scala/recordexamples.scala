@@ -73,6 +73,13 @@ class RecordExampleSuite extends Example {
     joe4.get(lastname) === "Doe"
   }
 
+  test("Query to CSV") {
+    val rows = sql("select name as fname, age, img from person limit 100").apply.values
+
+    CSV.fromList(rows) === """ "joe","36",""
+                              |"moe","14","" """.stripMargin.trim
+  }
+
 /*
   test("Query to a case class") {
   }

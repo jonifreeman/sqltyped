@@ -26,7 +26,7 @@ object SqltypedBuild extends Build with Publish {
     base = file("core"),
     settings = sqltypedSettings ++ Seq(
       libraryDependencies ++= Seq(
-        "com.chuusai" %% "shapeless" % "1.2.3",
+        "com.chuusai" %% "shapeless" % "1.2.4",
         "org.scala-lang" % "scala-reflect" % "2.10.0",
         "net.sourceforge.schemacrawler" % "schemacrawler" % "8.17",
         "org.scalatest" %% "scalatest" % "2.0.M5b" % "test",

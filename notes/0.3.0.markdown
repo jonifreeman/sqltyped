@@ -7,3 +7,10 @@ This release adds following new features and improvements:
     scala> sql("select convert(age, char(10)) from person").apply
     res0: List[String] = List("36", "14")
 
+## Results to CSV conversion
+
+    scala> val rows = sql("select name as fname, age from person limit 100").apply.values
+    scala> CSV.fromList(rows)
+    res1: String = 
+    "joe","36"
+    "moe","14"
