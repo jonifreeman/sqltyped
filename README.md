@@ -35,9 +35,8 @@ Start console: ```sbt```, then ```project sqltyped``` and ```test:console```.
 import java.sql._
 import sqltyped._
 Class.forName("com.mysql.jdbc.Driver")
-object Tables { trait person; trait job_history }
 object Columns { object name; object age; object salary; }
-implicit val c = Configuration(Tables, Columns)
+implicit val c = Configuration(Columns)
 implicit def conn = DriverManager.getConnection("jdbc:mysql://localhost:3306/sqltyped", 
                                                 "root", "")
 import Tables._
@@ -150,16 +149,14 @@ the generated value use a function ```sqlk``` (will be changed to ```sql(..., ke
 
 ```scala
 scala> sqlk("insert into person(name, age, salary) values (?, ?, ?)").apply("jill", 45, 30000)
-res2: shapeless.TypeOperators.@@[Long,Tables.person] = 3
+res2: Long = 3
 ```
-
-The return value is a key, hence it's type was tagged to be ```Long @@ person```. See [Tagging](https://github.com/jonifreeman/sqltyped/wiki/User-guide#wiki-tagging).
 
 Inserting multiple values is supported too.
 
 ```scala
 scala> sqlk("insert into person(name, age, salary) select name, age, salary from person").apply
-res3: List[shapeless.TypeOperators.@@[Long,Tables.person]] = List(4, 5, 6)
+res3: List[Long] = List(4, 5, 6)
 ```
 
 Updates work as expected.

@@ -1,5 +1,8 @@
 ========   0.3   ========
 
+- Support multiple data sources
+- Views?
+
 ======== Backlog ========
 
 - 2.11: Generate meta types http://stackoverflow.com/questions/12295971/will-it-be-possible-to-generate-several-top-level-classes-with-one-macro-invocat

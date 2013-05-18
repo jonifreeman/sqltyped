@@ -6,6 +6,11 @@ import NumOfResults._
 
 case class Configuration[A, B](tables: A, columns: B)
 
+object NoTables
+object Configuration {
+  def apply[B](columns: B) = new Configuration(NoTables, columns)
+}
+
 object SqlMacro {
   import shapeless._
   import scala.reflect.macros._
@@ -177,22 +182,22 @@ object SqlMacro {
       def baseValue = Typed(Apply(Select(Ident(newTermName("rs")), newTermName(rsGetterName(x))), 
                                   List(Literal(Constant(pos)))), scalaBaseType(x))
       
-      x.tag.map(t =>
+      x.tag flatMap(t => tagType(t)) map (tagged =>
         Apply(
           Select(
             TypeApply(
               Select(Select(Ident("shapeless"), newTermName("TypeOperators")), newTermName("tag")), 
-              List(tagType(t))), newTermName("apply")), List(baseValue))
+              List(tagged)), newTermName("apply")), List(baseValue))
       ) getOrElse baseValue
     }
 
     def scalaBaseType(x: TypedValue) = Ident(c.mirror.staticClass(x.tpe.typeSymbol.fullName))
 
     def scalaType(x: TypedValue) = {
-      x.tag.map(t => 
+      x.tag flatMap (t => tagType(t)) map (tagged =>
         AppliedTypeTree(
           Select(Select(Ident("shapeless"), newTermName("TypeOperators")), newTypeName("$at$at")), 
-          List(scalaBaseType(x), tagType(t)))
+          List(scalaBaseType(x), tagged))
       ) getOrElse scalaBaseType(x)
     }
 
@@ -206,7 +211,12 @@ object SqlMacro {
         Ident(newTypeName("String"))
       else SingletonTypeTree(Select(Select(config.tree, "columns"), name))
 
-    def tagType(tag: String) = SelectFromTypeTree(Select(config.tree, "tables"), tag)
+    def tagType(tag: String) = try {
+      Some(SelectFromTypeTree(Select(config.tree, "tables"), tag))
+    } catch {
+      case e: AssertionError => None
+    }
+
     def stmtSetterName(x: TypedValue) = "set" + javaName(x)
     def rsGetterName(x: TypedValue)   = "get" + javaName(x)
 
