@@ -1,7 +1,7 @@
 package sqltyped.json4s
 
 import org.scalatest._
-import shapeless._
+import shapeless._, TypeOperators._
 import sqltyped._
 
 class JSONExampleSuite extends FunSuite with matchers.ShouldMatchers {
