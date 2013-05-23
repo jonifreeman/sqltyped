@@ -152,7 +152,8 @@ object MysqlDialect extends Dialect {
       | precision0(name)
     )
 
-    lazy val interval = "interval".i ~> numericLit ~ timeUnit ^^ { case x ~ _ => const(typeOf[java.util.Date], x) }
+    lazy val intervalAmount = opt("'") ~> numericLit <~ opt("'")
+    lazy val interval = "interval".i ~> intervalAmount ~ timeUnit ^^ { case x ~ _ => const(typeOf[java.util.Date], x) }
 
     lazy val timeUnit = (
         "microsecond".i 
