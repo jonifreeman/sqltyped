@@ -28,9 +28,10 @@ class Variables(typer: Typer) extends Ast.Resolved {
 
       insertInput match {
         case ListedInput(values) => 
-          colNames getOrElse colNamesFromSchema zip values collect {
-            case (name, Input()) => Named(name, None, Column(name, table))
-          }
+          (colNames getOrElse colNamesFromSchema zip values collect {
+            case (name, Input()) => List(Named(name, None, Column(name, table)))
+            case (name, Subselect(s)) => input(schema, s)
+          }).flatten
         case SelectedInput(select) => input(schema, select)
       }
 

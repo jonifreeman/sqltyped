@@ -307,6 +307,11 @@ class ExampleSuite extends Example {
 
     sql("delete p from person p where p.age < ?").apply(40)
     sql("select name from person").apply === Nil
+
+    sql("""
+        insert into person(salary, name, age) 
+        values ((select count(1) from job_history where name = ? LIMIT 1), ?, ?)
+        """).apply("IBM", "foo", 50)
   }
 
   test("Multidelete") {
