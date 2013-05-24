@@ -206,6 +206,8 @@ class ExampleSuite extends Example {
 
     sql("select age > ? from person order by age").apply(18) ===
       List(false, true)
+
+    sql("select count(age>?) as a2 from person").apply(30) === 2L
   }
 
   test("Query with just one selected column") {

@@ -1,8 +1,10 @@
 ========   0.3   ========
 
 - Support multiple data sources
+- Schemaprefixes
 - Recursive unions
 - Views?
+- Bug: select max(id) from jackpot where `group` = ?  ('group' works)
 
 
 ======== Backlog ========
@@ -14,7 +16,6 @@
 - Infer function types from schema
 - IN operator
 - Handle dialect specific keywords properly (e.g. http://www.postgresql.org/docs/9.2/static/sql-keywords-appendix.html)
-- Schemaprefixes
 - 2.11: Conversions between records and normal scala types
 - 2.11: Better interpolation support (table + column names etc.)
 - DB REPL
