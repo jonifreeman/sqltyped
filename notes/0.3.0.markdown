@@ -14,3 +14,9 @@ This release adds following new features and improvements:
     res1: String = 
     "joe","36"
     "moe","14"
+
+## Results to untyped List conversion
+
+   scala> val rows = sql("select name, age from person limit 100").apply
+   scala> Record.toTupleLists(rows)
+   res2: List[List[(String, Any)]] = List(List(("name", "joe"), ("age", 36)), List(("name", "moe"), ("age", 14)))

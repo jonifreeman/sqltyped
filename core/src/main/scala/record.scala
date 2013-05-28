@@ -8,6 +8,13 @@ private[sqltyped] object fieldAsString extends Poly1 {
   }
 }
 
+object Record {
+  def toTupleLists[R <: HList](rs: List[R])(implicit toList: ToList[R, (Any, Any)]): List[List[(String, Any)]] = rs map (r => toTupleList(r)(toList))
+
+  def toTupleList[R <: HList](r: R)(implicit toList: ToList[R, (Any, Any)]): List[(String, Any)] = 
+    r.toList map { case (k, v) => (keyAsString(k), v) }
+}
+
 final class RecordOps[R <: HList](r: R) {
   def lookup[K](implicit lookup: Lookup[R, K]): lookup.Out = lookup(r)
 

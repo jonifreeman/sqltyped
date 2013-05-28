@@ -80,6 +80,13 @@ class RecordExampleSuite extends Example {
                               |"moe","14","" """.stripMargin.trim
   }
 
+  test("Query to untyped tuples") {
+    val rows = sql("select name, age from person limit 100").apply
+    Record.toTupleList(rows.head) === List(("name", "joe"), ("age", 36))
+    Record.toTupleLists(rows) === 
+      List(List(("name", "joe"), ("age", 36)), List(("name", "moe"), ("age", 14))) 
+  }
+
 /*
   test("Query to a case class") {
   }

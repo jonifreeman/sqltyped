@@ -1,5 +1,10 @@
 ========   0.3   ========
 
+- Bug: group by function
+- Bug: SELECT s.* FROM 
+        (SELECT k.*, rownum r FROM foo k) s
+        WHERE r BETWEEN ? and ?
+- Bug: SELECT max(rownum) + 1 FROM xxx  // List instead of Option
 - Support multiple data sources
 - Schemaprefixes
 - Recursive unions
