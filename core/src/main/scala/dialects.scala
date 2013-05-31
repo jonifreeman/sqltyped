@@ -36,6 +36,7 @@ object MysqlDialect extends Dialect {
       , "if"        -> iff _
       , "binary"    -> binary _
       , "convert"   -> convert _
+      , "concat"    -> concat _
     )
 
     def datediff(fname: String, params: List[Expr]): ?[SqlFType] = 
@@ -74,6 +75,12 @@ object MysqlDialect extends Dialect {
         (tpe1, opt1) <- tpeOf(params(1))
         (tpe, opt)   <- castToType(tpe0, params(1))
       } yield (List((tpe0, opt0), (tpe1, opt1)), (tpe, opt0 || opt))
+
+    def concat(fname: String, params: List[Expr]): ?[SqlFType] = 
+      if (params.length < 1) fail("Expected at least 1 parameter")
+      else for {
+        in <- sequence(params map tpeOf)
+      } yield (in, (typeOf[String], in.map(_._2).forall(identity)))
 
     private def castToType(orig: Type, target: Expr) = target match {
       case TypeExpr(d) => d.name match {

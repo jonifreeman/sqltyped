@@ -36,6 +36,11 @@ class MySQLExamples extends Example {
       List(18, 36)
   }
 
+  test("String functions") {
+    sql("select concat('hello ', name, ?) from person").apply("!") === 
+      List("hello joe!", "hello moe!")
+  }
+
   test("Insert/update ignore") {
     val addPerson = sql("insert ignore into person(id, name, age, salary) values (?, ?, ?, ?)")
     val updateId  = sql("update ignore person set id=? where id=?")
