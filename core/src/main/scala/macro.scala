@@ -228,11 +228,17 @@ object SqlMacro {
     def setParam(x: TypedValue, pos: Int) =
       if (x.nullable) 
         If(Select(Ident(newTermName("i" + pos)), newTermName("isDefined")), 
-           Apply(Select(Ident(newTermName("stmt")), newTermName(stmtSetterName(x))), List(Literal(Constant(pos+1)), Select(Ident(newTermName("i" + pos)), newTermName("get")))), 
+           Apply(Select(Ident(newTermName("stmt")), newTermName(stmtSetterName(x))), List(Literal(Constant(pos+1)), coerce(x, Select(Ident(newTermName("i" + pos)), newTermName("get"))))), 
            Apply(Select(Ident(newTermName("stmt")), newTermName("setObject")), List(Literal(Constant(pos+1)), Literal(Constant(null)))))
       else
         Apply(Select(Ident(newTermName("stmt")), newTermName(stmtSetterName(x))), 
-              List(Literal(Constant(pos+1)), Ident(newTermName("i" + pos))))
+              List(Literal(Constant(pos+1)), coerce(x, Ident(newTermName("i" + pos)))))
+
+    def coerce(x: TypedValue, i: Tree) = {
+      if (typeName(x) == "BigDecimal")
+        Apply(Select(i, newTermName("underlying")), List())
+      else i
+    }
 
     def inputParam(x: TypedValue, pos: Int) = 
       ValDef(Modifiers(Flag.PARAM), newTermName("i" + pos), possiblyOptional(x, scalaType(x)), EmptyTree)

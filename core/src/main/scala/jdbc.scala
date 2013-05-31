@@ -53,7 +53,7 @@ private[sqltyped] object Jdbc {
     case "byte[]" => typeOf[java.sql.Blob]
     case "[B" => typeOf[java.sql.Blob]
     case "byte" => typeOf[Byte]
-    case "java.math.BigDecimal" => typeOf[BigDecimal]
+    case "java.math.BigDecimal" => typeOf[scala.math.BigDecimal]
     case x => sys.error("Unknown type " + x)
   }
 }
