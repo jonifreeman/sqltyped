@@ -17,6 +17,7 @@ object toJSON extends Pullback1[JValue] {
   implicit def nullToJSON = at[Null](_ => JNull)
   implicit def doubleToJSON = at[Double](JDouble(_))
   implicit def bigIntToJSON = at[BigInt](JInt(_))
+  implicit def bigDecimalToJSON = at[BigDecimal](JDecimal(_))
   implicit def numToJSON[V <% Long] = at[V](i => JInt(BigInt(i)))
   implicit def stringToJSON = at[String](s => if (s == null) JNull else JString(s))
   implicit def boolToJSON = at[Boolean](JBool(_))
