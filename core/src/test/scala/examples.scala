@@ -112,6 +112,14 @@ class ExampleSuite extends Example {
     qNonNullable.apply("unknown", Some("IBM")) === None
     qNonNullable.apply("joe", Some("unknown")) === None
     qNonNullable.apply("joe", Some("Enron"))   === Some(Some(tstamp("2002-08-02 08:00:00.0")))
+
+    sql("""
+        SELECT p.name 
+        FROM person p 
+        JOIN (
+          SELECT * FROM person WHERE age>?
+        ) AS p2 ON p.id=p2.id
+        """).apply(10) === List("joe", "moe")
   }
 
   test("Query with join and column alias") {

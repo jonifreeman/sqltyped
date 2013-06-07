@@ -69,9 +69,12 @@ class Variables(typer: Typer) extends Ast.Resolved {
     limitInput(s.limit)
 
   def input(t: TableReference): List[Named] = t match {
-    case ConcreteTable(_, join) => join flatMap (_.joinType map input getOrElse Nil)
-    case DerivedTable(_, s, join) => input(s) ::: (join flatMap (_.joinType map input getOrElse Nil))
+    case ConcreteTable(_, join) => join flatMap input
+    case DerivedTable(_, s, join) => input(s) ::: (join flatMap input)
   }
+
+  def input(j: Join): List[Named] =
+    input(j.table) ::: (j.joinType map input getOrElse Nil)
 
   def input(o: OrderBy): List[Named] = (o.sort collect {
     case FunctionSort(f) => input(f)
