@@ -202,9 +202,9 @@ private[sqltyped] object Ast {
     def resolveWhere(where: Where[Option[String]]) = resolveExpr(where.expr) map Where.apply
     def resolveWhereOpt(where: Option[Where[Option[String]]]) = sequenceO(where map resolveWhere)
     def resolveGroupBy(groupBy: GroupBy[Option[String]]) = for {
-      c <- sequence(groupBy.cols map resolveColumn)
+      t <- sequence(groupBy.terms map resolve)
       h <- resolveHavingOpt(groupBy.having)
-    } yield groupBy.copy(cols = c, having = h)
+    } yield groupBy.copy(terms = t, having = h)
     def resolveGroupByOpt(groupBy: Option[GroupBy[Option[String]]]) = sequenceO(groupBy map resolveGroupBy)
     def resolveHaving(having: Having[Option[String]]) = resolveExpr(having.expr) map Having.apply
     def resolveHavingOpt(having: Option[Having[Option[String]]]) = sequenceO(having map resolveHaving)
@@ -373,7 +373,7 @@ private[sqltyped] object Ast {
   case class QualifiedJoin[T](expr: Expr[T]) extends JoinType[T]
   case class NamedColumnsJoin[T](columns: List[String]) extends JoinType[T]
 
-  case class GroupBy[T](cols: List[Column[T]], having: Option[Having[T]])
+  case class GroupBy[T](terms: List[Term[T]], having: Option[Having[T]])
 
   case class Having[T](expr: Expr[T])
 

@@ -154,6 +154,9 @@ class ExampleSuite extends Example {
 
     sql("select p.name from person p where age > ? group by p.name collate latin1_swedish_ci order by p.name collate latin1_swedish_ci asc limit 2").apply(10) ===
       List("joe", "moe")
+
+    sql("select p.name from person p where age > ? group by ucase(p.name)").apply(10) ===
+      List("joe", "moe")
   }
 
   test("Query with functions") {
