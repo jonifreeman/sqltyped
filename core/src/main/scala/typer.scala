@@ -178,6 +178,7 @@ class Typer(schema: Schema, stmt: Ast.Statement[Table]) extends Ast.Resolved {
         }
       case Constant(tpe, _) => List(TypedValue(x.aname, tpe, false, None)).ok
       case Input() => List(TypedValue(x.aname, typeOf[Any], false, None)).ok
+      case ArithExpr(_, "/", _) => List(TypedValue(x.aname, typeOf[Double], true, None)).ok
       case ArithExpr(lhs, _, rhs) => 
         (lhs, rhs) match {
           case (c@Column(_, _), _) => typeTerm(useTags)(Named(c.name, x.alias, c))

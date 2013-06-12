@@ -219,6 +219,9 @@ class ExampleSuite extends Example {
       List(false, true)
 
     sql("select count(age>?) as a2 from person").apply(30) === 2L
+
+    sql("select age/(age*10) from person").apply === List(Some(0.1), Some(0.1))
+    sql("select age/0 from person").apply === List(None, None)
   }
 
   test("Query with just one selected column") {

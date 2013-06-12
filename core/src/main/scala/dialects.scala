@@ -89,7 +89,7 @@ object MysqlDialect extends Dialect {
         case "time" => (typeOf[java.sql.Time], true).ok
         case "char" => (typeOf[String], false).ok
         case "binary" => (typeOf[String], false).ok
-        case "decimal" => (typeOf[String], false).ok
+        case "decimal" => (typeOf[Double], false).ok
         case "signed" if orig == typeOf[Long] => (typeOf[Long], false).ok
         case "signed" => (typeOf[Int], false).ok
         case "unsigned" if orig == typeOf[Long] => (typeOf[Long], false).ok
