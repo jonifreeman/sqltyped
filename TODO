@@ -1,6 +1,5 @@
 ========   0.3   ========
 
-- Bug: SELECT max(rownum) + 1 FROM xxx  // List instead of Option
 - Bug: SELECT count(distinct foo,bar)
 - Support multiple data sources
 - Schemaprefixes

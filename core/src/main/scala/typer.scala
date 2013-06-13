@@ -183,10 +183,6 @@ class Typer(schema: Schema, stmt: Ast.Statement[Table]) extends Ast.Resolved {
         (lhs, rhs) match {
           case (c@Column(_, _), _) => typeTerm(useTags)(Named(c.name, x.alias, c))
           case (_, c@Column(_, _)) => typeTerm(useTags)(Named(c.name, x.alias, c))
-          case (Constant(tpe, _), _) if tpe == typeOf[Double] => typeTerm(useTags)(Named(x.name, x.alias, lhs))
-          case (_, Constant(tpe, _)) if tpe == typeOf[Double] => typeTerm(useTags)(Named(x.name, x.alias, lhs))
-          case (c@Constant(_, _), _) => List(TypedValue(x.aname, typeOf[Int], false, None, x.term)).ok
-          case (_, c@Constant(_, _)) => List(TypedValue(x.aname, typeOf[Int], false, None, x.term)).ok
           case _ => typeTerm(useTags)(Named(x.name, x.alias, lhs))
         }
       case Comparison1(_, IsNull) | Comparison1(_, IsNotNull) => 

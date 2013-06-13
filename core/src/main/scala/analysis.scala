@@ -44,12 +44,18 @@ class Analyzer(typer: Typer) extends Ast.Resolved {
       }
     } getOrElse false
 
-    def hasAggregate(projection: List[Named]) = 
-      projection collect { 
-        case Named(_, _, Function(n, _)) => n 
-        case Named(_, _, Comparison2(Function(n, _), _, _)) => n
-        case Named(_, _, Comparison2(_, _, Function(n, _))) => n
-      } exists typer.isAggregate
+    def hasAggregate(projection: List[Named]) = {
+      def collectFs(term: Term): List[Function] = term match {
+        case f@Function(_, _)           => f :: Nil
+        case Comparison1(t, _)          => collectFs(t)
+        case Comparison2(lhs, _, rhs)   => collectFs(lhs) ::: collectFs(rhs)
+        case Comparison3(t1, _, t2, t3) => collectFs(t1) ::: collectFs(t2) ::: collectFs(t3)
+        case ArithExpr(lhs, _, rhs)     => collectFs(lhs) ::: collectFs(rhs)
+        case _ => Nil
+      }
+
+      projection map (_.term) flatMap collectFs map (_.name) exists typer.isAggregate
+    }
 
     def hasJoin(t: TableReference) = t match {
       case ConcreteTable(_, join) => join.length > 0

@@ -187,6 +187,8 @@ class ExampleSuite extends Example {
 
     sql("select max(age) from person").apply === Some(36)
 
+    sql("select max(age) + 1 from person").apply === Some(37)
+
     sql("select count(id) from person").apply === 2
 
     sql("select max(id) from person where age > ?").apply(100) === None
