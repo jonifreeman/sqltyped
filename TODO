@@ -10,7 +10,6 @@
 - Recursive unions
 - Views?
 - Bug: select max(id) from jackpot where `group` = ?  ('group' works)
-- Analysis: x can't be null if 'where x is not null'
 
 ======== Backlog ========
 

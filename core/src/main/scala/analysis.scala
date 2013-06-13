@@ -5,7 +5,7 @@ import NumOfResults._
 
 class Analyzer(typer: Typer) extends Ast.Resolved {
   def refine(stmt: Statement, typed: TypedStatement): ?[TypedStatement] = 
-    typed.copy(numOfResults = analyzeResults(stmt, typed)).ok
+    analyzeSelection(stmt, typed.copy(numOfResults = analyzeResults(stmt, typed))).ok
 
   /**
    * Statement returns 0 - 1 rows if,
@@ -21,9 +21,6 @@ class Analyzer(typer: Typer) extends Ast.Resolved {
    */
   private def analyzeResults(stmt: Statement, typed: TypedStatement): NumOfResults = {
     import scala.math.Ordering.Implicits._
-
-    def hasNoOrExprs(s: Select) = 
-      s.where.map(w => !w.expr.find { case Or(_, _) => true; case _ => false }.isDefined).getOrElse(false)
 
     def inWhereClause(s: Select, cols: List[Column]) = {
       def inExpr(e: Expr, col: Column): Boolean = e match {
@@ -80,4 +77,33 @@ class Analyzer(typer: Typer) extends Ast.Resolved {
         analyzeResults(s1, typed) max analyzeResults(s2, typed)
     }
   }
+
+  /**
+   * Selected column is not optional if,
+   * 
+   * - it is restricted with IS NOT NULL and the expression contains only 'and' operators
+   */
+  private def analyzeSelection(stmt: Statement, typed: TypedStatement): TypedStatement = {
+    def isNotNull(col: Named, where: Where) = (where.expr find {
+      case Comparison1(t, IsNotNull) if t == col.term => 
+        true
+      case _ => 
+        false
+    }).isDefined
+
+    stmt match {
+      case s@Select(projection, _, Some(where), _, _, _) if hasNoOrExprs(s) => 
+        typed.copy(output = projection.zip(typed.output) collect { case (n, t) =>
+          if (t.nullable && isNotNull(n, where)) t.copy(nullable = false)
+          else t
+        })
+      case _ => typed
+    }
+  }
+
+  private def hasNoOrExprs(s: Select) = 
+    s.where.map(w => !w.expr.find { 
+      case Or(_, _) => true
+      case _ => false 
+    }.isDefined) getOrElse false
 }

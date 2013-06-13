@@ -20,3 +20,7 @@ This release adds following new features and improvements:
    scala> val rows = sql("select name, age from person limit 100").apply
    scala> Record.toTupleLists(rows)
    res2: List[List[(String, Any)]] = List(List(("name", "joe"), ("age", 36)), List(("name", "moe"), ("age", 14)))
+
+## Improved nullability analysis
+
+In previous versions, if a selected column was nullable it was always boxed to Option[A]. However, if the column is restricted with `WHERE x IS NOT NULL` and the expression contains only 'and' operators then it obviously can't be null and boxing is unnecessary.

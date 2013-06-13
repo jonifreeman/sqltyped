@@ -260,6 +260,22 @@ class ExampleSuite extends Example {
     sql("select count(1) > 0 from person where id=?").apply(1) === true
   }
 
+  test("Query with is not null") {
+    val q1 = 
+      sql("""
+          SELECT j.resigned FROM person p LEFT JOIN job_history j ON p.id=j.person 
+          WHERE p.name=? AND j.resigned IS NOT NULL
+          """)
+    q1.apply("joe") === List(tstamp("2004-06-22 18:00:00.0"))
+
+    val q2 = 
+      sql("""
+          SELECT j.resigned FROM person p LEFT JOIN job_history j ON p.id=j.person 
+          WHERE (p.name=? AND j.resigned IS NOT NULL) OR p.age>?
+          """)
+    q2.apply("joe", 100) === List(Some(tstamp("2004-06-22 18:00:00.0")))
+  }
+
   test("Query with limit") {
     sql("select age from person order by age limit ?").apply(2) === List(14, 36)
     sql("select age from person order by age desc, name asc limit ?").apply(2) === List(36, 14)
