@@ -57,7 +57,7 @@ trait SqlParser extends RegexParsers with Ast.Unresolved with PackratParsers {
 
   lazy val createStmt = "create".i ^^^ Create[Option[String]]()
 
-  lazy val select = "select".i ~> repsep((opt("distinct".i | "all".i) ~> named), ",")
+  lazy val select = "select".i ~> repsep((opt("all".i) ~> named), ",")
 
   lazy val from = "from".i ~> rep1sep(tableReference, ",")
 
@@ -149,7 +149,7 @@ trait SqlParser extends RegexParsers with Ast.Unresolved with PackratParsers {
     | optParens(simpleTerm)
   )
 
-  lazy val named = (comparison | arith | simpleTerm) ~ opt(opt("as".i) ~> ident) ^^ {
+  lazy val named = opt("distinct".i) ~> (comparison | arith | simpleTerm) ~ opt(opt("as".i) ~> ident) ^^ {
     case (c@Constant(_, _)) ~ a          => Named("<constant>", a, c)
     case (f@Function(n, _)) ~ a          => Named(n, a, f)
     case (c@Column(n, _)) ~ a            => Named(n, a, c)
@@ -176,7 +176,7 @@ trait SqlParser extends RegexParsers with Ast.Unresolved with PackratParsers {
   lazy val allColumns = 
     opt(ident <~ ".") <~ "*" ^^ (t => AllColumns(t))
 
-  lazy val functionArg: PackratParser[Expr] = (expr | dataType | term ^^ SimpleExpr.apply)
+  lazy val functionArg: PackratParser[Expr] = opt("distinct".i) ~> (expr | dataType | term ^^ SimpleExpr.apply)
   lazy val infixFunctionArg = term ^^ SimpleExpr.apply
 
   lazy val function = (prefixFunction | infixFunction)

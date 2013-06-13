@@ -224,6 +224,8 @@ class ExampleSuite extends Example {
 
     sql("select age/(age*10) from person").apply === List(Some(0.1), Some(0.1))
     sql("select age/0 from person").apply === List(None, None)
+
+    sql("select count(distinct name) from person").apply === 2
   }
 
   test("Query with just one selected column") {
