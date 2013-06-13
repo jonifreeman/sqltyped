@@ -4,7 +4,7 @@ import schemacrawler.schema.{ColumnDataType, Schema}
 import scala.reflect.runtime.universe.{Type, typeOf}
 import Ast._
 
-case class TypedValue(name: String, tpe: Type, nullable: Boolean, tag: Option[String])
+case class TypedValue(name: String, tpe: Type, nullable: Boolean, tag: Option[String], term: Term[Table])
 
 case class TypedStatement(
     input: List[TypedValue]
@@ -166,7 +166,7 @@ class Typer(schema: Schema, stmt: Ast.Statement[Table]) extends Ast.Resolved {
         for {
           (tpe, opt) <- inferColumnType(col)
           t <- tag(col)
-        } yield List(TypedValue(x.aname, tpe, opt, if (useTags) t else None))
+        } yield List(TypedValue(x.aname, tpe, opt, if (useTags) t else None, x.term))
       case AllColumns(t) =>
         for {
           tbl <- tableSchema(t)
@@ -174,29 +174,29 @@ class Typer(schema: Schema, stmt: Ast.Statement[Table]) extends Ast.Resolved {
         } yield cs.flatten
       case f@Function(_, _) =>
         inferReturnType(f) map { case (tpe, opt) =>
-          List(TypedValue(x.aname, tpe, opt, None))
+          List(TypedValue(x.aname, tpe, opt, None, x.term))
         }
-      case Constant(tpe, _) => List(TypedValue(x.aname, tpe, false, None)).ok
-      case Input() => List(TypedValue(x.aname, typeOf[Any], false, None)).ok
-      case ArithExpr(_, "/", _) => List(TypedValue(x.aname, typeOf[Double], true, None)).ok
+      case Constant(tpe, _) => List(TypedValue(x.aname, tpe, false, None, x.term)).ok
+      case Input() => List(TypedValue(x.aname, typeOf[Any], false, None, x.term)).ok
+      case ArithExpr(_, "/", _) => List(TypedValue(x.aname, typeOf[Double], true, None, x.term)).ok
       case ArithExpr(lhs, _, rhs) => 
         (lhs, rhs) match {
           case (c@Column(_, _), _) => typeTerm(useTags)(Named(c.name, x.alias, c))
           case (_, c@Column(_, _)) => typeTerm(useTags)(Named(c.name, x.alias, c))
           case (Constant(tpe, _), _) if tpe == typeOf[Double] => typeTerm(useTags)(Named(x.name, x.alias, lhs))
           case (_, Constant(tpe, _)) if tpe == typeOf[Double] => typeTerm(useTags)(Named(x.name, x.alias, lhs))
-          case (c@Constant(_, _), _) => List(TypedValue(x.aname, typeOf[Int], false, None)).ok
-          case (_, c@Constant(_, _)) => List(TypedValue(x.aname, typeOf[Int], false, None)).ok
+          case (c@Constant(_, _), _) => List(TypedValue(x.aname, typeOf[Int], false, None, x.term)).ok
+          case (_, c@Constant(_, _)) => List(TypedValue(x.aname, typeOf[Int], false, None, x.term)).ok
           case _ => typeTerm(useTags)(Named(x.name, x.alias, lhs))
         }
       case Comparison1(_, IsNull) | Comparison1(_, IsNotNull) => 
-        List(TypedValue(x.aname, typeOf[Boolean], false, None)).ok
+        List(TypedValue(x.aname, typeOf[Boolean], false, None, x.term)).ok
       case Comparison1(t, _) => 
-        List(TypedValue(x.aname, typeOf[Boolean], isNullable(t), None)).ok
+        List(TypedValue(x.aname, typeOf[Boolean], isNullable(t), None, x.term)).ok
       case Comparison2(t1, _, t2) => 
-        List(TypedValue(x.aname, typeOf[Boolean], isNullable(t1) || isNullable(t2), None)).ok
+        List(TypedValue(x.aname, typeOf[Boolean], isNullable(t1) || isNullable(t2), None, x.term)).ok
       case Comparison3(t1, _, t2, t3) => 
-        List(TypedValue(x.aname, typeOf[Boolean], isNullable(t1) || isNullable(t2) || isNullable(t3), None)).ok
+        List(TypedValue(x.aname, typeOf[Boolean], isNullable(t1) || isNullable(t2) || isNullable(t3), None, x.term)).ok
       case Subselect(s) => 
         sequence(s.projection map typeTerm(useTags)) map (_.flatten) map (_ map makeNullable)
     }
@@ -230,7 +230,7 @@ class Typer(schema: Schema, stmt: Ast.Statement[Table]) extends Ast.Resolved {
 
       t.getColumns.toList
         .filter(c => c.getType.isAutoIncrementable)
-        .map(c => TypedValue(c.getName, mkType(c.getType), false, tag(c)))
+        .map(c => TypedValue(c.getName, mkType(c.getType), false, tag(c), Column(c.getName, table)))
     }
 
     val vars = new Variables(this)

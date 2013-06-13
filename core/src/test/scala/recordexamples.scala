@@ -42,7 +42,7 @@ class RecordExampleSuite extends Example {
         case (k, v) => keyAsString(k) + "=" + v.toString 
       }
     }
-
+    
     (joe map asString) === "id=1" :: "name=joe" :: "age=36" :: "salary=9500" :: "img=None" :: HNil
   }
 

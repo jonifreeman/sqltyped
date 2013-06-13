@@ -18,17 +18,19 @@ private[sqltyped] object Jdbc {
     (1 to meta.getParameterCount).toList map { i => 
       try {
         TypedValue("a" + i, mkType(meta.getParameterClassName(i)), 
-                   meta.isNullable(i) == ParameterMetaData.parameterNullable, None)
+                   meta.isNullable(i) == ParameterMetaData.parameterNullable, None, unknownTerm)
       } catch {
-        case e: SQLException => TypedValue("a" + i, typeOf[Any], false, None)
+        case e: SQLException => TypedValue("a" + i, typeOf[Any], false, None, unknownTerm)
       }
     }
 
   def inferOutput(meta: ResultSetMetaData) = 
     (1 to meta.getColumnCount).toList map { i => 
       TypedValue(meta.getColumnName(i), mkType(meta.getColumnClassName(i)), 
-                 meta.isNullable(i) == ResultSetMetaData.columnNullable, None)
+                 meta.isNullable(i) == ResultSetMetaData.columnNullable, None, unknownTerm)
     }
+
+  def unknownTerm = Ast.Column("unknown", Ast.Table("unknown", None))
 
   def withConnection[A](conn: Connection)(a: Connection => A): ?[A] = try { 
     a(conn).ok

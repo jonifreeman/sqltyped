@@ -84,8 +84,8 @@ class Analyzer(typer: Typer) extends Ast.Resolved {
    * - it is restricted with IS NOT NULL and the expression contains only 'and' operators
    */
   private def analyzeSelection(stmt: Statement, typed: TypedStatement): TypedStatement = {
-    def isNotNull(col: Named, where: Where) = (where.expr find {
-      case Comparison1(t, IsNotNull) if t == col.term => 
+    def isNotNull(col: Term, where: Where) = (where.expr find {
+      case Comparison1(t, IsNotNull) if t == col => 
         true
       case _ => 
         false
@@ -93,8 +93,8 @@ class Analyzer(typer: Typer) extends Ast.Resolved {
 
     stmt match {
       case s@Select(projection, _, Some(where), _, _, _) if hasNoOrExprs(s) => 
-        typed.copy(output = projection.zip(typed.output) collect { case (n, t) =>
-          if (t.nullable && isNotNull(n, where)) t.copy(nullable = false)
+        typed.copy(output = typed.output map { case t =>
+          if (t.nullable && isNotNull(t.term, where)) t.copy(nullable = false)
           else t
         })
       case _ => typed

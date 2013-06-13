@@ -94,7 +94,7 @@ trait SqlParser extends RegexParsers with Ast.Unresolved with PackratParsers {
     cols => NamedColumnsJoin[Option[String]](cols)
   }
 
-  lazy val derivedTable = subselect ~ "as".i ~ ident ~ rep(joinType) ^^ { 
+  lazy val derivedTable = subselect ~ opt("as".i) ~ ident ~ rep(joinType) ^^ { 
     case s ~ _ ~ a ~ j => DerivedTable(a, s.select, j)
   }
 

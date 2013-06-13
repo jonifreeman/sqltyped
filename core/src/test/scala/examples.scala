@@ -431,7 +431,7 @@ class ExampleSuite extends Example {
     sql("select id from (select id, name from person) AS data where data.name = ?").apply("joe") ===
       List(1)
 
-    sql("select id from (select id, name from person where age>?) AS data where data.name = ?").apply(20, "joe") ===
+    sql("select id from (select id, name from person where age>?) data where data.name = ?").apply(20, "joe") ===
       List(1)
 
     sql("""
