@@ -1,6 +1,5 @@
 package sqltyped
 
-import schemacrawler.schema.Schema
 import scala.reflect.runtime.universe.{Type, typeOf}
 
 private[sqltyped] object Ast {

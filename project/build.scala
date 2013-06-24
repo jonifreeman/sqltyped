@@ -28,7 +28,7 @@ object SqltypedBuild extends Build with Publish {
       libraryDependencies ++= Seq(
         "com.chuusai" %% "shapeless" % "1.2.4",
         "org.scala-lang" % "scala-reflect" % "2.10.0",
-        "net.sourceforge.schemacrawler" % "schemacrawler" % "8.17",
+        "net.sourceforge.schemacrawler" % "schemacrawler" % "10.3",
         "org.scalatest" %% "scalatest" % "2.0.M5b" % "test",
         "org.scala-lang" % "scala-actors" % "2.10.0" % "test",
         "mysql" % "mysql-connector-java" % "5.1.21" % "test",

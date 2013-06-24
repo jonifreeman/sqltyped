@@ -1,7 +1,6 @@
 package sqltyped
 
 import java.sql._
-import schemacrawler.schema.Schema
 import NumOfResults._
 
 case class Configuration[A, B](tables: A, columns: B)
@@ -15,7 +14,7 @@ object SqlMacro {
   import shapeless._
   import scala.reflect.macros._
 
-  private val schemaCache = new java.util.WeakHashMap[Context#Run, ?[Schema]]()
+  private val schemaCache = new java.util.WeakHashMap[Context#Run, ?[DbSchema]]()
 
   def withResultSet[A](stmt: PreparedStatement)(f: ResultSet => A) = {
     var rs: ResultSet = null

@@ -1,6 +1,5 @@
 package sqltyped
 
-import schemacrawler.schema.Schema
 import Ast._
 
 trait Validator {

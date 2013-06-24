@@ -1,6 +1,7 @@
 package sqltyped
 
-import schemacrawler.schema.{ColumnDataType, Schema}
+import schemacrawler.schema.{ColumnDataType}
+import scala.collection.JavaConverters._
 import scala.reflect.runtime.universe.{Type, typeOf}
 import Ast._
 
@@ -20,11 +21,11 @@ object NumOfResults extends Enumeration {
 }
 
 class Variables(typer: Typer) extends Ast.Resolved {
-  def input(schema: Schema, stmt: Statement): List[Named] = stmt match {
+  def input(schema: DbSchema, stmt: Statement): List[Named] = stmt match {
     case Delete(from, where) => where.map(w => input(w.expr)).getOrElse(Nil)
 
     case Insert(table, colNames, insertInput) =>
-      def colNamesFromSchema = schema.getTable(table.name).getColumns.toList.map(_.getName)
+      def colNamesFromSchema = schema.getTable(table.name).getColumns.asScala.toList.map(_.getName)
 
       insertInput match {
         case ListedInput(values) => 
@@ -144,19 +145,19 @@ class Variables(typer: Typer) extends Ast.Resolved {
   }
 }
 
-class Typer(schema: Schema, stmt: Ast.Statement[Table]) extends Ast.Resolved {
+class Typer(schema: DbSchema, stmt: Ast.Statement[Table]) extends Ast.Resolved {
   type SqlType = (Type, Boolean)
   type SqlFType = (List[SqlType], SqlType)
 
   def infer(useInputTags: Boolean): ?[TypedStatement] = {
     def tag(col: Column) =
       tableSchema(col.table) map { t =>
-        def findFK = t.getForeignKeys
-          .flatMap(_.getColumnPairs.map(_.getForeignKeyColumn))
+        def findFK = t.getForeignKeys.asScala
+          .flatMap(_.getColumnReferences.asScala.map(_.getForeignKeyColumn))
           .find(_.getName == col.name)
           .map(_.getReferencedColumn.getParent.getName)
 
-        if (t.getPrimaryKey != null && t.getPrimaryKey.getColumns.exists(_.getName == col.name))
+        if (t.getPrimaryKey != null && t.getPrimaryKey.getColumns.asScala.exists(_.getName == col.name))
           Some(col.table.name)
         else findFK orElse None
       }
@@ -170,7 +171,7 @@ class Typer(schema: Schema, stmt: Ast.Statement[Table]) extends Ast.Resolved {
       case AllColumns(t) =>
         for {
           tbl <- tableSchema(t)
-          cs  <- sequence(tbl.getColumns.toList map { c => typeTerm(useTags)(Named(c.getName, None, Column(c.getName, t))) })
+          cs  <- sequence(tbl.getColumns.asScala.toList map { c => typeTerm(useTags)(Named(c.getName, None, Column(c.getName, t))) })
         } yield cs.flatten
       case f@Function(_, _) =>
         inferReturnType(f) map { case (tpe, opt) =>
@@ -207,9 +208,9 @@ class Typer(schema: Schema, stmt: Ast.Statement[Table]) extends Ast.Resolved {
     def uniqueConstraints = {
       val constraints = sequence(stmt.tables map { t =>
         tableSchema(t) map { table =>
-          val indices = Option(table.getPrimaryKey).map(List(_)).getOrElse(Nil) ::: table.getIndices.toList
+          val indices = Option(table.getPrimaryKey).toList ::: table.getIndices.asScala.toList
           val uniques = indices filter (_.isUnique) map { i =>
-            i.getColumns.toList.map(col => Column(col.getName, t))
+            i.getColumns.asScala.toList.map(col => Column(col.getName, t))
           }
           (t, uniques)
         }
@@ -222,11 +223,11 @@ class Typer(schema: Schema, stmt: Ast.Statement[Table]) extends Ast.Resolved {
       t <- tableSchema(table)
     } yield {
       def tag(c: schemacrawler.schema.Column) = 
-        Option(t.getPrimaryKey).flatMap(_.getColumns.find(_.getName == c.getName)).map(_ => t.getName)
+        Option(t.getPrimaryKey).flatMap(_.getColumns.asScala.find(_.getName == c.getName)).map(_ => t.getName)
 
-      t.getColumns.toList
-        .filter(c => c.getType.isAutoIncrementable)
-        .map(c => TypedValue(c.getName, mkType(c.getType), false, tag(c), Column(c.getName, table)))
+      t.getColumns.asScala.toList
+        .filter(c => c.getColumnDataType.isAutoIncrementable)
+        .map(c => TypedValue(c.getName, mkType(c.getColumnDataType), false, tag(c), Column(c.getName, table)))
     }
 
     val vars = new Variables(this)
@@ -298,7 +299,7 @@ class Typer(schema: Schema, stmt: Ast.Statement[Table]) extends Ast.Resolved {
   def inferColumnType(col: Column) = for {
     t <- tableSchema(col.table)
     c <- Option(t.getColumn(col.name)) orFail ("No such column " + col)
-  } yield (mkType(c.getType), c.isNullable || isNullableByJoin(col))
+  } yield (mkType(c.getColumnDataType), c.isNullable || isNullableByJoin(col))
 
   def isNullableByJoin(col: Column) = isProjectedByJoin(stmt, col) map (_.joinDesc) exists {
     case LeftOuter | RightOuter | FullOuter => true
@@ -314,16 +315,16 @@ class Typer(schema: Schema, stmt: Ast.Statement[Table]) extends Ast.Resolved {
 }
 
 object DualTable {
-  def apply(schema: Schema) = {
+  def apply(schema: DbSchema) = {
     val cstr = schema.getClass.getClassLoader.loadClass("schemacrawler.crawl.MutableTable")
-      .getDeclaredConstructor(classOf[Schema], classOf[String])
+      .getDeclaredConstructor(classOf[DbSchema], classOf[String])
     cstr.setAccessible(true)
     cstr.newInstance(schema, "dual").asInstanceOf[schemacrawler.schema.Table]
   }
 }
 
 object DerivedTables extends Ast.Resolved {
-  def apply(schema: Schema, stmt: Statement, name: String): Option[schemacrawler.schema.Table] = 
+  def apply(schema: DbSchema, stmt: Statement, name: String): Option[schemacrawler.schema.Table] = 
     derivedTables(stmt) find (_.name == name) map mkTable(schema)
 
   private def derivedTables(stmt: Statement): List[DerivedTable] = stmt match {
@@ -338,11 +339,12 @@ object DerivedTables extends Ast.Resolved {
     case t@DerivedTable(_, sub, join) => t :: derivedTables(sub) ::: (join flatMap joinedTables)
   }
 
-  private def mkTable(schema: Schema)(t: DerivedTable) = new schemacrawler.schema.Table {
+  private def mkTable(schema: DbSchema)(t: DerivedTable) = new schemacrawler.schema.Table {
     def getColumn(name: String) = 
       t.subselect.projection find(_.name == name) flatMap mkColumn getOrElse(null)
 
-    def getColumns = (t.subselect.projection flatMap mkColumn).toArray
+    private def columns = t.subselect.projection flatMap mkColumn
+    def getColumns = columns.asJava
 
     private def mkColumn(n: Named) = n.term match {
       case Column(name, table) => Option(schema.getTable(table.name).getColumn(name))
@@ -354,23 +356,25 @@ object DerivedTables extends Ast.Resolved {
     def getAttributes = ???
     def getFullName = t.name
     def getName = t.name
+    def getLookupKey = ???
     def getRemarks = ""
     def setAttribute(name: String, value: AnyRef) = ???
-    def getSchema = schema
-    def getCheckConstraints = Array()
-    def getColumnsListAsString = getColumns.mkString(",")
-    def getExportedForeignKeys = Array()
+    def getSchema = schema.schema
+    def getCheckConstraints = java.util.Collections.emptyList()
+    def getColumnsListAsString = columns.mkString(",")
+    def getExportedForeignKeys = java.util.Collections.emptyList()
     def getForeignKey(name: String) = null
-    def getForeignKeys = Array()
-    def getImportedForeignKeys = Array()
+    def getForeignKeys = java.util.Collections.emptyList()
+    def getImportedForeignKeys = java.util.Collections.emptyList()
     def getIndex(name: String) = null
-    def getIndices = Array()
+    def getIndices = java.util.Collections.emptyList()
     def getPrimaryKey = null
     def getPrivilege(name: String) = ???
-    def getPrivileges = Array()
-    def getRelatedTables(t: schemacrawler.schema.TableRelationshipType) = Array()
+    def getPrivileges = java.util.Collections.emptyList()
+    def getRelatedTables(t: schemacrawler.schema.TableRelationshipType) = java.util.Collections.emptyList()
     def getTrigger(name: String) = null
-    def getTriggers = Array()
+    def getTriggers = java.util.Collections.emptyList()
+    def getTableType = ???
     def getType = ???
     def compareTo(n: schemacrawler.schema.NamedObject) = getName compareTo n.getName
   }
