@@ -1,9 +1,9 @@
 package sqltyped
 
 import scala.util.parsing.combinator._
-import scala.reflect.runtime.universe.{Type, typeOf}
+import scala.reflect.macros.Context
 
-trait SqlParser extends RegexParsers with Ast.Unresolved with PackratParsers {
+class SqlParser(context: Context) extends RegexParsers with Ast.Unresolved with PackratParsers {
   import Ast._
 
   def parseAllWith(p: Parser[Statement], sql: String) = ok_?(parseAll(p, sql))
@@ -13,8 +13,8 @@ trait SqlParser extends RegexParsers with Ast.Unresolved with PackratParsers {
   def input(s: String) = new PackratReader(new scala.util.parsing.input.CharArrayReader(s.toCharArray))
 
   def ok_?(res: ParseResult[Statement]) = res match {
-    case Success(r, q)  => Right(r)
-    case err: NoSuccess => Left(sqltyped.Failure(err.msg, err.next.pos.column, err.next.pos.line))
+    case Success(r, q)  => ok(r)
+    case err: NoSuccess => fail(err.msg, err.next.pos.column, err.next.pos.line)
   }
 
   lazy val stmt = (setStmt | selectStmt | insertStmt | updateStmt | deleteStmt | createStmt)
@@ -260,12 +260,12 @@ trait SqlParser extends RegexParsers with Ast.Unresolved with PackratParsers {
 
   private def col(name: String, table: Option[String]) = Column(name, table)
 
-  def constB(b: Boolean)       = const(typeOf[Boolean], b)
-  def constS(s: String)        = const(typeOf[String], s)
-  def constD(d: Double)        = const(typeOf[Double], d)
-  def constL(l: Long)          = const(typeOf[Long], l)
-  def constNull                = const(typeOf[AnyRef], null)
-  def const(tpe: Type, x: Any) = Constant[Option[String]](tpe, x)
+  def constB(b: Boolean)       = const(context.universe.definitions.BooleanTpe, b)
+  def constS(s: String)        = const(context.typeOf[String], s)
+  def constD(d: Double)        = const(context.universe.definitions.DoubleTpe, d)
+  def constL(l: Long)          = const(context.universe.definitions.LongTpe, l)
+  def constNull                = const(context.universe.definitions.AnyRefTpe, null)
+  def const(tpe: Context#Type, x: Any) = Constant[Option[String]](tpe, x)
 
   implicit class KeywordOps(kw: String) {
     def i = keyword(kw)

@@ -1,7 +1,6 @@
 package sqltyped
 
 import java.sql._
-import schemacrawler.schema.Schema
 import NumOfResults._
 
 case class Configuration[A, B](tables: A, columns: B)
@@ -15,7 +14,7 @@ object SqlMacro {
   import shapeless._
   import scala.reflect.macros._
 
-  private val schemaCache = new java.util.WeakHashMap[Context#Run, ?[Schema]]()
+  private val schemaCache = new java.util.WeakHashMap[Context#Run, ?[DbSchema]]()
 
   def withResultSet[A](stmt: PreparedStatement)(f: ResultSet => A) = {
     var rs: ResultSet = null
@@ -81,7 +80,7 @@ object SqlMacro {
 
     import c.universe._
 
-    def append(t1: Tree, t2: Tree) = Apply(Select(t1, newTermName("+").encoded), List(t2))
+    def append(t1: Tree, t2: Tree) = Apply(Select(t1, newTermName("+")), List(t2))
 
     val Expr(Apply(_, List(Apply(_, parts)))) = c.prefix
 
@@ -119,7 +118,7 @@ object SqlMacro {
       }
     }
 
-    def toPosition(f: Failure) = {
+    def toPosition(f: Failure[_]) = {
       val lineOffset = sql.split("\n").take(f.line - 1).map(_.length).sum
       c.enclosingPosition.withPoint(wrappingPos(List(c.prefix.tree)).startOrPoint + f.column + lineOffset)
     }
@@ -132,23 +131,23 @@ object SqlMacro {
     } yield DbConfig(url, driver, username, password, Properties.propOrNone("sqltyped.schema"))
 
     def generateCode(meta: TypedStatement) =
-      codeGen(meta, sql, c, keys, inputsInferred)(config, sqlExpr)
+      codeGen(sql, c, keys, inputsInferred)(meta, config, sqlExpr)
 
     def fallback = for {
       db   <- dbConfig
-      meta <- Jdbc.infer(db, sql)
+      meta <- Jdbc.infer(db, sql, c)
     } yield meta
 
     (for {
       db        <- dbConfig
       dialect   = Dialect.choose(db.driver)
-      parser    = dialect.parser
+      parser    = dialect.parser(c)
       schema    <- cachedSchema(db)
       validator = if (validate) dialect.validator else NOPValidator
       _         <- validator.validate(db, sql)
       stmt      <- parse(parser, sql)
       resolved  <- Ast.resolveTables(stmt)
-      typer     = dialect.typer(schema, resolved)
+      typer     = dialect.typer(schema, resolved, c)
       typed     <- typer.infer(useInputTags)
       meta      <- new Analyzer(typer).refine(resolved, typed)
     } yield meta) fold (
@@ -164,8 +163,8 @@ object SqlMacro {
   }
 
   def codeGen[A: c.WeakTypeTag, B: c.WeakTypeTag]
-    (meta: TypedStatement, sql: String, c: Context, keys: Boolean, inputsInferred: Boolean)
-    (config: c.Expr[Configuration[A, B]], sqlExpr: c.Tree): c.Expr[Any] = {
+    (sql: String, c: Context, keys: Boolean, inputsInferred: Boolean)
+    (meta: TypedStatement, config: c.Expr[Configuration[A, B]], sqlExpr: c.Tree): c.Expr[Any] = {
 
     import c.universe._
 
@@ -174,8 +173,8 @@ object SqlMacro {
         Block(
           List(ValDef(Modifiers(), newTermName("x"), TypeTree(), getValue(x, pos))), 
           If(Apply(Select(Ident(newTermName("rs")), newTermName("wasNull")), List()), 
-             Select(Ident("scala"), newTermName("None")), 
-             Apply(Select(Select(Ident("scala"), newTermName("Some")), newTermName("apply")), List(Ident(newTermName("x"))))))
+             Select(Ident(newTermName("scala")), newTermName("None")), 
+             Apply(Select(Select(Ident(newTermName("scala")), newTermName("Some")), newTermName("apply")), List(Ident(newTermName("x"))))))
       } else getValue(x, pos)
 
     def getValue(x: TypedValue, pos: Int) = {
@@ -186,7 +185,7 @@ object SqlMacro {
         Apply(
           Select(
             TypeApply(
-              Select(Select(Ident("shapeless"), newTermName("TypeOperators")), newTermName("tag")), 
+              Select(Select(Ident(newTermName("shapeless")), newTermName("TypeOperators")), newTermName("tag")), 
               List(tagged)), newTermName("apply")), List(baseValue))
       ) getOrElse baseValue
     }
@@ -196,23 +195,23 @@ object SqlMacro {
     def scalaType(x: TypedValue) = {
       x.tag flatMap (t => tagType(t)) map (tagged =>
         AppliedTypeTree(
-          Select(Select(Ident("shapeless"), newTermName("TypeOperators")), newTypeName("$at$at")), 
+          Select(Select(Ident(newTermName("shapeless")), newTermName("TypeOperators")), newTypeName("$at$at")), 
           List(scalaBaseType(x), tagged))
       ) getOrElse scalaBaseType(x)
     }
 
     def colKey(name: String) = 
-      if (c.typeCheck(Select(Select(config.tree, "columns"), name), silent = true) == EmptyTree)
+      if (c.typeCheck(Select(Select(config.tree, newTermName("columns")), newTermName(name)), silent = true) == EmptyTree)
         Literal(Constant(name))
-      else Select(Select(config.tree, "columns"), name)
+      else Select(Select(config.tree, newTermName("columns")), newTermName(name))
 
     def colKeyType(name: String) = 
-      if (c.typeCheck(Select(Select(config.tree, "columns"), name), silent = true) == EmptyTree)
+      if (c.typeCheck(Select(Select(config.tree, newTermName("columns")), newTermName(name)), silent = true) == EmptyTree)
         Ident(newTypeName("String"))
-      else SingletonTypeTree(Select(Select(config.tree, "columns"), name))
+      else SingletonTypeTree(Select(Select(config.tree, newTermName("columns")), newTermName(name)))
 
     def tagType(tag: String) = try {
-      Some(SelectFromTypeTree(Select(config.tree, "tables"), tag))
+      Some(SelectFromTypeTree(Select(config.tree, newTermName("tables")), tag))
     } catch {
       case e: AssertionError => None
     }
@@ -292,7 +291,7 @@ object SqlMacro {
         Block(List(
           processRow(meta.output.last, 0)), 
           Apply(
-            Select(Select(Ident("shapeless"), newTermName("HNil")), newTermName("$colon$colon")),
+            Select(Select(Ident(newTermName("shapeless")), newTermName("HNil")), newTermName("$colon$colon")),
             List(Ident(newTermName("x$1")))
         ))
 
@@ -315,7 +314,7 @@ object SqlMacro {
       List(
         ValDef(
           Modifiers(), newTermName("rows"), TypeTree(), 
-          Apply(TypeApply(Select(Select(Select(Select(Ident("scala"), newTermName("collection")), newTermName("mutable")), newTermName("ListBuffer")), newTermName("apply")), returnTypeSig), List())),
+          Apply(TypeApply(Select(Select(Select(Select(Ident(newTermName("scala")), newTermName("collection")), newTermName("mutable")), newTermName("ListBuffer")), newTermName("apply")), returnTypeSig), List())),
         LabelDef(newTermName("while$1"), List(), 
                  If(Apply(Select(Ident(newTermName("rs")), newTermName("next")), List()), 
                     Block(List(Apply(Select(Ident(newTermName("rows")), newTermName("append")), appendRow)), 
@@ -332,7 +331,7 @@ object SqlMacro {
     def processStmt =
       if (meta.isQuery) {
         Apply(
-          Apply(Select(Select(Ident("sqltyped"), newTermName("SqlMacro")), newTermName("withResultSet")), List(Ident(newTermName("stmt")))), 
+          Apply(Select(Select(Ident(newTermName("sqltyped")), newTermName("SqlMacro")), newTermName("withResultSet")), List(Ident(newTermName("stmt")))), 
           List(Function(List(ValDef(Modifiers(Flag.PARAM), newTermName("rs"), TypeTree(), EmptyTree)), 
                         Block(readRows, returnRows))))
       } else if (keys && meta.numOfResults == Many) {
@@ -340,18 +339,18 @@ object SqlMacro {
       } else if (keys) {
         Select(processStmtWithKeys(meta.generatedKeyTypes.head), newTermName("head"))
       } else {
-        Apply(Select(Select(Ident("sqltyped"), newTermName("SqlMacro")), newTermName("withStatement")), List(Ident(newTermName("stmt"))))
+        Apply(Select(Select(Ident(newTermName("sqltyped")), newTermName("SqlMacro")), newTermName("withStatement")), List(Ident(newTermName("stmt"))))
       }
 
     def processStmtWithKeys(keyType: TypedValue) =
       Apply(
-        Apply(Select(Select(Ident("sqltyped"), newTermName("SqlMacro")), newTermName("withStatementF")), List(Ident(newTermName("stmt")))),
+        Apply(Select(Select(Ident(newTermName("sqltyped")), newTermName("SqlMacro")), newTermName("withStatementF")), List(Ident(newTermName("stmt")))),
         List(
           Block(
             List(
               ValDef(Modifiers(), newTermName("rs"), TypeTree(), Apply(Select(Ident(newTermName("stmt")), newTermName("getGeneratedKeys")), List())), 
               ValDef(Modifiers(), newTermName("keys"), TypeTree(), Apply(
-                TypeApply(Select(Select(Select(Select(Ident("scala"), newTermName("collection")), newTermName("mutable")), newTermName("ListBuffer")), newTermName("apply")), List(scalaType(keyType))), List())), 
+                TypeApply(Select(Select(Select(Select(Ident(newTermName("scala")), newTermName("collection")), newTermName("mutable")), newTermName("ListBuffer")), newTermName("apply")), List(scalaType(keyType))), List())), 
               LabelDef(newTermName("while$1"), List(), 
                        If(Apply(Select(Ident(newTermName("rs")), newTermName("next")), List()), 
                           Block(

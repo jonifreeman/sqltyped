@@ -1,13 +1,12 @@
 package sqltyped
 
-import schemacrawler.schema.Schema
-import scala.reflect.runtime.universe.{Type, typeOf, glb}
+import scala.reflect.macros.Context
 import Ast._
 
 trait Dialect {
-  def parser: SqlParser
+  def parser(context: Context): SqlParser
   def validator: Validator
-  def typer(schema: Schema, stmt: Statement[Table]): Typer
+  def typer(schema: DbSchema, stmt: Statement[Table], context: Context): Typer
 }
 
 object Dialect {
@@ -18,15 +17,15 @@ object Dialect {
 }
 
 object GenericDialect extends Dialect {
-  val parser = new SqlParser {}
+  def parser(context: Context) = new SqlParser(context)
   def validator = JdbcValidator
-  def typer(schema: Schema, stmt: Statement[Table]) = new Typer(schema, stmt)
+  def typer(schema: DbSchema, stmt: Statement[Table], context: Context) = new Typer(schema, stmt, context)
 }
 
 object MysqlDialect extends Dialect {
   def validator = MySQLValidator
 
-  def typer(schema: Schema, stmt: Statement[Table]) = new Typer(schema, stmt) {
+  def typer(schema: DbSchema, stmt: Statement[Table], context: Context) = new Typer(schema, stmt, context) {
     import dsl._
 
     override def extraScalarFunctions = Map(
@@ -39,20 +38,22 @@ object MysqlDialect extends Dialect {
       , "concat"    -> concat _
     )
 
+    private def tpe(t : Context#Type) = t.asInstanceOf[context.Type]
+
     def datediff(fname: String, params: List[Expr]): ?[SqlFType] = 
       if (params.length != 2) fail("Expected 2 parameters " + params)
       else for {
         (tpe0, opt0) <- tpeOf(params(0))
         (tpe1, opt1) <- tpeOf(params(1))
-        tpe = glb(List(tpe0, tpe1, typeOf[java.util.Date]))
-      } yield (List((tpe, opt0), (tpe, opt1)), (typeOf[Int], true))
+        t = context.universe.glb(List(tpe(tpe0), tpe(tpe1), context.typeOf[java.util.Date]))
+      } yield (List((t, opt0), (t, opt1)), (context.universe.definitions.IntTpe, true))
 
     def ifnull(fname: String, params: List[Expr]): ?[SqlFType] = 
       if (params.length != 2) fail("Expected 2 parameters " + params)
       else for {
         (tpe0, opt0) <- tpeOf(params(0))
         (tpe1, opt1) <- tpeOf(params(1))
-      } yield (List((tpe0, opt0), (tpe1, opt1)), (tpe0, opt1))
+      } yield (List((tpe(tpe0), opt0), (tpe(tpe1), opt1)), (tpe(tpe0), opt1))
 
     def iff(fname: String, params: List[Expr]): ?[SqlFType] = 
       if (params.length != 3) fail("Expected 3 parameters " + params)
@@ -60,51 +61,49 @@ object MysqlDialect extends Dialect {
         (tpe0, opt0) <- tpeOf(params(0))
         (tpe1, opt1) <- tpeOf(params(1))
         (tpe2, opt2) <- tpeOf(params(2))
-      } yield (List((tpe0, opt0), (tpe1, opt1), (tpe2, opt2)), (tpe1, opt1 || opt2))
+      } yield (List((tpe(tpe0), opt0), (tpe(tpe1), opt1), (tpe(tpe2), opt2)), (tpe(tpe1), opt1 || opt2))
 
     def binary(fname: String, params: List[Expr]): ?[SqlFType] = 
       if (params.length != 1) fail("Expected 1 parameter " + params)
       else for {
         (tpe0, opt0) <- tpeOf(params(0))
-      } yield (List((tpe0, opt0)), (tpe0, opt0))
+      } yield (List((tpe(tpe0), opt0)), (tpe(tpe0), opt0))
 
     def convert(fname: String, params: List[Expr]): ?[SqlFType] = 
       if (params.length != 2) fail("Expected 2 parameters " + params)
       else for {
         (tpe0, opt0) <- tpeOf(params(0))
         (tpe1, opt1) <- tpeOf(params(1))
-        (tpe, opt)   <- castToType(tpe0, params(1))
-      } yield (List((tpe0, opt0), (tpe1, opt1)), (tpe, opt0 || opt))
+        (t, opt)   <- castToType(tpe0, params(1))
+      } yield (List((tpe(tpe0), opt0), (tpe(tpe1), opt1)), (t, opt0 || opt))
 
     def concat(fname: String, params: List[Expr]): ?[SqlFType] = 
       if (params.length < 1) fail("Expected at least 1 parameter")
       else for {
         in <- sequence(params map tpeOf)
-      } yield (in, (typeOf[String], in.map(_._2).forall(identity)))
+      } yield (in, (context.typeOf[String], in.map(_._2).forall(identity)))
 
-    private def castToType(orig: Type, target: Expr) = target match {
+    private def castToType(orig: Context#Type, target: Expr) = target match {
       case TypeExpr(d) => d.name match {
-        case "date" => (typeOf[java.sql.Date], true).ok
-        case "datetime" => (typeOf[java.sql.Timestamp], true).ok
-        case "time" => (typeOf[java.sql.Time], true).ok
-        case "char" => (typeOf[String], false).ok
-        case "binary" => (typeOf[String], false).ok
-        case "decimal" => (typeOf[Double], false).ok
-        case "signed" if orig == typeOf[Long] => (typeOf[Long], false).ok
-        case "signed" => (typeOf[Int], false).ok
-        case "unsigned" if orig == typeOf[Long] => (typeOf[Long], false).ok
-        case "unsigned" => (typeOf[Int], false).ok
+        case "date" => (context.typeOf[java.sql.Date], true).ok
+        case "datetime" => (context.typeOf[java.sql.Timestamp], true).ok
+        case "time" => (context.typeOf[java.sql.Time], true).ok
+        case "char" => (context.typeOf[String], false).ok
+        case "binary" => (context.typeOf[String], false).ok
+        case "decimal" => (context.universe.definitions.DoubleTpe, false).ok
+        case "signed" if orig == context.universe.definitions.LongTpe => (context.universe.definitions.LongTpe, false).ok
+        case "signed" => (context.universe.definitions.IntTpe, false).ok
+        case "unsigned" if orig == context.universe.definitions.LongTpe => (context.universe.definitions.LongTpe, false).ok
+        case "unsigned" => (context.universe.definitions.IntTpe, false).ok
         case x => fail(s"Unsupported type '$target' in cast operation")
       }
       case e => fail(s"Expected a data type, got '$e'")
     }
   }
 
-  val parser = MysqlParser
+  def parser(context: Context) = new MysqlParser(context)
 
-  object MysqlParser extends SqlParser {
-    import scala.reflect.runtime.universe.typeOf
-
+  class MysqlParser(context: Context) extends SqlParser(context) {
     override def insert = "insert".i <~ opt("ignore".i)
     override def update = "update".i <~ opt("ignore".i)
 
@@ -119,7 +118,7 @@ object MysqlDialect extends Dialect {
 
     override def quoteChar = ("\"" | "`")
  
-    override def extraTerms = MysqlParser.interval
+    override def extraTerms = interval
 
     override def dataTypes = List(
         precision1("binary")
@@ -160,7 +159,7 @@ object MysqlDialect extends Dialect {
     )
 
     lazy val intervalAmount = opt("'") ~> numericLit <~ opt("'")
-    lazy val interval = "interval".i ~> intervalAmount ~ timeUnit ^^ { case x ~ _ => const(typeOf[java.util.Date], x) }
+    lazy val interval = "interval".i ~> intervalAmount ~ timeUnit ^^ { case x ~ _ => const(context.typeOf[java.util.Date], x) }
 
     lazy val timeUnit = (
         "microsecond".i 

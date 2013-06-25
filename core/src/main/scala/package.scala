@@ -32,11 +32,9 @@ package object sqltyped {
   }
 
   // Internally ? is used to denote computations that may fail.
-  private[sqltyped] type ?[A] = Either[Failure, A]
-  private[sqltyped] def ok[A](a: A): ?[A] = Right(a)
   private[sqltyped] def fail[A](s: String, column: Int = 0, line: Int = 0): ?[A] = 
-    Left(Failure(s, column, line))
-  private[sqltyped] implicit def rightBias[A](x: ?[A]): Either.RightProjection[Failure, A] = x.right
+    sqltyped.Failure(s, column, line)
+  private[sqltyped] def ok[A](a: A): ?[A] = sqltyped.Ok(a)
   private[sqltyped] implicit class ResultOps[A](a: A) {
     def ok = sqltyped.ok(a)
   }
@@ -50,5 +48,35 @@ package object sqltyped {
 }
 
 package sqltyped {
-  case class Failure(message: String, column: Int, line: Int)
+  private[sqltyped] abstract sealed class ?[+A] { self =>
+    def map[B](f: A => B): ?[B]
+    def flatMap[B](f: A => ?[B]): ?[B]
+    def foreach[U](f: A => U): Unit
+    def fold[B](ifFail: Failure[A] => B, f: A => B): B
+    def getOrElse[B >: A](default: => B): B
+    def filter(p: A => Boolean): ?[A]
+    def withFilter(p: A => Boolean): WithFilter = new WithFilter(p)
+    class WithFilter(p: A => Boolean) {
+      def map[B](f: A => B): ?[B] = self filter p map f
+      def flatMap[B](f: A => ?[B]): ?[B] = self filter p flatMap f
+      def foreach[U](f: A => U): Unit = self filter p foreach f
+      def withFilter(q: A => Boolean): WithFilter = new WithFilter(x => p(x) && q(x))
+    }
+  }
+  private[sqltyped] final case class Ok[+A](a: A) extends ?[A] {
+    def map[B](f: A => B) = Ok(f(a))
+    def flatMap[B](f: A => ?[B]) = f(a)
+    def foreach[U](f: A => U) = { f(a); () }
+    def fold[B](ifFail: Failure[A] => B, f: A => B) = f(a)
+    def getOrElse[B >: A](default: => B) = a
+    def filter(p: A => Boolean) = if (p(a)) this else fail("filter on ?[_] failed")
+  }
+  private[sqltyped] final case class Failure[+A](message: String, column: Int, line: Int) extends ?[A] {
+    def map[B](f: A => B) = Failure(message, column, line)
+    def flatMap[B](f: A => ?[B]) = Failure(message, column, line)
+    def foreach[U](f: A => U) = ()
+    def fold[B](ifFail: Failure[A] => B, f: A => B) = ifFail(this)
+    def getOrElse[B >: A](default: => B) = default
+    def filter(p: A => Boolean) = this
+  }
 }
