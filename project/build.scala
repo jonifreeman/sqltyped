@@ -11,7 +11,7 @@ object SqltypedBuild extends Build with Publish {
   lazy val sqltypedSettings = Defaults.defaultSettings ++ publishSettings ++ Seq(
     organization := "fi.reaktor",
     version := versionFormat format majorVersion,
-    scalaVersion := "2.10.0",
+    scalaVersion := "2.10.2",
     scalacOptions ++= Seq("-unchecked", "-deprecation"),
     javacOptions ++= Seq("-target", "1.6", "-source", "1.6"),
     crossScalaVersions := Seq("2.10"),
@@ -27,10 +27,10 @@ object SqltypedBuild extends Build with Publish {
     settings = sqltypedSettings ++ Seq(
       libraryDependencies ++= Seq(
         "com.chuusai" %% "shapeless" % "1.2.4",
-        "org.scala-lang" % "scala-reflect" % "2.10.0",
+        "org.scala-lang" % "scala-reflect" % "2.10.2",
         "net.sourceforge.schemacrawler" % "schemacrawler" % "10.3",
         "org.scalatest" %% "scalatest" % "2.0.M5b" % "test",
-        "org.scala-lang" % "scala-actors" % "2.10.0" % "test",
+        "org.scala-lang" % "scala-actors" % "2.10.2" % "test",
         "mysql" % "mysql-connector-java" % "5.1.21" % "test",
         "postgresql" % "postgresql" % "9.1-901.jdbc4" % "test"
       ),

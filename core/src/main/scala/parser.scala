@@ -13,8 +13,8 @@ trait SqlParser extends RegexParsers with Ast.Unresolved with PackratParsers {
   def input(s: String) = new PackratReader(new scala.util.parsing.input.CharArrayReader(s.toCharArray))
 
   def ok_?(res: ParseResult[Statement]) = res match {
-    case Success(r, q)  => Right(r)
-    case err: NoSuccess => Left(sqltyped.Failure(err.msg, err.next.pos.column, err.next.pos.line))
+    case Success(r, q)  => ok(r)
+    case err: NoSuccess => fail(err.msg, err.next.pos.column, err.next.pos.line)
   }
 
   lazy val stmt = (setStmt | selectStmt | insertStmt | updateStmt | deleteStmt | createStmt)

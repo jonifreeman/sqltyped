@@ -196,14 +196,13 @@ class Typer(schema: DbSchema, stmt: Ast.Statement[Table]) extends Ast.Resolved {
         List(TypedValue(x.aname, typeOf[Boolean], isNullable(t1) || isNullable(t2) || isNullable(t3), None, x.term)).ok
       case Subselect(s) => 
         sequence(s.projection map typeTerm(useTags)) map (_.flatten) map (_ map makeNullable)
+      case TermList(t) => 
+        sequence(t.map(t => typeTerm(useTags)(Named("elem", None, t)))).map(_.flatten)
     }
 
     def makeNullable(x: TypedValue) = x.copy(nullable = true)
 
-    def isNullable(t: Term) = tpeOf(SimpleExpr(t)) map { case (_, opt) => opt } match {
-      case Right(opt) => opt
-      case _ => false
-    }
+    def isNullable(t: Term) = tpeOf(SimpleExpr(t)) map { case (_, opt) => opt } getOrElse false
 
     def uniqueConstraints = {
       val constraints = sequence(stmt.tables map { t =>
