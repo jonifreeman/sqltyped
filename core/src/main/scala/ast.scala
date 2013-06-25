@@ -1,6 +1,6 @@
 package sqltyped
 
-import scala.reflect.runtime.universe.{Type, typeOf}
+import scala.reflect.macros.Context
 
 private[sqltyped] object Ast {
   // Types used for AST when references to tables are not yet resolved 
@@ -56,7 +56,7 @@ private[sqltyped] object Ast {
     def aname = alias getOrElse name
   }
 
-  case class Constant[T](tpe: Type, value: Any) extends Term[T]
+  case class Constant[T](tpe: Context#Type, value: Any) extends Term[T]
   case class Column[T](name: String, table: T) extends Term[T]
   case class AllColumns[T](table: T) extends Term[T]
   case class Function[T](name: String, params: List[Expr[T]]) extends Term[T]

@@ -2,10 +2,10 @@ package sqltyped
 
 import schemacrawler.schema.{ColumnDataType}
 import scala.collection.JavaConverters._
-import scala.reflect.runtime.universe.{Type, typeOf}
+import scala.reflect.macros.Context
 import Ast._
 
-case class TypedValue(name: String, tpe: Type, nullable: Boolean, tag: Option[String], term: Term[Table])
+case class TypedValue(name: String, tpe: Context#Type, nullable: Boolean, tag: Option[String], term: Term[Table])
 
 case class TypedStatement(
     input: List[TypedValue]
@@ -132,7 +132,7 @@ class Variables(typer: Typer) extends Ast.Resolved {
 
   def limitInput(limit: Option[Limit]) =
     limit.map(l => l.count.right.toSeq.toList ::: l.offset.map(_.right.toSeq.toList).getOrElse(Nil))
-      .getOrElse(Nil).map(_ => Named("<constant>", None, Constant[Table](typeOf[Long], None)))
+      .getOrElse(Nil).map(_ => Named("<constant>", None, Constant[Table](typer.context.universe.definitions.LongTpe, None)))
 
   def output(stmt: Statement): List[Named] = stmt match {
     case Delete(_, _) => Nil
@@ -145,8 +145,8 @@ class Variables(typer: Typer) extends Ast.Resolved {
   }
 }
 
-class Typer(schema: DbSchema, stmt: Ast.Statement[Table]) extends Ast.Resolved {
-  type SqlType = (Type, Boolean)
+class Typer(schema: DbSchema, stmt: Ast.Statement[Table], val context: Context) extends Ast.Resolved {
+  type SqlType = (Context#Type, Boolean)
   type SqlFType = (List[SqlType], SqlType)
 
   def infer(useInputTags: Boolean): ?[TypedStatement] = {
@@ -178,8 +178,8 @@ class Typer(schema: DbSchema, stmt: Ast.Statement[Table]) extends Ast.Resolved {
           List(TypedValue(x.aname, tpe, opt, None, x.term))
         }
       case Constant(tpe, _) => List(TypedValue(x.aname, tpe, false, None, x.term)).ok
-      case Input() => List(TypedValue(x.aname, typeOf[Any], false, None, x.term)).ok
-      case ArithExpr(_, "/", _) => List(TypedValue(x.aname, typeOf[Double], true, None, x.term)).ok
+      case Input() => List(TypedValue(x.aname, context.typeOf[Any], false, None, x.term)).ok
+      case ArithExpr(_, "/", _) => List(TypedValue(x.aname, context.typeOf[Double], true, None, x.term)).ok
       case ArithExpr(lhs, _, rhs) => 
         (lhs, rhs) match {
           case (c@Column(_, _), _) => typeTerm(useTags)(Named(c.name, x.alias, c))
@@ -187,13 +187,13 @@ class Typer(schema: DbSchema, stmt: Ast.Statement[Table]) extends Ast.Resolved {
           case _ => typeTerm(useTags)(Named(x.name, x.alias, lhs))
         }
       case Comparison1(_, IsNull) | Comparison1(_, IsNotNull) => 
-        List(TypedValue(x.aname, typeOf[Boolean], false, None, x.term)).ok
+        List(TypedValue(x.aname, context.typeOf[Boolean], false, None, x.term)).ok
       case Comparison1(t, _) => 
-        List(TypedValue(x.aname, typeOf[Boolean], isNullable(t), None, x.term)).ok
+        List(TypedValue(x.aname, context.typeOf[Boolean], isNullable(t), None, x.term)).ok
       case Comparison2(t1, _, t2) => 
-        List(TypedValue(x.aname, typeOf[Boolean], isNullable(t1) || isNullable(t2), None, x.term)).ok
+        List(TypedValue(x.aname, context.typeOf[Boolean], isNullable(t1) || isNullable(t2), None, x.term)).ok
       case Comparison3(t1, _, t2, t3) => 
-        List(TypedValue(x.aname, typeOf[Boolean], isNullable(t1) || isNullable(t2) || isNullable(t3), None, x.term)).ok
+        List(TypedValue(x.aname, context.typeOf[Boolean], isNullable(t1) || isNullable(t2) || isNullable(t3), None, x.term)).ok
       case Subselect(s) => 
         sequence(s.projection map typeTerm(useTags)) map (_.flatten) map (_ map makeNullable)
       case TermList(t) => 
@@ -273,26 +273,26 @@ class Typer(schema: DbSchema, stmt: Ast.Statement[Table]) extends Ast.Resolved {
       case Constant(tpe, _)              => (tpe, false).ok
       case col@Column(_, _)              => inferColumnType(col)
       case f@Function(_, _)              => inferReturnType(f)
-      case Input()                       => (typeOf[Any], false).ok
+      case Input()                       => (context.typeOf[Any], false).ok
       case TermList(terms)               => tpeOf(SimpleExpr(terms.head))
       case ArithExpr(Input(), op, rhs)   => tpeOf(SimpleExpr(rhs))
       case ArithExpr(lhs, op, rhs)       => tpeOf(SimpleExpr(lhs))
       case x                             => sys.error("Term " + x + " not supported")
     }
 
-    case _                               => (typeOf[Boolean], false).ok
+    case _                               => (context.typeOf[Boolean], false).ok
   }
 
   def inferReturnType(f: Function) = 
     knownFunctions.get(f.name.toLowerCase) match {
       case Some(func) => func(f.name, f.params).map(_._2)
-      case None => (typeOf[Any], true).ok
+      case None => (context.typeOf[Any], true).ok
     }
 
-  def inferArguments(f: Function) = 
+  def inferArguments(f: Function): ?[List[SqlType]] = 
     knownFunctions.get(f.name.toLowerCase) match {
       case Some(func) => func(f.name, f.params).map(_._1)
-      case None => f.params.map(_ => (typeOf[Any], true)).ok
+      case None => f.params.map(_ => (context.typeOf[Any], true)).ok
     }
 
   def inferColumnType(col: Column) = for {
@@ -310,7 +310,7 @@ class Typer(schema: DbSchema, stmt: Ast.Statement[Table]) extends Ast.Resolved {
     else Option(schema.getTable(t.name)) orElse derivedTable(t.name) orFail ("Unknown table " + t.name)
 
   private def derivedTable(name: String) = DerivedTables(schema, stmt, name)
-  private def mkType(t: ColumnDataType) = Jdbc.mkType(t.getTypeClassName)
+  private def mkType(t: ColumnDataType) = Jdbc.mkType(t.getTypeMappedClass.getCanonicalName, context)
 }
 
 object DualTable {

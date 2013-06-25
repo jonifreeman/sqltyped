@@ -1,6 +1,6 @@
 package sqltyped
 
-import scala.reflect.runtime.universe.{Type, typeOf}
+import scala.reflect.macros.Context
 import Ast.Resolved._
 
 class TypeSigDSL(typer: Typer) {
@@ -24,7 +24,7 @@ class TypeSigDSL(typer: Typer) {
   }
 
   trait Typed[A] {
-    def tpe(fname: String, e: Expr): ?[(Type, Boolean)]
+    def tpe(fname: String, e: Expr): ?[(Context#Type, Boolean)]
   }
   
   trait TypeParam
@@ -51,12 +51,12 @@ class TypeSigDSL(typer: Typer) {
     }
   }
 
-  implicit def intTyped: Typed[int.type] = new Const[int.type](typeOf[Int])
-  implicit def longTyped: Typed[long.type] = new Const[long.type](typeOf[Long])
-  implicit def doubleTyped: Typed[double.type] = new Const[double.type](typeOf[Double])
-  implicit def dateTyped: Typed[date.type] = new Const[date.type](typeOf[java.sql.Date])
+  implicit def intTyped: Typed[int.type] = new Const[int.type](typer.context.typeOf[Int])
+  implicit def longTyped: Typed[long.type] = new Const[long.type](typer.context.typeOf[Long])
+  implicit def doubleTyped: Typed[double.type] = new Const[double.type](typer.context.typeOf[Double])
+  implicit def dateTyped: Typed[date.type] = new Const[date.type](typer.context.typeOf[java.sql.Date])
 
-  class Const[A](tpe: Type) extends Typed[A] {
+  class Const[A](tpe: Context#Type) extends Typed[A] {
     def tpe(fname: String, e: Expr) = (tpe, false).ok
   }
 }

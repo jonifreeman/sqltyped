@@ -131,23 +131,23 @@ object SqlMacro {
     } yield DbConfig(url, driver, username, password, Properties.propOrNone("sqltyped.schema"))
 
     def generateCode(meta: TypedStatement) =
-      codeGen(meta, sql, c, keys, inputsInferred)(config, sqlExpr)
+      codeGen(sql, c, keys, inputsInferred)(meta, config, sqlExpr)
 
     def fallback = for {
       db   <- dbConfig
-      meta <- Jdbc.infer(db, sql)
+      meta <- Jdbc.infer(db, sql, c)
     } yield meta
 
     (for {
       db        <- dbConfig
       dialect   = Dialect.choose(db.driver)
-      parser    = dialect.parser
+      parser    = dialect.parser(c)
       schema    <- cachedSchema(db)
       validator = if (validate) dialect.validator else NOPValidator
       _         <- validator.validate(db, sql)
       stmt      <- parse(parser, sql)
       resolved  <- Ast.resolveTables(stmt)
-      typer     = dialect.typer(schema, resolved)
+      typer     = dialect.typer(schema, resolved, c)
       typed     <- typer.infer(useInputTags)
       meta      <- new Analyzer(typer).refine(resolved, typed)
     } yield meta) fold (
@@ -163,8 +163,8 @@ object SqlMacro {
   }
 
   def codeGen[A: c.WeakTypeTag, B: c.WeakTypeTag]
-    (meta: TypedStatement, sql: String, c: Context, keys: Boolean, inputsInferred: Boolean)
-    (config: c.Expr[Configuration[A, B]], sqlExpr: c.Tree): c.Expr[Any] = {
+    (sql: String, c: Context, keys: Boolean, inputsInferred: Boolean)
+    (meta: TypedStatement, config: c.Expr[Configuration[A, B]], sqlExpr: c.Tree): c.Expr[Any] = {
 
     import c.universe._
 
