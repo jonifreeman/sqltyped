@@ -64,6 +64,11 @@ object SqltypedBuild extends Build with Publish {
     System.setProperty("sqltyped.driver", "com.mysql.jdbc.Driver")
     System.setProperty("sqltyped.username", "root")
     System.setProperty("sqltyped.password", "")
+
+    System.setProperty("sqltyped.postgresql.url", "jdbc:postgresql://localhost/sqltyped")
+    System.setProperty("sqltyped.postgresql.driver", "org.postgresql.Driver")
+    System.setProperty("sqltyped.postgresql.username", "sqltypedtest")
+    System.setProperty("sqltyped.postgresql.password", "secret")
   }
   
   object Resolvers {

@@ -4,6 +4,7 @@ import java.sql._
 import schemacrawler.schema.Schema
 import NumOfResults._
 
+trait ConfigurationName
 case class Configuration[A, B](tables: A, columns: B)
 
 object NoTables
@@ -124,12 +125,24 @@ object SqlMacro {
       c.enclosingPosition.withPoint(wrappingPos(List(c.prefix.tree)).startOrPoint + f.column + lineOffset)
     }
 
+    // A rather kludgey way to pass config name to macro. The concrete name of the type of implicit
+    // value is used as a config name. E.g. implicit object postgresql extends ConfigurationName
+    val configName = c.inferImplicitValue(typeOf[ConfigurationName], silent = true) match {
+      case EmptyTree => None
+      case tree => 
+        val tpeName = tree.tpe.toString
+        val s = tpeName.substring(0, tpeName.lastIndexOf(".type"))
+        Some(s.substring(s.lastIndexOf(".") + 1))
+    }
+
+    def propName(suffix: String) = "sqltyped." + configName.map(_ + ".").getOrElse("") + suffix
+    
     def dbConfig = for {
-      url      <- sysProp("sqltyped.url")
-      driver   <- sysProp("sqltyped.driver")
-      username <- sysProp("sqltyped.username")
-      password <- sysProp("sqltyped.password")
-    } yield DbConfig(url, driver, username, password, Properties.propOrNone("sqltyped.schema"))
+      url      <- sysProp(propName("url"))
+      driver   <- sysProp(propName("driver"))
+      username <- sysProp(propName("username"))
+      password <- sysProp(propName("password"))
+    } yield DbConfig(url, driver, username, password, Properties.propOrNone(propName("schema")))
 
     def generateCode(meta: TypedStatement) =
       codeGen(meta, sql, c, keys, inputsInferred)(config, sqlExpr)
@@ -141,6 +154,7 @@ object SqlMacro {
 
     (for {
       db        <- dbConfig
+      _         = Class.forName(db.driver)
       dialect   = Dialect.choose(db.driver)
       parser    = dialect.parser
       schema    <- cachedSchema(db)

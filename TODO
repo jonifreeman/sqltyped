@@ -1,9 +1,9 @@
 ========   0.3   ========
 
-- Support multiple data sources
 - Schemaprefixes
 - Recursive unions
 - Views?
+- Bug: analysis for dynquerybuilding fails e.g. when GROUP BY is added dynamically
 - Bug: select max(id) from jackpot where `group` = ?  ('group' works)
 
 ======== Backlog ========

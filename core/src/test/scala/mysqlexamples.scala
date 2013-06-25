@@ -4,7 +4,7 @@ import java.sql._
 import org.scalatest._
 import shapeless._
 
-class MySQLExamples extends Example {
+class MySQLExamples extends MySQLConfig {
   test("Interval") {
     sql("select started + interval 1 month from job_history order by started").apply should
       equal(List(tstamp("2002-09-02 08:00:00.0"), tstamp("2004-08-13 11:00:00.0"), tstamp("2005-09-10 11:00:00.0")))

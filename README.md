@@ -196,7 +196,6 @@ Then either:
 
     mysql -u root -e 'create database sqltyped'
     mysql -u root sqltyped < core/src/test/resources/test.sql
-    sbt test // Requires >= 0.12.0 
 
 or:
 
@@ -204,3 +203,4 @@ or:
     sudo -u postgres createdb -O sqltypedtest sqltyped
     sudo -u postgres psql sqltyped < core/src/test/resources/test-postgresql.sql
 
+To run the tests you need to setup both databases.

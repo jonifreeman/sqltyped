@@ -2,6 +2,19 @@
 
 This release adds following new features and improvements:
 
+## Support for multiple compile time datasources
+
+In Scala code bring correct configuration into scope by:
+
+   implicit object postgresql extends ConfigurationName
+
+The above configuration reads following system properties to establish a connection to database at compile time:
+
+    sqltyped.postgresql.url
+    sqltyped.postgresql.driver
+    sqltyped.postgresql.username
+    sqltyped.postgresql.password
+
 ## MySQL type conversion support
 
     scala> sql("select convert(age, char(10)) from person").apply

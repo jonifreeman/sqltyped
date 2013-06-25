@@ -33,7 +33,7 @@ object JSON {
   }
 }
 
-class RecordExampleSuite extends Example {
+class RecordExampleSuite extends MySQLConfig {
   test("Map over record elements") {
     val joe = sql("select * from person where id=?").apply(1) getOrElse sys.error("No data")
 

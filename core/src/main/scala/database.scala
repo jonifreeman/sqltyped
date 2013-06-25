@@ -9,7 +9,7 @@ case class DbConfig(url: String, driver: String, username: String, password: Str
 }
 
 object DbSchema {
-  def read(config: DbConfig): ?[Schema] = try {
+  def read(config: DbConfig): ?[Schema] = try {    
     Class.forName(config.driver)
     val options = new SchemaCrawlerOptions
     val level = new SchemaInfoLevel

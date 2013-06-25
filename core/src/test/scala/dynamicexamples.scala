@@ -2,7 +2,7 @@ package sqltyped
 
 import org.scalatest._
 
-class DynamicExamples extends Example {
+class DynamicExamples extends MySQLConfig {
   test("Runtime query building") {
     val where = "age > ?" + " or " + "1 > 2"
 
