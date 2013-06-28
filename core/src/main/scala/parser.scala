@@ -166,7 +166,8 @@ trait SqlParser extends RegexParsers with Ast.Unresolved with PackratParsers {
   
   def dataTypes: List[Parser[DataType]] = Nil
 
-  lazy val dataType: Parser[Expr] = dataTypes.reduceLeft(_ | _) ^^ TypeExpr.apply
+  lazy val dataType: Parser[Expr] = 
+    dataTypes.foldLeft(failure("expected data type"): Parser[DataType])(_ | _) ^^ TypeExpr.apply
 
   lazy val column = (
       ident ~ "." ~ ident ^^ { case t ~ _ ~ c => col(c, Some(t)) }
