@@ -204,3 +204,11 @@ or:
     sudo -u postgres psql sqltyped < core/src/test/resources/test-postgresql.sql
 
 To run the tests you need to setup both databases.
+
+Credits
+-------
+
+*(in order of appearance)*
+
+* Joni Freeman
+* Dylan Alex Simon
