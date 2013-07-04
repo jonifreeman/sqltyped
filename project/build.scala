@@ -69,6 +69,7 @@ object SqltypedBuild extends Build with Publish {
     System.setProperty("sqltyped.postgresql.driver", "org.postgresql.Driver")
     System.setProperty("sqltyped.postgresql.username", "sqltypedtest")
     System.setProperty("sqltyped.postgresql.password", "secret")
+    System.setProperty("sqltyped.postgresql.schema", "sqltyped")
   }
   
   object Resolvers {
