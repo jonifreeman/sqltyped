@@ -65,7 +65,7 @@ object SqlMacro {
       (c: Context)
       (s: c.Expr[String])
       (config: c.Expr[Configuration[A, B]]): c.Expr[Any] = 
-    sqlImpl0(c, useInputTags = false, keys = false, jdbcOnly = false)(s)(config)
+    sqlImpl0(c, useInputTags = false, keys = false, jdbcOnly = true)(s)(config)
 
   def sqlImpl0[A: c.WeakTypeTag, B: c.WeakTypeTag]
       (c: Context, useInputTags: Boolean = false, keys: Boolean = false, jdbcOnly: Boolean = false)

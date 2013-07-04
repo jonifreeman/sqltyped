@@ -481,4 +481,8 @@ class ExampleSuite extends MySQLConfig {
     sql("select name, age from person where age > ? order by NULL LIMIT 1").apply(5).tuples ===
       List(("joe", 36))
   }
+
+  test("JDBC based inference sqlj") {
+    sqlj("select name from person where id=?").apply(1) === List("joe")
+  }
 }
