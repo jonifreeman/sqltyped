@@ -47,13 +47,13 @@ object SqlMacro {
       (c: Context)
       (s: c.Expr[String])
       (config: c.Expr[Configuration[A, B]]): c.Expr[Any] = 
-    sqlImpl0(c, useInputTags = false, keys = false)(s)(config)
+    sqlImpl0(c)(s)(config)
 
   def sqltImpl[A: c.WeakTypeTag, B: c.WeakTypeTag]
       (c: Context)
       (s: c.Expr[String])
       (config: c.Expr[Configuration[A, B]]): c.Expr[Any] = 
-    sqlImpl0(c, useInputTags = true, keys = false)(s)(config)
+    sqlImpl0(c, useInputTags = true)(s)(config)
 
   def sqlkImpl[A: c.WeakTypeTag, B: c.WeakTypeTag]
       (c: Context)
@@ -61,8 +61,14 @@ object SqlMacro {
       (config: c.Expr[Configuration[A, B]]): c.Expr[Any] = 
     sqlImpl0(c, useInputTags = false, keys = true)(s)(config)
 
+  def sqljImpl[A: c.WeakTypeTag, B: c.WeakTypeTag]
+      (c: Context)
+      (s: c.Expr[String])
+      (config: c.Expr[Configuration[A, B]]): c.Expr[Any] = 
+    sqlImpl0(c, useInputTags = false, keys = false, jdbcOnly = false)(s)(config)
+
   def sqlImpl0[A: c.WeakTypeTag, B: c.WeakTypeTag]
-      (c: Context, useInputTags: Boolean, keys: Boolean)
+      (c: Context, useInputTags: Boolean = false, keys: Boolean = false, jdbcOnly: Boolean = false)
       (s: c.Expr[String])
       (config: c.Expr[Configuration[A, B]]): c.Expr[Any] = {
 
@@ -72,7 +78,7 @@ object SqlMacro {
       case Literal(Constant(sql: String)) => sql
       case _ => c.abort(c.enclosingPosition, "Argument to macro must be a String literal")
     }
-    compile(c, useInputTags, keys, inputsInferred = true, validate = true,
+    compile(c, useInputTags, keys, jdbcOnly, inputsInferred = true, validate = true,
             sql, (p, s) => p.parseAllWith(p.stmt, s))(config, Literal(Constant(sql)))
   }
 
@@ -96,12 +102,12 @@ object SqlMacro {
       case _ => c.abort(c.enclosingPosition, "Expected String literal as first part of interpolation")
     }
 
-    compile(c, useInputTags = false, keys = false, inputsInferred = false, validate = false,
+    compile(c, useInputTags = false, keys = false, jdbcOnly = false, inputsInferred = false, validate = false,
             sql, (p, s) => p.parseWith(p.selectStmt, s))(config, sqlExpr)
   }
 
   def compile[A: c.WeakTypeTag, B: c.WeakTypeTag]
-      (c: Context, useInputTags: Boolean, keys: Boolean, inputsInferred: Boolean, validate: Boolean,
+      (c: Context, useInputTags: Boolean, keys: Boolean, jdbcOnly: Boolean, inputsInferred: Boolean, validate: Boolean,
        sql: String, parse: (SqlParser, String) => ?[Ast.Statement[Option[String]]])
       (config: c.Expr[Configuration[A, B]], sqlExpr: c.Tree): c.Expr[Any] = {
 
@@ -152,7 +158,8 @@ object SqlMacro {
       meta <- Jdbc.infer(db, sql)
     } yield meta
 
-    (for {
+    (if (jdbcOnly) fallback else {
+    for {
       db        <- dbConfig
       _         = Class.forName(db.driver)
       dialect   = Dialect.choose(db.driver)
@@ -165,7 +172,7 @@ object SqlMacro {
       typer     = dialect.typer(schema, resolved)
       typed     <- typer.infer(useInputTags)
       meta      <- new Analyzer(typer).refine(resolved, typed)
-    } yield meta) fold (
+    } yield meta }) fold (
       fail => fallback fold ( 
         _ => c.abort(toPosition(fail), fail.message), 
         meta => { 

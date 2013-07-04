@@ -11,6 +11,8 @@ package object sqltyped {
   // https://issues.scala-lang.org/browse/SI-5920
   def sqlk[A, B](s: String)(implicit config: Configuration[A, B]) = macro SqlMacro.sqlkImpl[A, B]
 
+  def sqlj[A, B](s: String)(implicit config: Configuration[A, B]) = macro SqlMacro.sqljImpl[A, B]
+
   implicit class DynSQLContext(sc: StringContext) {
     def sql[A, B](exprs: Any*)(implicit config: Configuration[A, B]) = macro SqlMacro.dynsqlImpl[A, B]
   }
