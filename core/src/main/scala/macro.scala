@@ -212,7 +212,19 @@ object SqlMacro {
       ) getOrElse baseValue
     }
 
-    def scalaBaseType(x: TypedValue) = Ident(c.mirror.staticClass(x.tpe.typeSymbol.fullName))
+    def firstTypeParamOf(tpe: reflect.runtime.universe.Type): reflect.runtime.universe.Type = 
+      tpe.asInstanceOf[reflect.runtime.universe.TypeRefApi].args.headOption getOrElse reflect.runtime.universe.typeOf[Any]
+
+    def scalaBaseType(x: TypedValue) = 
+      if (x.tpe._1 <:< reflect.runtime.universe.typeOf[Seq[_]]) {
+        // We'd like to say here just TypeTree(x.tpe) but types don't match.
+        // x.tpe is from runtime.universe and we need c.universe.
+        // Making x.tpe to be c.universe.Type would be correct but rather complicated
+        // as explicit passing of Context everywhere just pollutes the code.
+        val typeParam = firstTypeParamOf(x.tpe._1)
+        AppliedTypeTree(Ident(c.mirror.staticClass("scala.collection.Seq")), 
+                        List(Ident(c.mirror.staticClass(typeParam.typeSymbol.fullName))))
+      } else Ident(c.mirror.staticClass(x.tpe._1.typeSymbol.fullName))
 
     def scalaType(x: TypedValue) = {
       x.tag flatMap (t => tagType(t)) map (tagged =>
@@ -240,28 +252,26 @@ object SqlMacro {
       case e: TypecheckException => None
     }
 
-    def stmtSetterName(x: TypedValue) = "set" + javaName(x)
-    def rsGetterName(x: TypedValue)   = "get" + javaName(x)
+    def stmtSetterName(x: TypedValue) = "set" + TypeMappings.setterGetterNames(x.tpe._2)
+    def rsGetterName(x: TypedValue)   = "get" + TypeMappings.setterGetterNames(x.tpe._2)
 
-    def javaName(x: TypedValue) = 
-      if (typeName(x) == "AnyRef" || typeName(x) == "Any") "Object" else typeName(x)
-
-    def typeName(x: TypedValue) = x.tpe.typeSymbol.name.toString
-
-    def setParam(x: TypedValue, pos: Int) =
+    def setParam(x: TypedValue, pos: Int) = {
+      val param = Ident(newTermName("i" + pos))
       if (x.nullable) 
-        If(Select(Ident(newTermName("i" + pos)), newTermName("isDefined")), 
-           Apply(Select(Ident(newTermName("stmt")), newTermName(stmtSetterName(x))), List(Literal(Constant(pos+1)), coerce(x, Select(Ident(newTermName("i" + pos)), newTermName("get"))))), 
+        If(Select(param, newTermName("isDefined")), 
+           Apply(Select(Ident(newTermName("stmt")), newTermName(stmtSetterName(x))), List(Literal(Constant(pos+1)), coerce(x, Select(param, newTermName("get"))))), 
            Apply(Select(Ident(newTermName("stmt")), newTermName("setObject")), List(Literal(Constant(pos+1)), Literal(Constant(null)))))
       else
         Apply(Select(Ident(newTermName("stmt")), newTermName(stmtSetterName(x))), 
-              List(Literal(Constant(pos+1)), coerce(x, Ident(newTermName("i" + pos)))))
+              List(Literal(Constant(pos+1)), coerce(x, param)))
+    }
 
-    def coerce(x: TypedValue, i: Tree) = {
-      if (typeName(x) == "BigDecimal")
+    def coerce(x: TypedValue, i: Tree) =
+      if (x.tpe._2 == java.sql.Types.ARRAY)
+        createArray(TypeMappings.arrayTypeName(firstTypeParamOf(x.tpe._1)), i)
+      else if (x.tpe._1 =:= reflect.runtime.universe.typeOf[BigDecimal])
         Apply(Select(i, newTermName("underlying")), List())
       else i
-    }
 
     def inputParam(x: TypedValue, pos: Int) = 
       ValDef(Modifiers(Flag.PARAM), newTermName("i" + pos), possiblyOptional(x, scalaType(x)), EmptyTree)
@@ -344,7 +354,7 @@ object SqlMacro {
                     Block(List(Apply(Select(Ident(newTermName("rows")), newTermName("append")), appendRow)), 
                           Apply(Ident(newTermName("while$1")), List())), Literal(Constant(())))))
 
-    val returnRows =
+    def returnRows =
       if (meta.numOfResults == Many)
         Select(Ident(newTermName("rows")), newTermName("toList"))
       else if (meta.numOfResults == ZeroOrOne)
@@ -383,6 +393,20 @@ object SqlMacro {
                             Apply(Ident(newTermName("while$1")), List())), Literal(Constant(())))), 
               Apply(Select(Ident(newTermName("rs")), newTermName("close")), List())), 
             Select(Ident(newTermName("keys")), newTermName("toList")))))
+
+    def createArray(elemTypeName: String, seq: Tree) = {
+      val castedSeq = 
+        TypeApply(
+          Select(seq, newTermName("asInstanceOf")), 
+          List(AppliedTypeTree(Ident(c.mirror.staticClass("scala.collection.Seq")), 
+                               List(Ident(c.mirror.staticClass("java.lang.Object"))))))
+
+      Apply(
+        Select(Ident(newTermName("conn")), newTermName("createArrayOf")), 
+        List(
+          Literal(Constant(elemTypeName)), 
+          Apply(Select(castedSeq, newTermName("toArray")), List(Select(Ident(c.mirror.staticModule("scala.Predef")), newTermName("implicitly"))))))
+    }
 
     def prepareStatement = 
       Apply(

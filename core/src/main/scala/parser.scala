@@ -2,6 +2,7 @@ package sqltyped
 
 import scala.util.parsing.combinator._
 import scala.reflect.runtime.universe.{Type, typeOf}
+import java.sql.{Types => JdbcTypes}
 
 trait SqlParser extends RegexParsers with Ast.Unresolved with PackratParsers {
   import Ast._
@@ -261,12 +262,12 @@ trait SqlParser extends RegexParsers with Ast.Unresolved with PackratParsers {
 
   private def col(name: String, table: Option[String]) = Column(name, table)
 
-  def constB(b: Boolean)       = const(typeOf[Boolean], b)
-  def constS(s: String)        = const(typeOf[String], s)
-  def constD(d: Double)        = const(typeOf[Double], d)
-  def constL(l: Long)          = const(typeOf[Long], l)
-  def constNull                = const(typeOf[AnyRef], null)
-  def const(tpe: Type, x: Any) = Constant[Option[String]](tpe, x)
+  def constB(b: Boolean)       = const((typeOf[Boolean], JdbcTypes.BOOLEAN), b)
+  def constS(s: String)        = const((typeOf[String], JdbcTypes.VARCHAR), s)
+  def constD(d: Double)        = const((typeOf[Double], JdbcTypes.DOUBLE), d)
+  def constL(l: Long)          = const((typeOf[Long], JdbcTypes.BIGINT), l)
+  def constNull                = const((typeOf[AnyRef], JdbcTypes.JAVA_OBJECT), null)
+  def const(tpe: (Type, Int), x: Any) = Constant[Option[String]](tpe, x)
 
   implicit class KeywordOps(kw: String) {
     def i = keyword(kw)

@@ -85,5 +85,17 @@ class MySQLExamples extends MySQLConfig {
 
     sql("select convert(name using utf8) from person").apply === List(Option("joe"), Option("moe"))
   }
+
+  test("IN operator") {
+    sql("select age from person where name in (?)").apply(List("joe", "moe")) == List(36, 14)
+
+    sql("select age from person where name in (?, ?)").apply("joe", "moe") == List(36, 14)
+
+    sql("select age from person where name in (?, 'moe')").apply("joe") == List(36, 14)
+
+    sql("select age from person where name not in (?)").apply(List("joe", "zoe")) == List(14)
+
+    sql("select name from person where age in (?)").apply(List(1, 36)) == List("joe")
+  }
 }
 

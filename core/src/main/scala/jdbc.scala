@@ -17,16 +17,16 @@ private[sqltyped] object Jdbc {
   def inferInput(meta: ParameterMetaData) = 
     (1 to meta.getParameterCount).toList map { i => 
       try {
-        TypedValue("a" + i, mkType(meta.getParameterClassName(i)), 
+        TypedValue("a" + i, (mkType(meta.getParameterClassName(i)), meta.getParameterType(i)), 
                    meta.isNullable(i) == ParameterMetaData.parameterNullable, None, unknownTerm)
       } catch {
-        case e: SQLException => TypedValue("a" + i, typeOf[Any], false, None, unknownTerm)
+        case e: SQLException => TypedValue("a" + i, (typeOf[Any], Types.JAVA_OBJECT), false, None, unknownTerm)
       }
     }
 
   def inferOutput(meta: ResultSetMetaData) = 
     (1 to meta.getColumnCount).toList map { i => 
-      TypedValue(meta.getColumnName(i), mkType(meta.getColumnClassName(i)), 
+      TypedValue(meta.getColumnName(i), (mkType(meta.getColumnClassName(i)), meta.getColumnType(i)), 
                  meta.isNullable(i) == ResultSetMetaData.columnNullable, None, unknownTerm)
     }
 
@@ -40,6 +40,7 @@ private[sqltyped] object Jdbc {
     conn.close 
   }
 
+  // FIXME move to TypeMappings
   def mkType(className: String): Type = className match {
     case "java.lang.String" => typeOf[String]
     case "java.lang.Short" => typeOf[Short]
@@ -58,4 +59,51 @@ private[sqltyped] object Jdbc {
     case "java.math.BigDecimal" => typeOf[scala.math.BigDecimal]
     case x => sys.error("Unknown type " + x)
   }
+}
+
+private [sqltyped] object TypeMappings {
+  import java.sql.Types._
+
+  /* a mapping from java.sql.Types.* values to their getFoo/setFoo names */
+  final val setterGetterNames = Map(
+      ARRAY         -> "Array"  
+    , BIGINT	    -> "Long"   
+    , BINARY	    -> "Bytes"  
+    , BIT	    -> "Boolean"
+    , BLOB	    -> "Blob"   
+    , BOOLEAN	    -> "Boolean"
+    , CHAR	    -> "String"
+    , CLOB	    -> "Clob"
+    , DATALINK	    -> "URL"
+    , DATE	    -> "Date"
+    , DECIMAL	    -> "BigDecimal"
+    , DOUBLE	    -> "Double"
+    , FLOAT	    -> "Float"
+    , INTEGER	    -> "Int"
+    , JAVA_OBJECT   -> "Object"
+    , LONGNVARCHAR  -> "String"
+    , LONGVARBINARY -> "Blob"     // FIXME should be Bytes?
+    , LONGVARCHAR   -> "String"
+    , NCHAR	    -> "String"
+    , NCLOB	    -> "NClob"
+    , NUMERIC	    -> "BigDecimal"
+    , NVARCHAR	    -> "String"
+    , REAL	    -> "Float"
+    , REF	    -> "Ref"
+    , ROWID	    -> "RowId"
+    , SMALLINT	    -> "Short"
+    , SQLXML        -> "SQLXML"
+    , TIME          -> "Time"
+    , TIMESTAMP	    -> "Timestamp"
+    , TINYINT	    -> "Byte"
+    , VARBINARY	    -> "Bytes"
+    , VARCHAR	    -> "String"
+  )
+
+  // FIXME this is dialect specific, move there. Or perhaps schemacrawler provides these?
+  def arrayTypeName(tpe: Type) = 
+    if (tpe =:= typeOf[String]) "varchar"
+    else if (tpe =:= typeOf[Int]) "integer"
+    else if (tpe =:= typeOf[Long]) "bigint"
+    else sys.error("Unsupported array type " + tpe)
 }

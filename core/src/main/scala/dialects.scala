@@ -1,8 +1,9 @@
 package sqltyped
 
 import schemacrawler.schema.Schema
-import scala.reflect.runtime.universe.{Type, typeOf, glb}
+import scala.reflect.runtime.universe.{Type, typeOf, glb, appliedType}
 import Ast._
+import java.sql.{Types => JdbcTypes}
 
 trait Dialect {
   def parser: SqlParser
@@ -13,6 +14,7 @@ trait Dialect {
 object Dialect {
   def choose(driver: String): Dialect = {
     if (driver.toLowerCase.contains("mysql")) MysqlDialect
+    else if (driver.toLowerCase.contains("postgresql")) PostgresqlDialect
     else GenericDialect
   }
 }
@@ -39,61 +41,70 @@ object MysqlDialect extends Dialect {
       , "concat"    -> concat _
     )
 
-    def datediff(fname: String, params: List[Expr]): ?[SqlFType] = 
-      if (params.length != 2) fail("Expected 2 parameters " + params)
-      else for {
-        (tpe0, opt0) <- tpeOf(params(0))
-        (tpe1, opt1) <- tpeOf(params(1))
-        tpe = glb(List(tpe0, tpe1, typeOf[java.util.Date]))
-      } yield (List((tpe, opt0), (tpe, opt1)), (typeOf[Int], true))
+    override def typeSpecifyTerm(v: Variable) = v.comparisonTerm flatMap { 
+      // Special case for: WHERE col IN (?)
+      case Comparison2(t1, In | NotIn, TermList(Input() :: Nil)) => Some(for {
+        tpe <- typeTerm(false)(Variable(Named("", None, t1)))
+      } yield List(TypedValue(v.term.aname, (appliedType(typeOf[Seq[_]].typeConstructor, tpe.head.tpe._1 :: Nil), JdbcTypes.JAVA_OBJECT), isNullable(t1), None, v.term.term)))
+      case _ => None
+    }
 
-    def ifnull(fname: String, params: List[Expr]): ?[SqlFType] = 
+    def datediff(fname: String, params: List[Expr], ct: Option[Term]): ?[SqlFType] = 
       if (params.length != 2) fail("Expected 2 parameters " + params)
       else for {
-        (tpe0, opt0) <- tpeOf(params(0))
-        (tpe1, opt1) <- tpeOf(params(1))
+        (tpe0, opt0) <- tpeOf(params(0), ct)
+        (tpe1, opt1) <- tpeOf(params(1), ct)
+        // FIXME ?
+        //tpe = glb(List(tpe0, tpe1, typeOf[java.util.Date]))
+      } yield (List((tpe0, opt0), (tpe1, opt1)), ((typeOf[Int], JdbcTypes.INTEGER), true))
+
+    def ifnull(fname: String, params: List[Expr], ct: Option[Term]): ?[SqlFType] = 
+      if (params.length != 2) fail("Expected 2 parameters " + params)
+      else for {
+        (tpe0, opt0) <- tpeOf(params(0), ct)
+        (tpe1, opt1) <- tpeOf(params(1), ct)
       } yield (List((tpe0, opt0), (tpe1, opt1)), (tpe0, opt1))
 
-    def iff(fname: String, params: List[Expr]): ?[SqlFType] = 
+    def iff(fname: String, params: List[Expr], ct: Option[Term]): ?[SqlFType] = 
       if (params.length != 3) fail("Expected 3 parameters " + params)
       else for {
-        (tpe0, opt0) <- tpeOf(params(0))
-        (tpe1, opt1) <- tpeOf(params(1))
-        (tpe2, opt2) <- tpeOf(params(2))
+        (tpe0, opt0) <- tpeOf(params(0), ct)
+        (tpe1, opt1) <- tpeOf(params(1), ct)
+        (tpe2, opt2) <- tpeOf(params(2), ct)
       } yield (List((tpe0, opt0), (tpe1, opt1), (tpe2, opt2)), (tpe1, opt1 || opt2))
 
-    def binary(fname: String, params: List[Expr]): ?[SqlFType] = 
+    def binary(fname: String, params: List[Expr], ct: Option[Term]): ?[SqlFType] = 
       if (params.length != 1) fail("Expected 1 parameter " + params)
       else for {
-        (tpe0, opt0) <- tpeOf(params(0))
+        (tpe0, opt0) <- tpeOf(params(0), ct)
       } yield (List((tpe0, opt0)), (tpe0, opt0))
 
-    def convert(fname: String, params: List[Expr]): ?[SqlFType] = 
+    def convert(fname: String, params: List[Expr], ct: Option[Term]): ?[SqlFType] = 
       if (params.length != 2) fail("Expected 2 parameters " + params)
       else for {
-        (tpe0, opt0) <- tpeOf(params(0))
-        (tpe1, opt1) <- tpeOf(params(1))
-        (tpe, opt)   <- castToType(tpe0, params(1))
+        (tpe0, opt0) <- tpeOf(params(0), ct)
+        (tpe1, opt1) <- tpeOf(params(1), ct)
+        (tpe, opt)   <- castToType(tpe0._1, params(1))
       } yield (List((tpe0, opt0), (tpe1, opt1)), (tpe, opt0 || opt))
 
-    def concat(fname: String, params: List[Expr]): ?[SqlFType] = 
+    def concat(fname: String, params: List[Expr], ct: Option[Term]): ?[SqlFType] = 
       if (params.length < 1) fail("Expected at least 1 parameter")
       else for {
-        in <- sequence(params map tpeOf)
-      } yield (in, (typeOf[String], in.map(_._2).forall(identity)))
+        in <- sequence(params map (p => tpeOf(p, ct)))
+      } yield (in, ((typeOf[String], JdbcTypes.VARCHAR), in.map(_._2).forall(identity)))
 
     private def castToType(orig: Type, target: Expr) = target match {
       case TypeExpr(d) => d.name match {
-        case "date" => (typeOf[java.sql.Date], true).ok
-        case "datetime" => (typeOf[java.sql.Timestamp], true).ok
-        case "time" => (typeOf[java.sql.Time], true).ok
-        case "char" => (typeOf[String], false).ok
-        case "binary" => (typeOf[String], false).ok
-        case "decimal" => (typeOf[Double], false).ok
-        case "signed" if orig == typeOf[Long] => (typeOf[Long], false).ok
-        case "signed" => (typeOf[Int], false).ok
-        case "unsigned" if orig == typeOf[Long] => (typeOf[Long], false).ok
-        case "unsigned" => (typeOf[Int], false).ok
+        case "date" => ((typeOf[java.sql.Date], JdbcTypes.DATE), true).ok
+        case "datetime" => ((typeOf[java.sql.Timestamp], JdbcTypes.TIMESTAMP), true).ok
+        case "time" => ((typeOf[java.sql.Time], JdbcTypes.TIME), true).ok
+        case "char" => ((typeOf[String], JdbcTypes.CHAR), false).ok
+        case "binary" => ((typeOf[String], JdbcTypes.BINARY), false).ok
+        case "decimal" => ((typeOf[Double], JdbcTypes.DECIMAL), false).ok
+        case "signed" if orig == typeOf[Long] => ((typeOf[Long], JdbcTypes.BIGINT), false).ok
+        case "signed" => ((typeOf[Int], JdbcTypes.INTEGER), false).ok
+        case "unsigned" if orig == typeOf[Long] => ((typeOf[Long], JdbcTypes.BIGINT), false).ok
+        case "unsigned" => ((typeOf[Int], JdbcTypes.INTEGER), false).ok
         case x => fail(s"Unsupported type '$target' in cast operation")
       }
       case e => fail(s"Expected a data type, got '$e'")
@@ -160,7 +171,7 @@ object MysqlDialect extends Dialect {
     )
 
     lazy val intervalAmount = opt("'") ~> numericLit <~ opt("'")
-    lazy val interval = "interval".i ~> intervalAmount ~ timeUnit ^^ { case x ~ _ => const(typeOf[java.util.Date], x) }
+    lazy val interval = "interval".i ~> intervalAmount ~ timeUnit ^^ { case x ~ _ => const((typeOf[java.util.Date], JdbcTypes.TIMESTAMP), x) }
 
     lazy val timeUnit = (
         "microsecond".i 
@@ -173,5 +184,26 @@ object MysqlDialect extends Dialect {
       | "quarter".i 
       | "year".i
     )
+  }
+}
+
+object PostgresqlDialect extends Dialect {
+  val parser = new SqlParser {}
+  def validator = JdbcValidator
+
+  def typer(schema: Schema, stmt: Statement[Table]) = new Typer(schema, stmt) {
+    import dsl._
+
+    override def extraScalarFunctions = Map(
+        "any"  -> arrayExpr _
+      , "some" -> arrayExpr _
+      , "all"  -> arrayExpr _
+    )
+
+    def arrayExpr(fname: String, params: List[Expr], ct: Option[Term]): ?[SqlFType] = 
+      if (params.length != 1) fail("Expected 1 parameter " + params)
+      else for {
+        (tpe0, opt0) <- tpeOf(params(0), ct)
+      } yield (List(((appliedType(typeOf[Seq[_]].typeConstructor, tpe0._1 :: Nil), JdbcTypes.ARRAY), false)), (tpe0, opt0))
   }
 }

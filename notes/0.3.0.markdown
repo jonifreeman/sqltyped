@@ -15,6 +15,32 @@ The above configuration reads following system properties to establish a connect
     sqltyped.postgresql.username
     sqltyped.postgresql.password
 
+## Support for collections in IN-clause
+
+JDBC does not have a standard way to support queries like:
+
+    select age from person where name in (?)
+
+where parameter is a collection of values. Some drivers support PreparedStatement#setArray(), MySQL implicitely supports this through PreparedStatement#setObject() etc.
+
+This version adds following support:
+
+### MySQL
+
+    select age from person where name in (?)
+
+is typed as
+
+    Seq[String] => List[Int]
+
+### PostgreSQL
+
+    select age from person where name = any(?)
+
+is typed as
+
+    Seq[String] => List[Int]
+
 ## MySQL type conversion support
 
     scala> sql("select convert(age, char(10)) from person").apply

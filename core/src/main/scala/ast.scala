@@ -57,7 +57,7 @@ private[sqltyped] object Ast {
     def aname = alias getOrElse name
   }
 
-  case class Constant[T](tpe: Type, value: Any) extends Term[T]
+  case class Constant[T](tpe: (Type, Int), value: Any) extends Term[T]
   case class Column[T](name: String, table: T) extends Term[T]
   case class AllColumns[T](table: T) extends Term[T]
   case class Function[T](name: String, params: List[Expr[T]]) extends Term[T]
