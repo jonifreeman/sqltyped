@@ -1,7 +1,3 @@
-========   0.3   ========
-
-- Bug: analysis for dynquerybuilding fails e.g. when GROUP BY is added dynamically
-
 ========   0.4   ========
 
 - Shapeless 2.0

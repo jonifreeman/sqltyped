@@ -19,6 +19,11 @@ class DynamicExamples extends MySQLConfig {
       List(("Enron", "joe"), ("IBM", "joe"))
   }
 
+  test("Analysis is skipped since statement is not fully known") {
+    sql"select name from person where id=?".apply(Seq(1)) ===
+      List("joe")
+  }
+
   test("Simple expr library") {
     import ExprLib._
 

@@ -1,7 +1,7 @@
 package sqltyped
 
 import schemacrawler.schema.Schema
-import scala.reflect.runtime.universe.{Type, typeOf, glb, appliedType}
+import scala.reflect.runtime.universe.{Type, typeOf, appliedType}
 import Ast._
 import java.sql.{Types => JdbcTypes}
 
@@ -52,10 +52,10 @@ object MysqlDialect extends Dialect {
     def datediff(fname: String, params: List[Expr], ct: Option[Term]): ?[SqlFType] = 
       if (params.length != 2) fail("Expected 2 parameters " + params)
       else for {
-        (tpe0, opt0) <- tpeOf(params(0), ct)
-        (tpe1, opt1) <- tpeOf(params(1), ct)
-        // FIXME ?
-        //tpe = glb(List(tpe0, tpe1, typeOf[java.util.Date]))
+        (_tpe0, opt0) <- tpeOf(params(0), ct)
+        (_tpe1, opt1) <- tpeOf(params(1), ct)
+        tpe0 = if (_tpe0._1 <:< typeOf[java.util.Date]) _tpe0 else _tpe1
+        tpe1 = if (_tpe1._1 <:< typeOf[java.util.Date]) _tpe1 else _tpe0
       } yield (List((tpe0, opt0), (tpe1, opt1)), ((typeOf[Int], JdbcTypes.INTEGER), true))
 
     def ifnull(fname: String, params: List[Expr], ct: Option[Term]): ?[SqlFType] = 

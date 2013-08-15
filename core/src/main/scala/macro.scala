@@ -79,6 +79,7 @@ object SqlMacro {
       case _ => c.abort(c.enclosingPosition, "Argument to macro must be a String literal")
     }
     compile(c, useInputTags, keys, jdbcOnly, inputsInferred = true, validate = true,
+            analyze = true,
             sql, (p, s) => p.parseAllWith(p.stmt, s))(config, Literal(Constant(sql)))
   }
 
@@ -102,12 +103,13 @@ object SqlMacro {
       case _ => c.abort(c.enclosingPosition, "Expected String literal as first part of interpolation")
     }
 
-    compile(c, useInputTags = false, keys = false, jdbcOnly = false, inputsInferred = false, validate = false,
+    compile(c, useInputTags = false, keys = false, jdbcOnly = false, inputsInferred = false, 
+            validate = false, analyze = false,
             sql, (p, s) => p.parseWith(p.selectStmt, s))(config, sqlExpr)
   }
 
   def compile[A: c.WeakTypeTag, B: c.WeakTypeTag]
-      (c: Context, useInputTags: Boolean, keys: Boolean, jdbcOnly: Boolean, inputsInferred: Boolean, validate: Boolean,
+      (c: Context, useInputTags: Boolean, keys: Boolean, jdbcOnly: Boolean, inputsInferred: Boolean, validate: Boolean, analyze: Boolean, 
        sql: String, parse: (SqlParser, String) => ?[Ast.Statement[Option[String]]])
       (config: c.Expr[Configuration[A, B]], sqlExpr: c.Tree): c.Expr[Any] = {
 
@@ -171,7 +173,7 @@ object SqlMacro {
       resolved  <- Ast.resolveTables(stmt)
       typer     = dialect.typer(schema, resolved)
       typed     <- typer.infer(useInputTags)
-      meta      <- new Analyzer(typer).refine(resolved, typed)
+      meta      <- if (analyze) new Analyzer(typer).refine(resolved, typed) else typed.ok
     } yield meta }) fold (
       fail => fallback fold ( 
         _ => c.abort(toPosition(fail), fail.message), 
