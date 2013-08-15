@@ -67,19 +67,19 @@ Processing results is slightly more involved and has some rough edges. sqlτyped
 
 ```scala
 {
-  id: Long @@ Tables.person
+  id: Long
 , name: String
-, interview: Option[Long @@ Tables.interview]
+, interview: Option[Long]
 , rating: Option[Double]
 , held_by: Option[String]
 }
 ```
 
-We could convert that directly to JSON with function ```sqltyped.json4s.JSON.compact```. However, to offer a nicer API some structure should be added to that flat row. We can modify the value of a field ```interview``` with function ```modify```. It is a function from the original value (of type ```Option[Long @@ Tables.interview]``` here) to a new value. The new value is a new record (record is a HList of key-value tuples). Fields which are added to the just created record are removed from the original record with function ```removeKey```.
+We could convert that directly to JSON with function ```sqltyped.json4s.JSON.compact```. However, to offer a nicer API some structure should be added to that flat row. We can modify the value of a field ```interview``` with function ```modify```. It is a function from the original value (of type ```Option[Long]``` here) to a new value. The new value is a new record (record is a HList of key-value tuples). Fields which are added to the just created record are removed from the original record with function ```removeKey```.
 
 ```scala
 personById(id) map { p =>
-  p.modify(interview) { (iw: Option[Long @@ Tables.interview]) => iw map (i =>
+  p.modify(interview) { (iw: Option[Long]) => iw map (i =>
     (rating, p.get(rating)) :: (held_by, p.get(held_by)) :: ("comments", comments(i)) :: HNil
   )} removeKey(rating) removeKey(held_by)
 }
@@ -89,7 +89,7 @@ The result is a following record which can be directly rendered as a nice JSON d
 
 ```scala
 {
-  id: Long @@ Tables.person
+  id: Long
 , name: String
 , interview: Option[{
     rating: Option[Double]

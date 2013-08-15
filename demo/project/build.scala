@@ -4,14 +4,14 @@ import Keys._
 object DemoBuild extends Build {
   lazy val demoSettings = Defaults.defaultSettings ++ Seq(
     organization := "com.example",
-    version := "0.2",
-    scalaVersion := "2.10.0",
+    version := "0.3",
+    scalaVersion := "2.10.2",
     scalacOptions ++= Seq("-unchecked", "-deprecation"),
     javacOptions ++= Seq("-target", "1.6", "-source", "1.6"),
     crossPaths := false,
     libraryDependencies ++= Seq(
-      "fi.reaktor" %% "sqltyped" % "0.2.1",
-      "fi.reaktor" %% "sqltyped-json4s" % "0.2.1",
+      "fi.reaktor" %% "sqltyped" % "0.3.0",
+      "fi.reaktor" %% "sqltyped-json4s" % "0.3.0",
       "com.typesafe" %% "slick" % "1.0.0-RC1",
       "net.databinder" %% "unfiltered" % "0.6.5",
       "net.databinder" %% "unfiltered-netty" % "0.6.5",
