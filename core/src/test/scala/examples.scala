@@ -2,7 +2,7 @@ package sqltyped
 
 import java.sql._
 import org.scalatest._
-import shapeless._, tag.@@, ops.record._
+import shapeless._, tag.@@, ops.record._, syntax.singleton._
 
 trait Example extends FunSuite with BeforeAndAfterEach with matchers.ShouldMatchers {
   object Tables { trait person; trait job_history }
@@ -255,7 +255,7 @@ class ExampleSuite extends MySQLConfig {
   
   test("Query with constraint by unique column") {
     val q = sql("select age, name from person where id=?")
-    q(1) === Some((age -> 36) :: (name -> "joe") :: HNil)
+    q(1) === Some(("age" ->> 36) :: ("name" ->> "joe") :: HNil)
     q(1).tuples === Some((36, "joe"))
     
     val q2 = sql("select name from person where id=?")

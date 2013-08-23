@@ -473,13 +473,13 @@ object SqlMacro {
 
     val inputLen = if (inputsInferred) meta.input.length else 1
 
-    def mkWitness(x: TypedValue) =
+    def mkWitness(name: String) =
       ValDef(
         Modifiers(), 
-        newTermName(x.name), 
+        newTermName(name), 
         TypeTree(), 
         Apply(Select(Ident(c.mirror.staticModule("shapeless.Witness")), newTermName("apply")), 
-              List(Literal(Constant(x.name)))))
+              List(Literal(Constant(name)))))
 
     def mkQuery = 
       Block(
@@ -509,7 +509,7 @@ object SqlMacro {
         Select(Ident(c.mirror.staticModule("scala.Predef")), newTermName("identity")), 
         List(
           Block(
-            meta.output map (i => mkWitness(i)),
+            (meta.output map (_.name)).distinct map (i => mkWitness(i)),
             mkQuery
           )
         )
