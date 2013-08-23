@@ -4,15 +4,15 @@ import Keys._
 object SqltypedBuild extends Build with Publish {
   import Resolvers._
 
-  lazy val versionFormat = "%s"
-  lazy val majorVersion = "0.3.0"
-//  lazy val versionFormat = "%s-SNAPSHOT"
+//  lazy val versionFormat = "%s"
+  lazy val majorVersion = "0.4.0"
+  lazy val versionFormat = "%s-SNAPSHOT"
 
   lazy val sqltypedSettings = Defaults.defaultSettings ++ publishSettings ++ Seq(
     organization := "fi.reaktor",
     version := versionFormat format majorVersion,
     scalaVersion := "2.10.2",
-    scalacOptions ++= Seq("-unchecked", "-deprecation"),
+    scalacOptions ++= Seq("-unchecked", "-deprecation", "-feature"),
     javacOptions ++= Seq("-target", "1.6", "-source", "1.6"),
     crossScalaVersions := Seq("2.10"),
     parallelExecution in Test := false,
@@ -26,7 +26,7 @@ object SqltypedBuild extends Build with Publish {
     base = file("core"),
     settings = sqltypedSettings ++ Seq(
       libraryDependencies ++= Seq(
-        "com.chuusai" %% "shapeless" % "1.2.4",
+        "com.chuusai" % "shapeless" % "2.0.0-SNAPSHOT" cross CrossVersion.full,
         "net.sourceforge.schemacrawler" % "schemacrawler" % "8.17",
         "org.scala-lang" % "scala-reflect" % "2.10.2",
         "org.scalatest" %% "scalatest" % "2.0.M5b" % "test",

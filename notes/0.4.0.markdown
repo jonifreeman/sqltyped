@@ -1,0 +1,22 @@
+[sqlτyped](https://github.com/jonifreeman/sqltyped) - a macro which infers Scala types by analysing SQL statements.
+
+This release adds following new features and improvements:
+
+## Switching to Shapeless 2.0 records
+
+Previous version encoded records as HList of pairs (key, value). A big downside of this was the need to define record keys explicitely before use. Shapeless 2.0 comes with improved record encoding where record is a HList of values tagged by singleton types representing keys.
+
+    scala> val r = ("name" ->> "Joe") :: ("age" ->> 13) :: HNil
+
+    scala> r get "age"
+    res0: Int = 13
+
+    scala> r get "bzzzt"
+    <console>:22: error: No field String("bzzzt") in record ...
+
+As a consequence names of some common functions to manipulate records has been changed. 
+
+    scala> r - "name"                     // was 'removeKey'
+    scala> r.renameField("name", "nme")   // was 'renameKey'
+    scala> r.updateWith("age")(_ + 1)     // was 'modify'
+

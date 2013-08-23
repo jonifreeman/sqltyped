@@ -3,21 +3,19 @@ import shapeless._
 package object sqltyped {
   import language.experimental.macros
 
-  def sql[A, B](s: String)(implicit config: Configuration[A, B]) = macro SqlMacro.sqlImpl[A, B]
+  def sql(s: String)(implicit config: Configuration) = macro SqlMacro.sqlImpl
 
-  def sqlt[A, B](s: String)(implicit config: Configuration[A, B]) = macro SqlMacro.sqltImpl[A, B]
+  def sqlt(s: String)(implicit config: Configuration) = macro SqlMacro.sqltImpl
 
   // FIXME switch to sql("select ...", keys = true) after;
   // https://issues.scala-lang.org/browse/SI-5920
-  def sqlk[A, B](s: String)(implicit config: Configuration[A, B]) = macro SqlMacro.sqlkImpl[A, B]
+  def sqlk(s: String)(implicit config: Configuration) = macro SqlMacro.sqlkImpl
 
-  def sqlj[A, B](s: String)(implicit config: Configuration[A, B]) = macro SqlMacro.sqljImpl[A, B]
+  def sqlj(s: String)(implicit config: Configuration) = macro SqlMacro.sqljImpl
 
   implicit class DynSQLContext(sc: StringContext) {
-    def sql[A, B](exprs: Any*)(implicit config: Configuration[A, B]) = macro SqlMacro.dynsqlImpl[A, B]
+    def sql(exprs: Any*)(implicit config: Configuration) = macro SqlMacro.dynsqlImpl
   }
-
-  implicit def recordOps[L <: HList](l: L): RecordOps[L] = new RecordOps(l)
 
   implicit def listOps[L <: HList](l: List[L]): ListOps[L] = new ListOps(l)  
 

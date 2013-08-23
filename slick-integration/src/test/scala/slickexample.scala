@@ -8,10 +8,7 @@ class SlickExample extends FunSuite with BeforeAndAfterEach with matchers.Should
   val db = Database.forURL("jdbc:mysql://localhost:3306/sqltyped", 
                            driver = "com.mysql.jdbc.Driver", user = "root", password = "")
 
-  object Tables { trait person; trait job_history }
-  object Columns { object name; object age }
-
-  implicit val c = Configuration(Tables, Columns)
+  implicit val c = Configuration()
   implicit def conn = Database.threadLocalSession.conn
 
   override def beforeEach() {
