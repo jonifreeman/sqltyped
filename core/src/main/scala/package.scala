@@ -3,18 +3,18 @@ import shapeless._
 package object sqltyped {
   import language.experimental.macros
 
-  def sql[A, B](s: String)(implicit config: Configuration[A, B]) = macro SqlMacro.sqlImpl[A, B]
+  def sql[A](s: String)(implicit config: Configuration[A]) = macro SqlMacro.sqlImpl[A]
 
-  def sqlt[A, B](s: String)(implicit config: Configuration[A, B]) = macro SqlMacro.sqltImpl[A, B]
+  def sqlt[A](s: String)(implicit config: Configuration[A]) = macro SqlMacro.sqltImpl[A]
 
   // FIXME switch to sql("select ...", keys = true) after;
   // https://issues.scala-lang.org/browse/SI-5920
-  def sqlk[A, B](s: String)(implicit config: Configuration[A, B]) = macro SqlMacro.sqlkImpl[A, B]
+  def sqlk[A](s: String)(implicit config: Configuration[A]) = macro SqlMacro.sqlkImpl[A]
 
-  def sqlj[A, B](s: String)(implicit config: Configuration[A, B]) = macro SqlMacro.sqljImpl[A, B]
+  def sqlj[A](s: String)(implicit config: Configuration[A]) = macro SqlMacro.sqljImpl[A]
 
   implicit class DynSQLContext(sc: StringContext) {
-    def sql[A, B](exprs: Any*)(implicit config: Configuration[A, B]) = macro SqlMacro.dynsqlImpl[A, B]
+    def sql[A](exprs: Any*)(implicit config: Configuration[A]) = macro SqlMacro.dynsqlImpl[A]
   }
 
   implicit def recordOps[L <: HList](l: L): RecordOps[L] = new RecordOps(l)

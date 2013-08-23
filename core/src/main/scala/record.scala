@@ -1,12 +1,6 @@
 package sqltyped
 
-import shapeless._
-
-private[sqltyped] object fieldAsString extends Poly1 {
-  implicit def f[K, V] = at[(K, V)] { 
-    case (k, v) => keyAsString(k) + " = " + v.toString 
-  }
-}
+import shapeless._, ops.hlist._
 
 object Record {
   def toTupleLists[R <: HList](rs: List[R])(implicit toList: ToList[R, (Any, Any)]): List[List[(String, Any)]] = rs map (r => toTupleList(r)(toList))
@@ -28,11 +22,6 @@ final class RecordOps[R <: HList](r: R) {
 
   def values(implicit valueProj: ValueProjection[R]): valueProj.Out = valueProj(r)
   def values0[Out <: HList](implicit valueProj: ValueProjectionAux[R, Out]): Out = valueProj(r)
-
-  def show(implicit foldMap: MapFolder[R, String, fieldAsString.type]): String = {
-    val concat = (s1: String, s2: String) => if (s2 != "") s1 + ", " + s2 else s1
-    "{ " + (r.foldMap("")(fieldAsString)(concat)) + " }"
-  }
 }
 
 final class ListOps[L <: HList](l: List[L]) {
@@ -41,7 +30,7 @@ final class ListOps[L <: HList](l: List[L]) {
   def tuples[Out0 <: HList, Out <: Product]
     (implicit 
        valueProj: ValueProjectionAux[L, Out0],
-       tupler: TuplerAux[Out0, Out]) = l.map(_.values0.tupled)
+       tupler: Tupler.Aux[Out0, Out]) = l.map(_.values0.tupled)
 }
 
 final class OptionOps[L <: HList](o: Option[L]) {
@@ -50,7 +39,7 @@ final class OptionOps[L <: HList](o: Option[L]) {
   def tuples[Out0 <: HList, Out <: Product]
     (implicit 
        valueProj: ValueProjectionAux[L, Out0],
-       tupler: TuplerAux[Out0, Out]) = o.map(_.values0.tupled)
+       tupler: Tupler.Aux[Out0, Out]) = o.map(_.values0.tupled)
 }
 
 @annotation.implicitNotFound(msg = "No such key ${K} in record ${L}")

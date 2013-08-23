@@ -35,12 +35,9 @@ Start console: ```sbt```, then ```project sqltyped``` and ```test:console```.
 import java.sql._
 import sqltyped._
 Class.forName("com.mysql.jdbc.Driver")
-object Columns { object name; object age; object salary; }
-implicit val c = Configuration(Columns)
+implicit val c = Configuration()
 implicit def conn = DriverManager.getConnection("jdbc:mysql://localhost:3306/sqltyped", 
                                                 "root", "")
-import Tables._
-import Columns._
 ```
 
 Now we are ready to query the data.

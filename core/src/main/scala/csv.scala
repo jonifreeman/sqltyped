@@ -1,6 +1,6 @@
 package sqltyped
 
-import shapeless._, TypeOperators.@@
+import shapeless._, ops.hlist._, tag.@@
 
 trait Show[A] {
   def show(a: A): String
@@ -40,6 +40,6 @@ object CSV {
   private def escape(s: String) = "\"" + s.replaceAll("\"","\"\"") + "\""
 }
 
-object toCSV extends Pullback1[List[String]] {
+object toCSV extends Poly1 {
   implicit def valueToCsv[V: Show] = at[V](v => List(implicitly[Show[V]].show(v)))
 }

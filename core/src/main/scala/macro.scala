@@ -5,12 +5,9 @@ import schemacrawler.schema.Schema
 import NumOfResults._
 
 trait ConfigurationName
-case class Configuration[A, B](tables: A, columns: B)
+case class Configuration[A](tables: A = NoTables)
 
 object NoTables
-object Configuration {
-  def apply[B](columns: B) = new Configuration(NoTables, columns)
-}
 
 object SqlMacro {
   import shapeless._
@@ -43,34 +40,34 @@ object SqlMacro {
       stmt.close
     }
 
-  def sqlImpl[A: c.WeakTypeTag, B: c.WeakTypeTag]
+  def sqlImpl[A: c.WeakTypeTag]
       (c: Context)
       (s: c.Expr[String])
-      (config: c.Expr[Configuration[A, B]]): c.Expr[Any] = 
+      (config: c.Expr[Configuration[A]]): c.Expr[Any] = 
     sqlImpl0(c)(s)(config)
 
-  def sqltImpl[A: c.WeakTypeTag, B: c.WeakTypeTag]
+  def sqltImpl[A: c.WeakTypeTag]
       (c: Context)
       (s: c.Expr[String])
-      (config: c.Expr[Configuration[A, B]]): c.Expr[Any] = 
+      (config: c.Expr[Configuration[A]]): c.Expr[Any] = 
     sqlImpl0(c, useInputTags = true)(s)(config)
 
-  def sqlkImpl[A: c.WeakTypeTag, B: c.WeakTypeTag]
+  def sqlkImpl[A: c.WeakTypeTag]
       (c: Context)
       (s: c.Expr[String])
-      (config: c.Expr[Configuration[A, B]]): c.Expr[Any] = 
+      (config: c.Expr[Configuration[A]]): c.Expr[Any] = 
     sqlImpl0(c, useInputTags = false, keys = true)(s)(config)
 
-  def sqljImpl[A: c.WeakTypeTag, B: c.WeakTypeTag]
+  def sqljImpl[A: c.WeakTypeTag]
       (c: Context)
       (s: c.Expr[String])
-      (config: c.Expr[Configuration[A, B]]): c.Expr[Any] = 
+      (config: c.Expr[Configuration[A]]): c.Expr[Any] = 
     sqlImpl0(c, useInputTags = false, keys = false, jdbcOnly = true)(s)(config)
 
-  def sqlImpl0[A: c.WeakTypeTag, B: c.WeakTypeTag]
+  def sqlImpl0[A: c.WeakTypeTag]
       (c: Context, useInputTags: Boolean = false, keys: Boolean = false, jdbcOnly: Boolean = false)
       (s: c.Expr[String])
-      (config: c.Expr[Configuration[A, B]]): c.Expr[Any] = {
+      (config: c.Expr[Configuration[A]]): c.Expr[Any] = {
 
     import c.universe._
 
@@ -83,9 +80,9 @@ object SqlMacro {
             sql, (p, s) => p.parseAllWith(p.stmt, s))(config, Literal(Constant(sql)))
   }
 
-  def dynsqlImpl[A: c.WeakTypeTag, B: c.WeakTypeTag]
+  def dynsqlImpl[A: c.WeakTypeTag]
       (c: Context)(exprs: c.Expr[Any]*)
-      (config: c.Expr[Configuration[A, B]]): c.Expr[Any] = {
+      (config: c.Expr[Configuration[A]]): c.Expr[Any] = {
 
     import c.universe._
 
@@ -108,10 +105,10 @@ object SqlMacro {
             sql, (p, s) => p.parseWith(p.selectStmt, s))(config, sqlExpr)
   }
 
-  def compile[A: c.WeakTypeTag, B: c.WeakTypeTag]
+  def compile[A: c.WeakTypeTag]
       (c: Context, useInputTags: Boolean, keys: Boolean, jdbcOnly: Boolean, inputsInferred: Boolean, validate: Boolean, analyze: Boolean, 
        sql: String, parse: (SqlParser, String) => ?[Ast.Statement[Option[String]]])
-      (config: c.Expr[Configuration[A, B]], sqlExpr: c.Tree): c.Expr[Any] = {
+      (config: c.Expr[Configuration[A]], sqlExpr: c.Tree): c.Expr[Any] = {
 
     import c.universe._
     import scala.util.Properties
@@ -186,9 +183,9 @@ object SqlMacro {
     )
   }
 
-  def codeGen[A: c.WeakTypeTag, B: c.WeakTypeTag]
+  def codeGen[A: c.WeakTypeTag]
     (meta: TypedStatement, sql: String, c: Context, keys: Boolean, inputsInferred: Boolean)
-    (config: c.Expr[Configuration[A, B]], sqlExpr: c.Tree): c.Expr[Any] = {
+    (config: c.Expr[Configuration[A]], sqlExpr: c.Tree): c.Expr[Any] = {
 
     import c.universe._
 
@@ -209,7 +206,7 @@ object SqlMacro {
         Apply(
           Select(
             TypeApply(
-              Select(Select(Ident(newTermName("shapeless")), newTermName("TypeOperators")), newTermName("tag")), 
+              Select(Select(Ident(newTermName("shapeless")), newTermName("tag")), newTermName("tag")), 
               List(tagged)), newTermName("apply")), List(baseValue))
       ) getOrElse baseValue
     }
@@ -231,20 +228,10 @@ object SqlMacro {
     def scalaType(x: TypedValue) = {
       x.tag flatMap (t => tagType(t)) map (tagged =>
         AppliedTypeTree(
-          Select(Select(Ident(newTermName("shapeless")), newTermName("TypeOperators")), newTypeName("$at$at")), 
+          Select(Select(Ident(newTermName("shapeless")), newTermName("tag")), newTypeName("$at$at")), 
           List(scalaBaseType(x), tagged))
       ) getOrElse scalaBaseType(x)
     }
-
-    def colKey(name: String) = 
-      if (c.typeCheck(Select(Select(config.tree, newTermName("columns")), newTermName(name)), silent = true) == EmptyTree)
-        Literal(Constant(name))
-      else Select(Select(config.tree, newTermName("columns")), newTermName(name))
-
-    def colKeyType(name: String) = 
-      if (c.typeCheck(Select(Select(config.tree, newTermName("columns")), newTermName(name)), silent = true) == EmptyTree)
-        Ident(newTypeName("String"))
-      else SingletonTypeTree(Select(Select(config.tree, newTermName("columns")), newTermName(name)))
 
     def tagType(tag: String) = try {
       // FIXME: any better ways to check that type exists?
@@ -306,9 +293,7 @@ object SqlMacro {
     def returnTypeSigRecord = List(meta.output.foldRight(Ident(c.mirror.staticClass("shapeless.HNil")): Tree) { (x, sig) => 
       AppliedTypeTree(
         Ident(c.mirror.staticClass("shapeless.$colon$colon")), 
-        List(AppliedTypeTree(
-          Ident(c.mirror.staticClass("scala.Tuple2")), 
-          List(colKeyType(x.name), possiblyOptional(x, scalaType(x)))), sig)
+        List(AppliedTypeTree(Select(Ident(c.mirror.staticModule("shapeless.record")), newTypeName("FieldType")), List(Select(Ident(newTermName(x.name)), newTypeName("T")), possiblyOptional(x, scalaType(x)))), sig)
       )
     })
 
@@ -320,14 +305,14 @@ object SqlMacro {
                newTermName("x$" + (i+1)), 
                TypeTree(), 
                Apply(Select(Apply(
-                 Select(Ident(c.mirror.staticModule("scala.Predef")), newTermName("any2ArrowAssoc")),
-                 List(colKey(x.name))), newTermName("$minus$greater")), List(rs(x, meta.output.length - i))))
+                 Select(Ident(c.mirror.staticModule("shapeless.syntax.singleton")), newTermName("mkSingletonOps")),
+                 List(Literal(Constant(x.name)))), newTermName("->>").encoded), List(rs(x, meta.output.length - i))))
 
       val init: Tree = 
         Block(List(
           processRow(meta.output.last, 0)), 
           Apply(
-            Select(Select(Ident(newTermName("shapeless")), newTermName("HNil")), newTermName("$colon$colon")),
+            Select(Select(Ident(newTermName("shapeless")), newTermName("HNil")), newTermName("::").encoded),
             List(Ident(newTermName("x$1")))
         ))
 
@@ -340,7 +325,7 @@ object SqlMacro {
                 Select(Ident(c.mirror.staticModule("shapeless.HList")), newTermName("hlistOps")),
                 List(Block(ast))
               ), 
-              newTermName("$colon$colon")), List(Ident(newTermName("x$" + (i+2))))))
+              newTermName("::").encoded), List(Ident(newTermName("x$" + (i+2))))))
          })
     }
 
@@ -460,24 +445,43 @@ object SqlMacro {
       )
     }
 
-    /* Generates following code:
-       new Query1[I1, (name.type, String) :: (age.type, Int) :: HNil] { 
-         def apply(i1: I1)(implicit conn: Connection) = {
-           val stmt = conn.prepareStatement(sql)
-           stmt.setInt(1, i1)
-           withResultSet(stmt) { rs =>
-             val rows = collection.mutable.ListBuffer[(name.type, String) :: (age.type, Int) :: HNil]()
-             while (rs.next) {
-               rows.append((name -> rs.getString(1)) :: (age -> rs.getInt(2)) :: HNil)
-             }
-             rows.toList
-           }
-         }
-       }
+    /*
+      sql("select name, age from person where age > ?")
+     
+      Generates following code:
+
+    identity {
+      val name = Witness("name")
+      val age = Witness("age")
+
+      new Query1[Int, FieldType[name.T, String] :: FieldType[age.T, Int] :: HNil] { 
+        def apply(i1: Int)(implicit conn: Connection) = {
+          val stmt = conn.prepareStatement("select name, age from person where age > ?")
+          stmt.setInt(1, i1)
+          withResultSet(stmt) { rs =>
+            val rows = collection.mutable.ListBuffer[FieldType[name.T, String] :: FieldType[age.T, Int] :: HNil]()
+            while (rs.next) {
+              rows.append("name" ->> rs.getString(1) :: "age" ->> rs.getInt(2) :: HNil)
+            }
+            rows.toList
+          }
+        }
+      }
+    }
+
     */
+
     val inputLen = if (inputsInferred) meta.input.length else 1
 
-    c.Expr {
+    def mkWitness(x: TypedValue) =
+      ValDef(
+        Modifiers(), 
+        newTermName(x.name), 
+        TypeTree(), 
+        Apply(Select(Ident(c.mirror.staticModule("shapeless.Witness")), newTermName("apply")), 
+              List(Literal(Constant(x.name)))))
+
+    def mkQuery = 
       Block(
         List(
           ClassDef(Modifiers(Flag.FINAL), newTypeName("$anon"), List(), 
@@ -498,6 +502,17 @@ object SqlMacro {
                                   Literal(Constant(())))), queryF))
                  )),
         Apply(Select(New(Ident(newTypeName("$anon"))), nme.CONSTRUCTOR), List())
+      )
+
+    c.Expr {
+      Apply(
+        Select(Ident(c.mirror.staticModule("scala.Predef")), newTermName("identity")), 
+        List(
+          Block(
+            meta.output map (i => mkWitness(i)),
+            mkQuery
+          )
+        )
       )
     }
   }

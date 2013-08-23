@@ -6,7 +6,6 @@ import shapeless.test._
 
 class FailureSuite extends Example {
   import Tables._
-  import Columns._
 
   test("ORDER BY references unknown column") {
     illTyped("""

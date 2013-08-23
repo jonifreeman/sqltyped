@@ -2,14 +2,12 @@ package sqltyped
 
 import java.sql._
 import org.scalatest._
-import shapeless._, TypeOperators._
+import shapeless._, tag.@@
 
 trait Example extends FunSuite with BeforeAndAfterEach with matchers.ShouldMatchers {
   object Tables { trait person; trait job_history }
-  object Columns { object name; object age; object salary; object count; object avg 
-                   object select; object `type` }
 
-  def beforeEachWithConfig[A, B](implicit config: Configuration[A, B], conn: Connection) {
+  def beforeEachWithConfig[A](implicit config: Configuration[A], conn: Connection) {
     val newPerson  = sql("insert into person(id, name, age, salary) values (?, ?, ?, ?)")
     val jobHistory = sql("insert into job_history values (?, ?, ?, ?)")
 
@@ -46,7 +44,7 @@ trait Example extends FunSuite with BeforeAndAfterEach with matchers.ShouldMatch
 trait PostgreSQLConfig extends Example {
   Class.forName("org.postgresql.Driver")
 
-  implicit val config = Configuration(Tables, Columns)
+  implicit val config = Configuration(Tables)
   implicit object postgresql extends ConfigurationName
   implicit val conn = DriverManager.getConnection("jdbc:postgresql://localhost/sqltyped", "sqltypedtest", "secret")
 
@@ -56,7 +54,7 @@ trait PostgreSQLConfig extends Example {
 trait MySQLConfig extends Example {
   Class.forName("com.mysql.jdbc.Driver")
 
-  implicit val config = Configuration(Tables, Columns)
+  implicit val config = Configuration(Tables)
   implicit val conn = DriverManager.getConnection("jdbc:mysql://localhost:3306/sqltyped", "root", "")
 
   override def beforeEach() = beforeEachWithConfig
@@ -64,7 +62,6 @@ trait MySQLConfig extends Example {
 
 class ExampleSuite extends MySQLConfig {
   import Tables._
-  import Columns._
 
   test("Simple query") {
     val q1 = sql("select name, age from person")
