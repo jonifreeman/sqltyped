@@ -17,8 +17,6 @@ package object sqltyped {
     def sql[A](exprs: Any*)(implicit config: Configuration[A]) = macro SqlMacro.dynsqlImpl[A]
   }
 
-  implicit def recordOps[L <: HList](l: L): RecordOps[L] = new RecordOps(l)
-
   implicit def listOps[L <: HList](l: List[L]): ListOps[L] = new ListOps(l)  
 
   implicit def optionOps[L <: HList](l: Option[L]): OptionOps[L] = new OptionOps(l)  

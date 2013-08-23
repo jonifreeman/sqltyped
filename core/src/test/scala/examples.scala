@@ -2,7 +2,7 @@ package sqltyped
 
 import java.sql._
 import org.scalatest._
-import shapeless._, tag.@@
+import shapeless._, tag.@@, ops.record._
 
 trait Example extends FunSuite with BeforeAndAfterEach with matchers.ShouldMatchers {
   object Tables { trait person; trait job_history }
@@ -65,12 +65,12 @@ class ExampleSuite extends MySQLConfig {
 
   test("Simple query") {
     val q1 = sql("select name, age from person")
-    q1().map(_.get(age)).sum === 50
+    q1().map(_.get("age")).sum === 50
 
     val q2 = sql("select * from person")
-    q2().map(_.get(age)).sum === 50
+    q2().map(_.get("age")).sum === 50
 
-    sql("select p.* from person p").apply.map(_.get(age)).sum === 50
+    sql("select p.* from person p").apply.map(_.get("age")).sum === 50
 
     sql("select (name) n, (age) as a from person").apply.tuples ===
       List(("joe", 36), ("moe", 14))
@@ -81,11 +81,11 @@ class ExampleSuite extends MySQLConfig {
 
   test("Query with input") {
     val q = sql("select name, age from person where age > ? order by name")
-    q(30).map(_.get(name)) === List("joe")
-    q(10).map(_.get(name)) === List("joe", "moe")
+    q(30).map(_.get("name")) === List("joe")
+    q(10).map(_.get("name")) === List("joe", "moe")
 
     val q2 = sql("select name, age from person where age > ? and name != ? order by name")
-    q2(10, "joe").map(_.get(name)) === List("moe")
+    q2(10, "joe").map(_.get("name")) === List("moe")
 
     sql("select name, ? from person").apply("x").tuples ===
       List(("joe", "x"), ("moe", "x"))
@@ -181,18 +181,18 @@ class ExampleSuite extends MySQLConfig {
   test("Query with functions") {
     val q = sql("select avg(age), sum(salary) as salary, count(1) from person where abs(age) > ?")
     val res = q(10)
-    res.get(avg) === Some(25.0)
-    res.get(salary) === Some(17500)
-    res.get(count) === 2
+    res.get("avg") === Some(25.0)
+    res.get("salary") === Some(17500)
+    res.get("count") === 2
 
     val q2 = sql("select min(name) as name, max(age) as age from person where age > ?")
     val res2 = q2(10)
-    res2.get(name) === Some("joe")
-    res2.get(age) === Some(36)
+    res2.get("name") === Some("joe")
+    res2.get("age") === Some(36)
     
     val res3 = q2(100)
-    res3.get(name) === None
-    res3.get(age) === None
+    res3.get("name") === None
+    res3.get("age") === None
 
     sql("select min(?) from person").apply(10) should equal(Some(10))
 
@@ -434,8 +434,8 @@ class ExampleSuite extends MySQLConfig {
   test("Quoting") {
     val rows = sql(""" select `in`.name as "select", age > 20 as "type" from person `in` order by age """).apply
     
-    rows.head.get(select) === "moe"
-    rows.head.get(`type`) === false
+    rows.head.get("select") === "moe"
+    rows.head.get("type") === false
   }
 
   test("DUAL table") {

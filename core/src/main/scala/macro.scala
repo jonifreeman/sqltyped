@@ -206,7 +206,7 @@ object SqlMacro {
         Apply(
           Select(
             TypeApply(
-              Select(Select(Ident(newTermName("shapeless")), newTermName("tag")), newTermName("tag")), 
+              Select(Select(Ident(newTermName("shapeless")), newTermName("tag")), newTermName("apply")), 
               List(tagged)), newTermName("apply")), List(baseValue))
       ) getOrElse baseValue
     }
