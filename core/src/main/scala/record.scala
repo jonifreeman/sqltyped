@@ -17,7 +17,7 @@ final class ListOps[L <: HList](l: List[L]) {
   def tuples[Out0 <: HList, Out <: Product]
     (implicit 
        values: Values.Aux[L, Out0],
-       tupler: Tupler.Aux[Out0, Out]) = l map (r => tupler(values(r)))
+       tupler: Tupler.Aux[Out0, Out]): List[Out] = l map (r => tupler(values(r)))
 }
 
 final class OptionOps[L <: HList](o: Option[L]) {
@@ -26,5 +26,5 @@ final class OptionOps[L <: HList](o: Option[L]) {
   def tuples[Out0 <: HList, Out <: Product]
     (implicit 
        values: Values.Aux[L, Out0],
-       tupler: Tupler.Aux[Out0, Out]) = o map (r => tupler(values(r)))
+       tupler: Tupler.Aux[Out0, Out]): Option[Out] = o map (r => tupler(values(r)))
 }
