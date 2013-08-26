@@ -1,14 +1,24 @@
 package sqltyped
 
-import shapeless._, ops.hlist._, ops.record._
+import shapeless._, ops.hlist._, ops.record._, record.FieldType
 
 object Record {
-/*
-  def toTupleLists[R <: HList](rs: List[R])(implicit toList: ToList[R, (Any, Any)]): List[List[(String, Any)]] = rs map (r => toTupleList(r)(toList))
+  def fieldAsString[F, V](f: FieldType[F, V])(implicit wk: shapeless.Witness.Aux[F]) =
+    wk.value.toString
 
-  def toTupleList[R <: HList](r: R)(implicit toList: ToList[R, (Any, Any)]): List[(String, Any)] = 
-    r.toList map { case (k, v) => (keyAsString(k), v) }
-    */
+  private object fieldToUntyped extends Poly1 {
+    implicit def f[F, V](implicit wk: shapeless.Witness.Aux[F]) = at[FieldType[F, V]] { 
+      f => (fieldAsString(f), f: Any) :: Nil
+    }
+  }
+
+  def toTupleLists[R <: HList, F, V](rs: List[R])
+    (implicit folder: MapFolder[R, List[(String, Any)], fieldToUntyped.type]): List[List[(String, Any)]] = 
+      rs map (r => toTupleList(r)(folder))
+
+  def toTupleList[R <: HList, F, V](r: R)
+    (implicit folder: MapFolder[R, List[(String, Any)], fieldToUntyped.type]): List[(String, Any)] =
+      r.foldMap(Nil: List[(String, Any)])(fieldToUntyped)(_ ::: _)
 }
 
 final class ListOps[L <: HList](l: List[L]) {
