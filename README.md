@@ -44,16 +44,16 @@ Now we are ready to query the data.
 
 ```scala
 scala> val q = sql("select name, age from person")
-scala> q() map (_ get age)
+scala> q() map (_ get "age")
 res0: List[Int] = List(36, 14)
 ```
 
 Notice how the type of 'age' was infered to be Int.
 
 ```scala
-scala> q() map (_ get salary)
-<console>:24: error: No such key Columns.salary.type
-               q() map (_ get salary)
+scala> q() map (_ get "salary")
+<console>:24: error: could not find implicit value for parameter... [ long cryptic error message ]
+               q() map (_ get "salary")
 ```
 
 Oops, a compilation failure. Can't access 'salary', it was not selected in the query.
@@ -76,13 +76,13 @@ Input parameters are parsed and typed.
 ```scala
 scala> val q = sql("select name, age from person where age > ?")
 
-scala> q("30") map (_ get name)
+scala> q("30") map (_ get "name")
 <console>:24: error: type mismatch;
  found   : String("30")
  required: Int
               q("30") map (_ get name)
 
-scala> q(30) map (_ get name)
+scala> q(30) map (_ get "name")
 res4: List[String] = List(joe)
 ```
 
@@ -102,7 +102,7 @@ column it is typed as String => String etc.
 
 ```scala
 scala> val q = sql("select max(name) as name, max(age) as age from person where age > ?")
-scala> q(10).tuples.head
+scala> q(10).tupled
 res6: (Option[String], Option[Int]) = (Some(moe),Some(36))
 ```
 
