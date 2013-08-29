@@ -3,12 +3,9 @@ package sqltyped
 import shapeless._, ops.hlist._, ops.record._, record.FieldType
 
 object Record {
-  def fieldAsString[F, V](f: FieldType[F, V])(implicit wk: shapeless.Witness.Aux[F]) =
-    wk.value.toString
-
   private object fieldToUntyped extends Poly1 {
     implicit def f[F, V](implicit wk: shapeless.Witness.Aux[F]) = at[FieldType[F, V]] { 
-      f => (fieldAsString(f), f: Any) :: Nil
+      f => (wk.value.toString, f: Any) :: Nil
     }
   }
 

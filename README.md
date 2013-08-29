@@ -52,7 +52,7 @@ Notice how the type of 'age' was infered to be Int.
 
 ```scala
 scala> q() map (_ get "salary")
-<console>:24: error: could not find implicit value for parameter... [ long cryptic error message ]
+<console>:24: error: No field String("salary") in record ...
                q() map (_ get "salary")
 ```
 
