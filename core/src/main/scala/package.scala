@@ -3,18 +3,18 @@ import shapeless._
 package object sqltyped {
   import language.experimental.macros
 
-  def sql[A](s: String)(implicit config: Configuration[A]) = macro SqlMacro.sqlImpl[A]
+  def sql(s: String)(implicit config: Configuration) = macro SqlMacro.sqlImpl
 
-  def sqlt[A](s: String)(implicit config: Configuration[A]) = macro SqlMacro.sqltImpl[A]
+  def sqlt(s: String)(implicit config: Configuration) = macro SqlMacro.sqltImpl
 
   // FIXME switch to sql("select ...", keys = true) after;
   // https://issues.scala-lang.org/browse/SI-5920
-  def sqlk[A](s: String)(implicit config: Configuration[A]) = macro SqlMacro.sqlkImpl[A]
+  def sqlk(s: String)(implicit config: Configuration) = macro SqlMacro.sqlkImpl
 
-  def sqlj[A](s: String)(implicit config: Configuration[A]) = macro SqlMacro.sqljImpl[A]
+  def sqlj(s: String)(implicit config: Configuration) = macro SqlMacro.sqljImpl
 
   implicit class DynSQLContext(sc: StringContext) {
-    def sql[A](exprs: Any*)(implicit config: Configuration[A]) = macro SqlMacro.dynsqlImpl[A]
+    def sql(exprs: Any*)(implicit config: Configuration) = macro SqlMacro.dynsqlImpl
   }
 
   implicit def listOps[L <: HList](l: List[L]): ListOps[L] = new ListOps(l)  

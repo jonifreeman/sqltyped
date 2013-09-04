@@ -1,6 +1,10 @@
 ========   0.4   ========
 
 - Shapeless 2.0
+- Bug: select from derived join
+
+========   0.5   ========
+
 - Schemaprefixes
 - Recursive unions (postgresql)
 - Views?

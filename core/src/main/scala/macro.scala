@@ -5,9 +5,7 @@ import schemacrawler.schema.Schema
 import NumOfResults._
 
 trait ConfigurationName
-case class Configuration[A](tables: A = NoTables)
-
-object NoTables
+case class Configuration()
 
 object SqlMacro {
   import shapeless._
@@ -40,34 +38,34 @@ object SqlMacro {
       stmt.close
     }
 
-  def sqlImpl[A: c.WeakTypeTag]
+  def sqlImpl
       (c: Context)
       (s: c.Expr[String])
-      (config: c.Expr[Configuration[A]]): c.Expr[Any] = 
+      (config: c.Expr[Configuration]): c.Expr[Any] = 
     sqlImpl0(c)(s)(config)
 
-  def sqltImpl[A: c.WeakTypeTag]
+  def sqltImpl
       (c: Context)
       (s: c.Expr[String])
-      (config: c.Expr[Configuration[A]]): c.Expr[Any] = 
+      (config: c.Expr[Configuration]): c.Expr[Any] = 
     sqlImpl0(c, useInputTags = true)(s)(config)
 
-  def sqlkImpl[A: c.WeakTypeTag]
+  def sqlkImpl
       (c: Context)
       (s: c.Expr[String])
-      (config: c.Expr[Configuration[A]]): c.Expr[Any] = 
+      (config: c.Expr[Configuration]): c.Expr[Any] = 
     sqlImpl0(c, useInputTags = false, keys = true)(s)(config)
 
-  def sqljImpl[A: c.WeakTypeTag]
+  def sqljImpl
       (c: Context)
       (s: c.Expr[String])
-      (config: c.Expr[Configuration[A]]): c.Expr[Any] = 
+      (config: c.Expr[Configuration]): c.Expr[Any] = 
     sqlImpl0(c, useInputTags = false, keys = false, jdbcOnly = true)(s)(config)
 
-  def sqlImpl0[A: c.WeakTypeTag]
+  def sqlImpl0
       (c: Context, useInputTags: Boolean = false, keys: Boolean = false, jdbcOnly: Boolean = false)
       (s: c.Expr[String])
-      (config: c.Expr[Configuration[A]]): c.Expr[Any] = {
+      (config: c.Expr[Configuration]): c.Expr[Any] = {
 
     import c.universe._
 
@@ -80,9 +78,9 @@ object SqlMacro {
             sql, (p, s) => p.parseAllWith(p.stmt, s))(config, Literal(Constant(sql)))
   }
 
-  def dynsqlImpl[A: c.WeakTypeTag]
+  def dynsqlImpl
       (c: Context)(exprs: c.Expr[Any]*)
-      (config: c.Expr[Configuration[A]]): c.Expr[Any] = {
+      (config: c.Expr[Configuration]): c.Expr[Any] = {
 
     import c.universe._
 
@@ -105,10 +103,10 @@ object SqlMacro {
             sql, (p, s) => p.parseWith(p.selectStmt, s))(config, sqlExpr)
   }
 
-  def compile[A: c.WeakTypeTag]
+  def compile
       (c: Context, useInputTags: Boolean, keys: Boolean, jdbcOnly: Boolean, inputsInferred: Boolean, validate: Boolean, analyze: Boolean, 
        sql: String, parse: (SqlParser, String) => ?[Ast.Statement[Option[String]]])
-      (config: c.Expr[Configuration[A]], sqlExpr: c.Tree): c.Expr[Any] = {
+      (config: c.Expr[Configuration], sqlExpr: c.Tree): c.Expr[Any] = {
 
     import c.universe._
     import scala.util.Properties
@@ -185,7 +183,7 @@ object SqlMacro {
 
   def codeGen[A: c.WeakTypeTag]
     (meta: TypedStatement, sql: String, c: Context, keys: Boolean, inputsInferred: Boolean)
-    (config: c.Expr[Configuration[A]], sqlExpr: c.Tree): c.Expr[Any] = {
+    (config: c.Expr[Configuration], sqlExpr: c.Tree): c.Expr[Any] = {
 
     import c.universe._
 
@@ -202,7 +200,7 @@ object SqlMacro {
       def baseValue = Typed(Apply(Select(Ident(newTermName("rs")), newTermName(rsGetterName(x))), 
                                   List(Literal(Constant(pos)))), scalaBaseType(x))
       
-      x.tag flatMap(t => tagType(t)) map (tagged =>
+      x.tag map(t => tagType(t)) map (tagged =>
         Apply(
           Select(
             TypeApply(
@@ -226,20 +224,14 @@ object SqlMacro {
       } else Ident(c.mirror.staticClass(x.tpe._1.typeSymbol.fullName))
 
     def scalaType(x: TypedValue) = {
-      x.tag flatMap (t => tagType(t)) map (tagged =>
+      x.tag map (t => tagType(t)) map (tagged =>
         AppliedTypeTree(
           Select(Select(Ident(newTermName("shapeless")), newTermName("tag")), newTypeName("$at$at")), 
           List(scalaBaseType(x), tagged))
       ) getOrElse scalaBaseType(x)
     }
 
-    def tagType(tag: String) = try {
-      // FIXME: any better ways to check that type exists?
-      c.typeCheck(ValDef(Modifiers(), newTermName("xxxxx"), SelectFromTypeTree(SingletonTypeTree(Select(config.tree, newTermName("tables"))), tag), Literal(Constant(null))))
-      Some(SelectFromTypeTree(SingletonTypeTree(Select(config.tree, newTermName("tables"))), tag))
-    } catch {
-      case e: TypecheckException => None
-    }
+    def tagType(tag: String) = Select(Ident(newTermName(tag)), newTypeName("T"))
 
     def stmtSetterName(x: TypedValue) = "set" + TypeMappings.setterGetterNames(x.tpe._2)
     def rsGetterName(x: TypedValue)   = "get" + TypeMappings.setterGetterNames(x.tpe._2)
@@ -473,6 +465,13 @@ object SqlMacro {
 
     val inputLen = if (inputsInferred) meta.input.length else 1
 
+    def witnesses = (
+      (meta.output map     (_.name)) :::
+      (meta.input  flatMap (_.tag))  :::
+      (meta.output flatMap (_.tag))  :::
+      (if (keys) { meta.generatedKeyTypes flatMap (_.tag) } else Nil)
+    ).distinct
+
     def mkWitness(name: String) =
       ValDef(
         Modifiers(), 
@@ -509,7 +508,7 @@ object SqlMacro {
         Select(Ident(c.mirror.staticModule("scala.Predef")), newTermName("identity")), 
         List(
           Block(
-            (meta.output map (_.name)).distinct map (i => mkWitness(i)),
+            witnesses map (i => mkWitness(i)),
             mkQuery
           )
         )

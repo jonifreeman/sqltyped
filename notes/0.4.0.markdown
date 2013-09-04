@@ -16,7 +16,7 @@ Previous version encoded records as HList of pairs (key, value). A big downside 
 
 As a consequence names of some common functions to manipulate records has been changed. 
 
-    scala> r - "name"                   // was 'removeKey'
-    scala> r.rename("name", "nme")      // was 'renameKey'
-    scala> r.updateWith("age")(_ + 1)   // was 'modify'
+    scala> r - "name"                     // was 'removeKey'
+    scala> r.renameField("name", "nme")   // was 'renameKey'
+    scala> r.updateWith("age")(_ + 1)     // was 'modify'
 
