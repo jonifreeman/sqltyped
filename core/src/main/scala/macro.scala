@@ -231,7 +231,7 @@ object SqlMacro {
       ) getOrElse scalaBaseType(x)
     }
 
-    def tagType(tag: String) = Select(Ident(newTermName(tag)), newTypeName("T"))
+    def tagType(tag: String) = Select(Ident(newTermName(tag).encoded), newTypeName("T"))
 
     def stmtSetterName(x: TypedValue) = "set" + TypeMappings.setterGetterNames(x.tpe._2)
     def rsGetterName(x: TypedValue)   = "get" + TypeMappings.setterGetterNames(x.tpe._2)
@@ -285,7 +285,7 @@ object SqlMacro {
     def returnTypeSigRecord = List(meta.output.foldRight(Ident(c.mirror.staticClass("shapeless.HNil")): Tree) { (x, sig) => 
       AppliedTypeTree(
         Ident(c.mirror.staticClass("shapeless.$colon$colon")), 
-        List(AppliedTypeTree(Select(Ident(c.mirror.staticModule("shapeless.record")), newTypeName("FieldType")), List(Select(Ident(newTermName(x.name)), newTypeName("T")), possiblyOptional(x, scalaType(x)))), sig)
+        List(AppliedTypeTree(Select(Ident(c.mirror.staticModule("shapeless.record")), newTypeName("FieldType")), List(Select(Ident(newTermName(x.name).encoded), newTypeName("T")), possiblyOptional(x, scalaType(x)))), sig)
       )
     })
 
@@ -470,7 +470,7 @@ object SqlMacro {
       (meta.input  flatMap (_.tag))  :::
       (meta.output flatMap (_.tag))  :::
       (if (keys) { meta.generatedKeyTypes flatMap (_.tag) } else Nil)
-    ).distinct
+    ).distinct map (n => stringToTermName(n).encoded)
 
     def mkWitness(name: String) =
       ValDef(

@@ -350,9 +350,11 @@ private[sqltyped] object Ast {
 
   sealed trait TableReference[T] {
     def tables: List[Table]
+    def name: String
   }
   case class ConcreteTable[T](table: Table, join: List[Join[T]]) extends TableReference[T] {
     def tables = table :: join.flatMap(_.table.tables)
+    def name = table.name
   }
   case class DerivedTable[T](name: String, subselect: Select[T], join: List[Join[T]]) extends TableReference[T] {
     def tables = Table(name, None) :: join.flatMap(_.table.tables)
