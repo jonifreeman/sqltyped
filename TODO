@@ -1,7 +1,6 @@
 ========   0.4   ========
 
-- Shapeless 2.0
-- Bug: select from derived join
+- Make tagging optional
 
 ========   0.5   ========
 

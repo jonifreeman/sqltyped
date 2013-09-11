@@ -429,7 +429,7 @@ class ExampleSuite extends MySQLConfig {
       Some(100)
 
     sql("update person set age = age + 1").apply
-    sql("select age - 1, age, age * 2, (age % 10) - 1 as age, -10 from person order by age").apply.tuples ===
+    sql("select age - 1, age, age * 2, (age % 10) - 1 as age, -10 as const from person order by age").apply.tuples ===
       List((14, 15, 30, 4, -10), (36, 37, 74, 6, -10))
   }
 
@@ -444,7 +444,7 @@ class ExampleSuite extends MySQLConfig {
     sql("select count(1) from dual").apply === 1
   }
 
-  test("Subselect as a relation") {
+  test("Derived tables") {
     sql("select id from (select id, name from person) AS data where data.name = ?").apply("joe") ===
       List(1)
 
@@ -464,6 +464,26 @@ class ExampleSuite extends MySQLConfig {
           (select person,name from job_history) AS j on (data.id=j.person) 
         WHERE data.name = ?
         """).apply("joe").tuples === List((1, "Enron"), (1, "IBM"))
+
+    sql("""
+        SELECT p.name, j.c AS cnt
+        FROM person p 
+        LEFT JOIN (
+          SELECT person, count(1) AS c FROM job_history
+          GROUP BY person
+        ) AS j ON p.id=j.person
+        WHERE p.name = ?
+        """).apply("joe").tuples === List(("joe", 2))
+
+    sql("""
+        SELECT p.name, coalesce(j.c, 0) AS cnt
+        FROM person p 
+        LEFT JOIN (
+          SELECT person, count(1) AS c FROM job_history
+          GROUP BY person
+        ) AS j ON p.id=j.person
+        WHERE p.name = ?
+        """).apply("joe").tuples === List(("joe", 2))
   }
 
   test("Subselect in projection") {

@@ -83,7 +83,7 @@ class MySQLExamples extends MySQLConfig {
     val res2: List[Int] = sql("select convert(name, signed) from person").apply
     res2 === List(0, 0)
 
-    sql("select convert(name using utf8) from person").apply === List(Option("joe"), Option("moe"))
+    sql("select convert(name using utf8) as name from person").apply === List(Option("joe"), Option("moe"))
   }
 
   test("IN operator") {
