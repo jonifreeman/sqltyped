@@ -5,7 +5,8 @@ import schemacrawler.schema.Schema
 import NumOfResults._
 
 trait ConfigurationName
-case class Configuration()
+
+object EnableTagging
 
 object SqlMacro {
   import shapeless._
@@ -40,32 +41,27 @@ object SqlMacro {
 
   def sqlImpl
       (c: Context)
-      (s: c.Expr[String])
-      (config: c.Expr[Configuration]): c.Expr[Any] = 
-    sqlImpl0(c)(s)(config)
+      (s: c.Expr[String]): c.Expr[Any] = 
+    sqlImpl0(c)(s)
 
   def sqltImpl
       (c: Context)
-      (s: c.Expr[String])
-      (config: c.Expr[Configuration]): c.Expr[Any] = 
-    sqlImpl0(c, useInputTags = true)(s)(config)
+      (s: c.Expr[String]): c.Expr[Any] = 
+    sqlImpl0(c, useInputTags = true)(s)
 
   def sqlkImpl
       (c: Context)
-      (s: c.Expr[String])
-      (config: c.Expr[Configuration]): c.Expr[Any] = 
-    sqlImpl0(c, useInputTags = false, keys = true)(s)(config)
+      (s: c.Expr[String]): c.Expr[Any] = 
+    sqlImpl0(c, useInputTags = false, keys = true)(s)
 
   def sqljImpl
       (c: Context)
-      (s: c.Expr[String])
-      (config: c.Expr[Configuration]): c.Expr[Any] = 
-    sqlImpl0(c, useInputTags = false, keys = false, jdbcOnly = true)(s)(config)
+      (s: c.Expr[String]): c.Expr[Any] = 
+    sqlImpl0(c, useInputTags = false, keys = false, jdbcOnly = true)(s)
 
   def sqlImpl0
       (c: Context, useInputTags: Boolean = false, keys: Boolean = false, jdbcOnly: Boolean = false)
-      (s: c.Expr[String])
-      (config: c.Expr[Configuration]): c.Expr[Any] = {
+      (s: c.Expr[String]): c.Expr[Any] = {
 
     import c.universe._
 
@@ -75,12 +71,11 @@ object SqlMacro {
     }
     compile(c, useInputTags, keys, jdbcOnly, inputsInferred = true, validate = true,
             analyze = true,
-            sql, (p, s) => p.parseAllWith(p.stmt, s))(config, Literal(Constant(sql)))
+            sql, (p, s) => p.parseAllWith(p.stmt, s))(Literal(Constant(sql)))
   }
 
   def dynsqlImpl
-      (c: Context)(exprs: c.Expr[Any]*)
-      (config: c.Expr[Configuration]): c.Expr[Any] = {
+      (c: Context)(exprs: c.Expr[Any]*): c.Expr[Any] = {
 
     import c.universe._
 
@@ -100,13 +95,13 @@ object SqlMacro {
 
     compile(c, useInputTags = false, keys = false, jdbcOnly = false, inputsInferred = false, 
             validate = false, analyze = false,
-            sql, (p, s) => p.parseWith(p.selectStmt, s))(config, sqlExpr)
+            sql, (p, s) => p.parseWith(p.selectStmt, s))(sqlExpr)
   }
 
   def compile
       (c: Context, useInputTags: Boolean, keys: Boolean, jdbcOnly: Boolean, inputsInferred: Boolean, validate: Boolean, analyze: Boolean, 
        sql: String, parse: (SqlParser, String) => ?[Ast.Statement[Option[String]]])
-      (config: c.Expr[Configuration], sqlExpr: c.Tree): c.Expr[Any] = {
+      (sqlExpr: c.Tree): c.Expr[Any] = {
 
     import c.universe._
     import scala.util.Properties
@@ -148,7 +143,7 @@ object SqlMacro {
     } yield DbConfig(url, driver, username, password, Properties.propOrNone(propName("schema")))
 
     def generateCode(meta: TypedStatement) =
-      codeGen(meta, sql, c, keys, inputsInferred)(config, sqlExpr)
+      codeGen(meta, sql, c, keys, inputsInferred)(sqlExpr)
 
     def fallback = for {
       db   <- dbConfig
@@ -183,9 +178,14 @@ object SqlMacro {
 
   def codeGen[A: c.WeakTypeTag]
     (meta: TypedStatement, sql: String, c: Context, keys: Boolean, inputsInferred: Boolean)
-    (config: c.Expr[Configuration], sqlExpr: c.Tree): c.Expr[Any] = {
+    (sqlExpr: c.Tree): c.Expr[Any] = {
 
     import c.universe._
+
+    val enableTagging = c.inferImplicitValue(typeOf[EnableTagging.type], silent = true) match {
+      case EmptyTree => false
+      case _ => true
+    }
 
     def rs(x: TypedValue, pos: Int) = 
       if (x.nullable) {
@@ -200,7 +200,7 @@ object SqlMacro {
       def baseValue = Typed(Apply(Select(Ident(newTermName("rs")), newTermName(rsGetterName(x))), 
                                   List(Literal(Constant(pos)))), scalaBaseType(x))
       
-      x.tag map(t => tagType(t)) map (tagged =>
+      (if (enableTagging) x.tag else None) map(t => tagType(t)) map (tagged =>
         Apply(
           Select(
             TypeApply(

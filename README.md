@@ -35,7 +35,6 @@ Start console: ```sbt```, then ```project sqltyped``` and ```test:console```.
 import java.sql._
 import sqltyped._
 Class.forName("com.mysql.jdbc.Driver")
-implicit val c = Configuration()
 implicit def conn = DriverManager.getConnection("jdbc:mysql://localhost:3306/sqltyped", 
                                                 "root", "")
 ```

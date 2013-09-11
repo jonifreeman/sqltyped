@@ -7,7 +7,7 @@ import shapeless._, tag.@@, ops.record._, syntax.singleton._
 trait Example extends FunSuite with BeforeAndAfterEach with matchers.ShouldMatchers {
   object Tables { trait person; trait job_history }
 
-  def beforeEachWithConfig[A](implicit config: Configuration, conn: Connection) {
+  def beforeEachWithConfig[A](implicit conn: Connection) {
     val newPerson  = sql("insert into person(id, name, age, salary) values (?, ?, ?, ?)")
     val jobHistory = sql("insert into job_history values (?, ?, ?, ?)")
 
@@ -44,7 +44,6 @@ trait Example extends FunSuite with BeforeAndAfterEach with matchers.ShouldMatch
 trait PostgreSQLConfig extends Example {
   Class.forName("org.postgresql.Driver")
 
-  implicit val config = Configuration()
   implicit object postgresql extends ConfigurationName
   implicit val conn = DriverManager.getConnection("jdbc:postgresql://localhost/sqltyped", "sqltypedtest", "secret")
 
@@ -54,7 +53,7 @@ trait PostgreSQLConfig extends Example {
 trait MySQLConfig extends Example {
   Class.forName("com.mysql.jdbc.Driver")
 
-  implicit val config = Configuration()
+  implicit val enableTagging = EnableTagging
   implicit val conn = DriverManager.getConnection("jdbc:mysql://localhost:3306/sqltyped", "root", "")
 
   override def beforeEach() = beforeEachWithConfig
