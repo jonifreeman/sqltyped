@@ -424,7 +424,7 @@ class ExampleSuite extends MySQLConfig {
       Some(100)
 
     sql("update person set age = age + 1").apply
-    sql("select age - 1, age, age * 2, (age % 10) - 1 as age, -10 as const from person order by age").apply.tuples ===
+    sql("select age - 1, age, age * 2, (age % 10) - 1, -10 from person order by age").apply.tuples ===
       List((14, 15, 30, 4, -10), (36, 37, 74, 6, -10))
   }
 

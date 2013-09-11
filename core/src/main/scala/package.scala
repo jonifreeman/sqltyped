@@ -1,7 +1,8 @@
 import shapeless._
 
 package object sqltyped {
-  import language.experimental.macros
+  import scala.language.experimental.macros
+  import scala.language.implicitConversions
 
   def sql(s: String) = macro SqlMacro.sqlImpl
 
