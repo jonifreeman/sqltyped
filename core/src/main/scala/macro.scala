@@ -224,7 +224,7 @@ object SqlMacro {
       } else Ident(c.mirror.staticClass(x.tpe._1.typeSymbol.fullName))
 
     def scalaType(x: TypedValue) = {
-      x.tag map (t => tagType(t)) map (tagged =>
+      (if (enableTagging) x.tag else None) map (t => tagType(t)) map (tagged =>
         AppliedTypeTree(
           Select(Select(Ident(newTermName("shapeless")), newTermName("tag")), newTypeName("$at$at")), 
           List(scalaBaseType(x), tagged))
