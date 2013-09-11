@@ -5,8 +5,6 @@ import org.scalatest._
 import shapeless.test._
 
 class FailureSuite extends Example {
-  import Tables._
-
   test("ORDER BY references unknown column") {
     illTyped("""
       sql("select name, age from person order by unknown_column")

@@ -2,21 +2,20 @@ package demo
 
 import sqltyped._
 import shapeless._
-import Columns._
 
 object Db {
   val personNames    = sql("SELECT name FROM person")
-  val personIdByName = sql("SELECT id from person WHERE name=?")
+  val personIdByName = sql("SELECT id FROM person WHERE name=?")
 
   val personById = 
-    sql("""SELECT p.id, p.name, p.interview, i.rating, p2.name as held_by
-           FROM person p left join interview i on (p.interview=i.id)
-                         left join person p2 on (i.held_by=p2.id)
+    sql("""SELECT p.id, p.name, p.interview, i.rating, p2.name AS held_by
+           FROM person p LEFT JOIN interview i ON p.interview=i.id
+                         LEFT JOIN person p2 ON i.held_by=p2.id
            WHERE p.id = ? LIMIT 1""")
 
   val comments = 
-    sql("""SELECT c.text, c.created, p.name as author
-           FROM comment c join person p on (c.author=p.id)
+    sql("""SELECT c.text, c.created, p.name AS author
+           FROM comment c JOIN person p ON c.author=p.id
            WHERE c.interview = ?""")
 
   val newComment =
@@ -25,8 +24,8 @@ object Db {
            WHERE p.id = ? LIMIT 1""")
 
   def personWithInterviews(id: Long) = personById(id) map { p =>
-    p.modify(interview) { (iw: Option[Long]) => iw map (i =>
-      (rating, p.get(rating)) :: (held_by, p.get(held_by)) :: ("comments", comments(i)) :: HNil
-    )} removeKey(rating) removeKey(held_by)
+    p.updateWith("interview") { _ map (i =>
+      "rating" ->> p.get("rating") :: "held_by" ->> p.get("held_by") :: "comments" ->> comments(i) :: HNil
+    )} - "rating" - "held_by"
   }
 }

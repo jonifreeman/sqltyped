@@ -175,7 +175,7 @@ How to try it?
 
 ### Install ###
 
-Requires Scala 2.10.
+Requires at least Scala 2.10.2 and SBT 0.13.
 
 sqlτyped is published to Sonatype repositories.
 

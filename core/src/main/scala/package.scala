@@ -21,15 +21,8 @@ package object sqltyped {
 
   implicit def optionOps[L <: HList](l: Option[L]): OptionOps[L] = new OptionOps(l)  
 
-  def keyAsString(k: Any) = {
-    def isNumeric(s: String) = s.toCharArray.forall(Character.isDigit)
-
-    if (k.getClass == classOf[String]) k.toString
-    else {
-      val parts = k.getClass.getName.split("\\$")
-      parts.reverse.dropWhile(isNumeric).head
-    }
-  }
+  // To reduce importing when using records...
+  implicit def mkSingletonOps[T](t: T) = macro SingletonTypeMacros.mkSingletonOps[T]
 
   // Internally ? is used to denote computations that may fail.
   private[sqltyped] def fail[A](s: String, column: Int = 0, line: Int = 0): ?[A] = 

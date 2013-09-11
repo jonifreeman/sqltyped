@@ -2,11 +2,9 @@ package sqltyped
 
 import java.sql._
 import org.scalatest._
-import shapeless._, tag.@@, ops.record._, syntax.singleton._
+import shapeless._, tag.@@
 
 trait Example extends FunSuite with BeforeAndAfterEach with matchers.ShouldMatchers {
-  object Tables { trait person; trait job_history }
-
   def beforeEachWithConfig[A](implicit conn: Connection) {
     val newPerson  = sql("insert into person(id, name, age, salary) values (?, ?, ?, ?)")
     val jobHistory = sql("insert into job_history values (?, ?, ?, ?)")
@@ -60,8 +58,6 @@ trait MySQLConfig extends Example {
 }
 
 class ExampleSuite extends MySQLConfig {
-  import Tables._
-
   test("Simple query") {
     val q1 = sql("select name, age from person")
     q1().map(_.get("age")).sum === 50
