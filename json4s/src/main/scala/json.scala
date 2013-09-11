@@ -1,46 +1,69 @@
 package sqltyped.json4s
 
-import shapeless._
-import sqltyped._
 import org.json4s._
-import org.json4s.native.JsonMethods._
+import native.JsonMethods
+import JsonMethods._
 
-object JSON {
-  def compact[A](a: A)(implicit st: toJSON.Pullback1[A, JValue]): String = 
-    org.json4s.native.JsonMethods.compact(render(toJSON(a)))
+import shapeless._
+import poly._
+import ops.hlist._
+import syntax.singleton._
+import record._
+import shapeless.tag.@@
 
-  def pretty[A](a: A)(implicit st: toJSON.Pullback1[A, JValue]): String = 
-    org.json4s.native.JsonMethods.pretty(render(toJSON(a)))
+/**
+ * Note, copy-pasted from https://github.com/rrmckinley/jsonless
+ *
+ * Remove this once 'jsonless' is published to Sonatype repos.
+ */
+
+object Record {
+  def keyAsString[F, V](f: FieldType[F, V])(implicit wk: shapeless.Witness.Aux[F]) =
+    wk.value.toString
 }
 
-object toJSON extends Pullback1[JValue] {
-  implicit def nullToJSON = at[Null](_ => JNull)
-  implicit def doubleToJSON = at[Double](JDouble(_))
-  implicit def bigIntToJSON = at[BigInt](JInt(_))
-  implicit def bigDecimalToJSON = at[BigDecimal](JDecimal(_))
-  implicit def numToJSON[V <% Long] = at[V](i => JInt(BigInt(i)))
-  implicit def stringToJSON = at[String](s => if (s == null) JNull else JString(s))
-  implicit def boolToJSON = at[Boolean](JBool(_))
-  implicit def jsonToJSON[V <: JValue] = at[V](identity)
+object JSON {
+  def compact[A](a: A)(implicit ctoj: toJSON.Case[A] { type Result <: JValue }): String = 
+    JsonMethods.compact(render(ctoj(a)))
 
-  implicit def dateToJSON[V <: java.util.Date](implicit f: Formats) = 
+  def pretty[A](a: A)(implicit ptoj: toJSON.Case[A] { type Result <: JValue }): String = 
+    JsonMethods.pretty(render(ptoj(a)))
+}
+
+object toJSON extends Poly1 {
+  implicit def atNull = at[Null](_ => JNull)
+  implicit def atDouble = at[Double](JDouble(_))
+  implicit def atBigInt = at[BigInt](JInt(_))
+  implicit def atBigDecimal = at[BigDecimal](JDecimal(_))
+  implicit def atNumber[V <% Long] = at[V](i => JInt(BigInt(i)))
+  implicit def atString = at[String](s => if (s == null) JNull else JString(s))
+  implicit def atBoolean = at[Boolean](JBool(_))
+  implicit def atJSON[V <: JValue] = at[V](identity)
+
+  implicit def atTagged[V, T](implicit ttoj: toJSON.Case[V] { type Result <: JValue }) =
+    at[V @@ T](v => ttoj(v: V))
+
+  implicit def atOption[V](implicit otoj: toJSON.Case[V] { type Result <: JValue }) =
+    at[Option[V]] {
+      case Some(v) => otoj(v : V) : JValue
+      case None    => JNull
+    }
+  
+  implicit def atDate[V <: java.util.Date](implicit f: Formats) =
     at[V](s => if (s == null) JNull else JString(f.dateFormat.format(s)))
 
-  implicit def traversableToJSON[V, C[V] <: Traversable[V]](implicit st: Pullback1[V, JValue]) = 
-    at[C[V]](l => JArray(l.toList.map(v => toJSON(v))))
+  implicit def atTraversable[V, C[V] <: Traversable[V]](implicit ttoj: toJSON.Case[V] { type Result <: JValue }) =
+    at[C[V]](l => JArray(l.toList.map(v => ttoj(v : V) : JValue)))
 
-  implicit def recordToJSON[R <: HList](implicit foldMap: MapFolder[R, List[JField], fieldToJSON.type]) = {
+  implicit def atMap[K, V](implicit mtoj: toJSON.Case[V] { type Result <: JValue }) =
+    at[Map[K, V]](m => JObject(m.toList.map(e => JField(e._1.toString, mtoj(e._2 : V) : JValue))))
+
+  implicit def atRecord[R <: HList, F, V](implicit folder: MapFolder[R, List[JField], fieldToJSON.type]) =
     at[R](r => JObject(r.foldMap(Nil: List[JField])(fieldToJSON)(_ ::: _)))
-  }
 }
 
 object fieldToJSON extends Poly1 {
-  implicit def value[K, V: toJSON.Case1] = at[(K, V)] {
-    case (k, v) => (keyAsString(k), toJSON(v)) :: Nil
+  implicit def atFieldType[F, V](implicit ftoj: toJSON.Case[V] { type Result <: JValue }, wk: shapeless.Witness.Aux[F]) = at[FieldType[F, V]] {
+    f => (Record.keyAsString(f), ftoj(f : V) : JValue) :: Nil
   }
-
-  implicit def option[K, V: toJSON.Case1] = at[(K, Option[V])] { 
-    case (k, Some(v)) => (keyAsString(k), toJSON(v)) :: Nil
-    case (k, None) => Nil
-  } 
 }
