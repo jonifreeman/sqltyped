@@ -150,7 +150,9 @@ object SqlMacro {
       meta <- Jdbc.infer(db, sql)
     } yield meta
 
-    (if (jdbcOnly) fallback else {
+    val timer = Timer(Properties.propIsSet("sqltyped.enable-timer"))
+
+    timer("SQL: " + sql.replace("\n", " ").trim, 0, (if (jdbcOnly) fallback else {
     for {
       db        <- dbConfig
       _         = Class.forName(db.driver)
@@ -159,21 +161,21 @@ object SqlMacro {
       schema    <- cachedSchema(db)
       validator = if (validate) dialect.validator else NOPValidator
       _         <- validator.validate(db, sql)
-      stmt      <- parse(parser, sql)
-      resolved  <- Ast.resolveTables(stmt)
+      stmt      <- timer("parsing", 2, parse(parser, sql))
+      resolved  <- timer("resolving tables", 2, Ast.resolveTables(stmt))
       typer     = dialect.typer(schema, resolved)
-      typed     <- typer.infer(useInputTags)
-      meta      <- if (analyze) new Analyzer(typer).refine(resolved, typed) else typed.ok
+      typed     <- timer("typing", 2, typer.infer(useInputTags))
+      meta      <- timer("analyzing", 2, if (analyze) new Analyzer(typer).refine(resolved, typed) else typed.ok)
     } yield meta }) fold (
       fail => fallback fold ( 
         _ => c.abort(toPosition(fail), fail.message), 
         meta => { 
           c.warning(toPosition(fail), fail.message + "\nFallback to JDBC metadata. Please file a bug at https://github.com/jonifreeman/sqltyped/issues")
-          generateCode(meta) 
+          timer("codegen", 2, generateCode(meta))
         }
       ),
-      meta => generateCode(meta)
-    )
+      meta => timer("codegen", 2, generateCode(meta))
+    ))
   }
 
   def codeGen[A: c.WeakTypeTag]
