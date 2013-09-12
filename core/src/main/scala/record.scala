@@ -18,6 +18,20 @@ object Record {
       r.foldMap(Nil: List[(String, Any)])(fieldToUntyped)(_ ::: _)
 }
 
+private[sqltyped] object showField extends Poly1 {
+  implicit def f[F, V](implicit wk: shapeless.Witness.Aux[F]) = at[FieldType[F, V]] {
+    f => wk.value.toString + " = " + f.toString
+  }
+}
+
+final class RecordOps[R <: HList](r: R) {
+
+  def show(implicit folder: ops.hlist.MapFolder[R, String, showField.type]): String = {
+    val concat = (s1: String, s2: String) => if (s2 != "") s1 + ", " + s2 else s1
+    "{ " + r.foldMap("")(showField)(concat) + " }"
+  }
+}
+
 final class ListOps[L <: HList](l: List[L]) {
   def values(implicit values: Values[L]): List[values.Out] = l map (r => values(r))
 
