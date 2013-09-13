@@ -160,7 +160,7 @@ object SqlMacro {
       parser    = dialect.parser
       schema    <- cachedSchema(db)
       validator = if (validate) dialect.validator else NOPValidator
-      _         <- validator.validate(db, sql)
+      _         <- timer("validating", 2, validator.validate(db, sql))
       stmt      <- timer("parsing", 2, parse(parser, sql))
       resolved  <- timer("resolving tables", 2, Ast.resolveTables(stmt))
       typer     = dialect.typer(schema, resolved)
