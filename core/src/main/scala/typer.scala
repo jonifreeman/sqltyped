@@ -69,10 +69,11 @@ class Variables(typer: Typer) extends Ast.Resolved {
       case n@Named(_, _, Input())        => Variable(n) :: Nil
       case Named(_, _, Subselect(s))     => input(s)
       case Named(_, _, e: Expr)          => input(e, None)
+      case Named(_, _, c@Case(_, _))     => inputTerm(c, None)
     }.flatten :::
     s.tableReferences.flatMap(input) :::
     s.where.map(w => input(w.expr, None)).getOrElse(Nil) ::: 
-    s.groupBy.flatMap(g => g.having.map(h => input(h.expr, None))).getOrElse(Nil) :::
+    s.groupBy.toList.flatMap(g => (g.terms flatMap (t => inputTerm(t, None))) ::: g.having.toList.flatMap(h => input(h.expr, None))) :::
     s.orderBy.map(input).getOrElse(Nil) :::
     limitInput(s.limit)
 
@@ -118,6 +119,9 @@ class Variables(typer: Typer) extends Ast.Resolved {
     case ArithExpr(Input(), _, t) => nameVar(t, comparisonTerm) :: inputTerm(t, comparisonTerm)
     case ArithExpr(t, _, Input()) => inputTerm(t, comparisonTerm) ::: List(nameVar(t, comparisonTerm))
     case ArithExpr(lhs, _, rhs)   => inputTerm(lhs, comparisonTerm) ::: inputTerm(rhs, comparisonTerm)
+    case Case(conds, elze)        => (conds flatMap { case (expr, result) => 
+                                       input(expr, comparisonTerm) ::: inputTerm(result, comparisonTerm)
+                                     }) ::: (elze map (t => inputTerm(t, comparisonTerm)) getOrElse Nil) 
     case _ => Nil
   }
 
@@ -255,6 +259,8 @@ class Typer(schema: Schema, stmt: Ast.Statement[Table]) extends Ast.Resolved {
         sequence(s.projection map (t => Variable(t)) map typeTerm(useTags)) map (_.flatten) map (_ map makeNullable)
       case TermList(t) => 
         sequence(t.map(t => typeTerm(useTags)(Variable(Named("elem", None, t), v.comparisonTerm)))).map(_.flatten)
+      case Case(conds, elze) =>
+        typeTerm(useTags)(Variable(Named("case", None, conds.head._2), v.comparisonTerm))
     }
   }
 

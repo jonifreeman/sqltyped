@@ -16,6 +16,7 @@ private[sqltyped] object Ast {
     type Column         = Ast.Column[Option[String]]
     type Function       = Ast.Function[Option[String]]
     type Constant       = Ast.Constant[Option[String]]
+    type Case           = Ast.Case[Option[String]]
     type Select         = Ast.Select[Option[String]]
     type Join           = Ast.Join[Option[String]]
     type JoinType       = Ast.JoinType[Option[String]]
@@ -39,6 +40,7 @@ private[sqltyped] object Ast {
     type Column         = Ast.Column[Table]
     type Function       = Ast.Function[Table]
     type Constant       = Ast.Constant[Table]
+    type Case           = Ast.Case[Table]
     type Select         = Ast.Select[Table]
     type Join           = Ast.Join[Table]
     type JoinType       = Ast.JoinType[Table]
@@ -65,6 +67,7 @@ private[sqltyped] object Ast {
   case class Input[T]() extends Term[T]
   case class Subselect[T](select: Select[T]) extends Term[T]
   case class TermList[T](terms: List[Term[T]]) extends Term[T]
+  case class Case[T](conditions: List[(Expr[T], Term[T])], elze: Option[Term[T]]) extends Term[T]
 
   case class Table(name: String, alias: Option[String])
 
@@ -161,6 +164,7 @@ private[sqltyped] object Ast {
       case Constant(tpe, value) => Constant[Table](tpe, value).ok
       case TermList(terms) => sequence(terms map resolve) map (ts => TermList[Table](ts))
       case Input() => Input[Table]().ok
+      case c@Case(_, _) => resolveCase(c)
     }
 
     def resolveColumn(col: Column[Option[String]]) = 
@@ -180,6 +184,12 @@ private[sqltyped] object Ast {
         AllColumns(env.head).ok
     }
 
+    def resolveCase(c: Case[Option[String]]) = for {
+      exprs   <- sequence(c.conditions map { case (x, _) => resolveExpr(x) })
+      results <- sequence(c.conditions map { case (_, x) => resolve(x) })
+      elze    <- sequenceO(c.elze map resolve)
+    } yield Case(exprs zip results, elze)
+      
     def resolveNamed(n: Named[Option[String]]) = resolve(n.term) map (t => n.copy(term = t))
     def resolveFunc(f: Function[Option[String]]) = sequence(f.params map resolveExpr) map (ps => f.copy(params = ps))
     def resolveProj(proj: List[Named[Option[String]]]) = sequence(proj map resolveNamed)

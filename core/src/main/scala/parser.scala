@@ -138,6 +138,7 @@ trait SqlParser extends RegexParsers with Ast.Unresolved with PackratParsers {
 
   lazy val simpleTerm: PackratParser[Term] = (
       subselect
+    | caseExpr
     | function
     | boolean
     | nullLit    ^^^ constNull
@@ -161,6 +162,7 @@ trait SqlParser extends RegexParsers with Ast.Unresolved with PackratParsers {
     case (c@Comparison2(_, _, _)) ~ a    => Named("<constant>", a, c)
     case (c@Comparison3(_, _, _, _)) ~ a => Named("<constant>", a, c)
     case (s@Subselect(_)) ~ a            => Named("subselect", a, s)
+    case (c@Case(_, _)) ~ a              => Named("case", a, c)
   }
 
   def extraTerms: PackratParser[Term] = failure("expected a term")
@@ -177,6 +179,16 @@ trait SqlParser extends RegexParsers with Ast.Unresolved with PackratParsers {
 
   lazy val allColumns = 
     opt(ident <~ ".") <~ "*" ^^ (t => AllColumns(t))
+
+  lazy val caseExpr = "case".i ~ rep(caseCond) ~ opt(caseElse) ~ "end".i ^^ {
+    case _ ~ conds ~ elze ~ _ => Case(conds, elze)
+  }
+
+  lazy val caseCond = "when".i ~ expr ~ "then".i ~ term ^^ {
+    case _ ~ e ~ _ ~ result => (e, result)
+  }
+
+  lazy val caseElse = "else".i ~> term
 
   lazy val functionArg: PackratParser[Expr] = opt("distinct".i) ~> (expr | dataType | term ^^ SimpleExpr.apply)
   lazy val infixFunctionArg = term ^^ SimpleExpr.apply

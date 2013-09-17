@@ -488,6 +488,44 @@ class ExampleSuite extends MySQLConfig {
         """).apply(20).tuples === List(("joe", Some("Enron")), ("moe", None))
   }
 
+  test("Case expr") {
+    sql("""
+        SELECT name, CASE
+          WHEN salary > 7000 THEN 'rich'
+          WHEN salary > 2000 THEN 'proletarian'
+          ELSE 'unemployed'
+        END AS x
+        FROM person p
+        """).apply.tuples === List(("joe", "rich"), ("moe", "rich"))
+
+    sql("""
+        SELECT name, CASE
+          WHEN salary > ? THEN 'rich'
+          WHEN salary > ? THEN 'proletarian'
+          ELSE 'unemployed'
+        END AS x
+        FROM person p
+        """).apply(7000, 2000).tuples === List(("joe", "rich"), ("moe", "rich"))
+
+    sql("""
+        SELECT count(1)
+        FROM job_history
+        GROUP BY CASE
+          WHEN ? = 'person' THEN person
+          ELSE name
+        END
+        """).apply("person") === List(2, 1)
+
+    sql("""
+        SELECT distinct name
+        FROM job_history
+        ORDER BY CASE
+          WHEN ? = 'name' THEN name
+          ELSE person
+        END
+        """).apply("name") === List("Enron", "IBM")
+  }
+
   test("Fallback by using an obscure unsupported MySQL syntax (order by NULL)") {
     sql("select name, age from person where age > ? order by NULL").apply(5).tuples ===
       List(("joe", 36), ("moe", 14))

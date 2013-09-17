@@ -1,5 +1,7 @@
 ========   0.4   ========
 
+- WITH ROLLUP (makes GROUPED BY columns nullable)
+
 ========   0.5   ========
 
 - Schemaprefixes
