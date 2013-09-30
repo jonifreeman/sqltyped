@@ -333,7 +333,7 @@ class Typer(schema: Schema, stmt: Ast.Statement[Table]) extends Ast.Resolved {
   def inferColumnType(col: Column) = (for {
     t <- tableSchema(col.table)
     c <- Option(t.getColumn(col.name)) orFail ("No such column " + col)
-  } yield (mkType(c.getType), c.isNullable || isNullableByJoin(col))) fold (
+  } yield (mkType(c.getType), c.isNullable || isNullableByJoin(col) || isNullableByGroupBy(col))) fold (
     _ => inferFromDerivedTable(col), x => x.ok
   )
 
@@ -345,6 +345,11 @@ class Typer(schema: Schema, stmt: Ast.Statement[Table]) extends Ast.Resolved {
   def isNullableByJoin(col: Column) = isProjectedByJoin(stmt, col) map (_.joinDesc) exists {
     case LeftOuter | RightOuter | FullOuter => true
     case Inner | Cross => false
+  }
+
+  def isNullableByGroupBy(col: Column) = stmt match {
+    case Select(_, _, _, Some(GroupBy(terms, true, _)), _, _) => terms.contains(col)
+    case _ => false
   }
 
   private def tableSchema(tbl: Table) =

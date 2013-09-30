@@ -1,6 +1,6 @@
 ========   0.4   ========
 
-- WITH ROLLUP (makes GROUPED BY columns nullable)
+- Analysis: aggregate function over non-nullable column can't be null if GROUP BY?
 
 ========   0.5   ========
 

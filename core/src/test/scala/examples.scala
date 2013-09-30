@@ -526,6 +526,23 @@ class ExampleSuite extends MySQLConfig {
         """).apply("name") === List("Enron", "IBM")
   }
 
+  test("with rollup") {
+    sql("""
+        SELECT j.name, age, sum(salary)
+        FROM person p
+        JOIN job_history j
+        ON p.id = j.person
+        GROUP BY j.name, age
+        WITH ROLLUP
+        """).apply.tuples === 
+      (Option("Enron"),      Option(36),        Option(9500)) ::
+      (Option("Enron"),      None: Option[Int], Option(9500)) ::
+      (Option("IBM"),        Option(14),        Option(8000)) ::
+      (Option("IBM"),        Option(36),        Option(9500)) ::
+      (Option("IBM"),        None: Option[Int], Option(17500)) ::
+      (None: Option[String], None: Option[Int], Option(27000)) :: Nil
+  }
+
   test("Fallback by using an obscure unsupported MySQL syntax (order by NULL)") {
     sql("select name, age from person where age > ? order by NULL").apply(5).tuples ===
       List(("joe", 36), ("moe", 14))

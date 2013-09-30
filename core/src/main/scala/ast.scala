@@ -385,7 +385,7 @@ private[sqltyped] object Ast {
   case class QualifiedJoin[T](expr: Expr[T]) extends JoinType[T]
   case class NamedColumnsJoin[T](columns: List[String]) extends JoinType[T]
 
-  case class GroupBy[T](terms: List[Term[T]], having: Option[Having[T]])
+  case class GroupBy[T](terms: List[Term[T]], withRollup: Boolean, having: Option[Having[T]])
 
   case class Having[T](expr: Expr[T])
 

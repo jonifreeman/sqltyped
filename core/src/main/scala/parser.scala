@@ -245,9 +245,11 @@ trait SqlParser extends RegexParsers with Ast.Unresolved with PackratParsers {
     | integer  ^^  PositionSort.apply
   )
 
-  lazy val groupBy = "group".i ~> "by".i ~> rep1sep(term <~ opt(collate), ",") ~ opt(having) ^^ {
-    case cols ~ having => GroupBy(cols, having)
+  lazy val groupBy = "group".i ~> "by".i ~> rep1sep(term <~ opt(collate), ",") ~ opt(withRollup) ~ opt(having) ^^ {
+    case cols ~ withRollup ~ having => GroupBy(cols, withRollup map (_ => true) getOrElse false, having)
   }
+
+  lazy val withRollup = "with rollup".i
 
   lazy val having = "having".i ~> expr ^^ Having.apply
 
