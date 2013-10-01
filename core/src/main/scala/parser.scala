@@ -234,16 +234,9 @@ trait SqlParser extends RegexParsers with Ast.Unresolved with PackratParsers {
     orderSpecs => OrderBy(orderSpecs.unzip._1, orderSpecs.unzip._2)
   }
 
-  lazy val orderSpec = optParens(sortKey) ~ opt(collate) ~ opt("asc".i ^^^ Asc | "desc".i ^^^ Desc) ^^ { 
+  lazy val orderSpec = optParens(term) ~ opt(collate) ~ opt("asc".i ^^^ Asc | "desc".i ^^^ Desc) ^^ { 
     case s ~ _ ~ o => (s, o) 
   }
-
-  lazy val sortKey: Parser[SortKey[Option[String]]] = (
-      function ^^  FunctionSort.apply
-    | column   ^^  ColumnSort.apply
-    | "?"      ^^^ VariablePositionSort[Option[String]]()
-    | integer  ^^  PositionSort.apply
-  )
 
   lazy val groupBy = "group".i ~> "by".i ~> rep1sep(term <~ opt(collate), ",") ~ opt(withRollup) ~ opt(having) ^^ {
     case cols ~ withRollup ~ having => GroupBy(cols, withRollup map (_ => true) getOrElse false, having)

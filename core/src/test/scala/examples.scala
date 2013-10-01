@@ -543,12 +543,8 @@ class ExampleSuite extends MySQLConfig {
       (None: Option[String], None: Option[Int], Option(27000)) :: Nil
   }
 
-  test("Fallback by using an obscure unsupported MySQL syntax (order by NULL)") {
-    sql("select name, age from person where age > ? order by NULL").apply(5).tuples ===
-      List(("joe", 36), ("moe", 14))
-
-    sql("select name, age from person where age > ? order by NULL LIMIT 1").apply(5).tuples ===
-      List(("joe", 36))
+  test("Fallback by using unsupported MySQL syntax") {
+    sql("select 1").apply === List(1)
   }
 
   test("JDBC based inference sqlj") {

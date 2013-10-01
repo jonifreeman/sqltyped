@@ -85,10 +85,7 @@ class Variables(typer: Typer) extends Ast.Resolved {
   def input(j: Join): List[Variable] =
     input(j.table) ::: (j.joinType map input getOrElse Nil)
 
-  def input(o: OrderBy): List[Variable] = (o.sort collect {
-    case FunctionSort(f) => input(f, None)
-    case VariablePositionSort() => Variable(Named("orderby", None, Input[Table]())) :: Nil
-  }).flatten
+  def input(o: OrderBy): List[Variable] = o.sort flatMap (s => inputTerm(s, None))
 
   def input(j: JoinType): List[Variable] = j match {
     case QualifiedJoin(e) => input(e, None)
@@ -110,12 +107,14 @@ class Variables(typer: Typer) extends Ast.Resolved {
     case c@Column(n, _)   => Variable(Named(n, None, c), comparisonTerm)
     case c@AllColumns(_)  => Variable(Named("*", None, c), comparisonTerm)
     case Subselect(s)     => Variable(s.projection.head, comparisonTerm)
+    case i@Input()        => Variable(Named("_?", None, i), comparisonTerm)
     case _ => sys.error("Invalid term " + t)
   }
 
   def inputTerm(t: Term, comparisonTerm: Option[Term]): List[Variable] = t match {
     case f@Function(_, _)         => input(f, comparisonTerm)
     case Subselect(s)             => input(s)
+    case Input()                  => nameVar(t, comparisonTerm) :: Nil
     case ArithExpr(Input(), _, t) => nameVar(t, comparisonTerm) :: inputTerm(t, comparisonTerm)
     case ArithExpr(t, _, Input()) => inputTerm(t, comparisonTerm) ::: List(nameVar(t, comparisonTerm))
     case ArithExpr(lhs, _, rhs)   => inputTerm(lhs, comparisonTerm) ::: inputTerm(rhs, comparisonTerm)
