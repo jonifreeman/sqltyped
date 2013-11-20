@@ -8,6 +8,8 @@ trait ConfigurationName
 
 object EnableTagging
 
+case class NamingStrategy(f: String => String)
+
 object SqlMacro {
   import shapeless._
   import scala.reflect.macros._
@@ -189,6 +191,11 @@ object SqlMacro {
       case _ => true
     }
 
+    val namingStrategy: String => String = c.inferImplicitValue(typeOf[NamingStrategy], silent = true) match {
+      case EmptyTree => identity _
+      case tree => c.eval(c.Expr[NamingStrategy](c.resetAllAttrs(tree.duplicate))).f
+    }
+
     def rs(x: TypedValue, pos: Int) = 
       if (x.nullable) {
         Block(
@@ -287,9 +294,11 @@ object SqlMacro {
     def returnTypeSigRecord = List(meta.output.foldRight(Ident(c.mirror.staticClass("shapeless.HNil")): Tree) { (x, sig) => 
       AppliedTypeTree(
         Ident(c.mirror.staticClass("shapeless.$colon$colon")), 
-        List(AppliedTypeTree(Select(Ident(c.mirror.staticModule("shapeless.record")), newTypeName("FieldType")), List(Select(Ident(newTermName(x.name)), newTypeName("T")), possiblyOptional(x, scalaType(x)))), sig)
+        List(AppliedTypeTree(Select(Ident(c.mirror.staticModule("shapeless.record")), newTypeName("FieldType")), List(Select(Ident(newTermName(keyName(x))), newTypeName("T")), possiblyOptional(x, scalaType(x)))), sig)
       )
     })
+
+    def keyName(x: TypedValue) = namingStrategy(x.name)
 
     def returnTypeSigScalar = List(possiblyOptional(meta.output.head, scalaType(meta.output.head)))
 
@@ -300,7 +309,7 @@ object SqlMacro {
                TypeTree(), 
                Apply(Select(Apply(
                  Select(Ident(c.mirror.staticModule("shapeless.syntax.singleton")), newTermName("mkSingletonOps")),
-                 List(Literal(Constant(x.name)))), newTermName("->>").encoded), List(rs(x, meta.output.length - i))))
+                 List(Literal(Constant(keyName(x))))), newTermName("->>").encoded), List(rs(x, meta.output.length - i))))
 
       val init: Tree = 
         Block(List(
@@ -468,7 +477,7 @@ object SqlMacro {
     val inputLen = if (inputsInferred) meta.input.length else 1
 
     def witnesses = (
-      (meta.output map     (_.name)) :::
+      (meta.output map     (keyName)) :::
       (meta.input  flatMap (_.tag))  :::
       (meta.output flatMap (_.tag))  :::
       (if (keys) { meta.generatedKeyTypes flatMap (_.tag) } else Nil)
