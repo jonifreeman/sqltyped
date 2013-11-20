@@ -1,6 +1,7 @@
 package sqltyped
 
 import java.sql._
+import scala.util.Properties
 import schemacrawler.schema.Schema
 import NumOfResults._
 
@@ -104,7 +105,6 @@ object SqlMacro {
       (sqlExpr: c.Tree): c.Expr[Any] = {
 
     import c.universe._
-    import scala.util.Properties
 
     def sysProp(n: String) = Properties.propOrNone(n) orFail 
         "System property '" + n + "' is required to get a compile time connection to the database"
@@ -187,6 +187,14 @@ object SqlMacro {
     val enableTagging = c.inferImplicitValue(typeOf[EnableTagging.type], silent = true) match {
       case EmptyTree => false
       case _ => true
+    }
+
+    val namingStrategy: String => String = Properties.propOrNone("sqltyped.naming_strategy") match {
+      case None => identity _
+      case Some(cl) => 
+        val constructor = this.getClass.getClassLoader.loadClass(cl).getDeclaredConstructors()(0)
+        constructor.setAccessible(true)
+        constructor.newInstance().asInstanceOf[String => String]
     }
 
     def rs(x: TypedValue, pos: Int) = 
@@ -287,9 +295,11 @@ object SqlMacro {
     def returnTypeSigRecord = List(meta.output.foldRight(Ident(c.mirror.staticClass("shapeless.HNil")): Tree) { (x, sig) => 
       AppliedTypeTree(
         Ident(c.mirror.staticClass("shapeless.$colon$colon")), 
-        List(AppliedTypeTree(Select(Ident(c.mirror.staticModule("shapeless.record")), newTypeName("FieldType")), List(Select(Ident(newTermName(x.name)), newTypeName("T")), possiblyOptional(x, scalaType(x)))), sig)
+        List(AppliedTypeTree(Select(Ident(c.mirror.staticModule("shapeless.record")), newTypeName("FieldType")), List(Select(Ident(newTermName(keyName(x))), newTypeName("T")), possiblyOptional(x, scalaType(x)))), sig)
       )
     })
+
+    def keyName(x: TypedValue) = namingStrategy(x.name)
 
     def returnTypeSigScalar = List(possiblyOptional(meta.output.head, scalaType(meta.output.head)))
 
@@ -300,7 +310,7 @@ object SqlMacro {
                TypeTree(), 
                Apply(Select(Apply(
                  Select(Ident(c.mirror.staticModule("shapeless.syntax.singleton")), newTermName("mkSingletonOps")),
-                 List(Literal(Constant(x.name)))), newTermName("->>").encoded), List(rs(x, meta.output.length - i))))
+                 List(Literal(Constant(keyName(x))))), newTermName("->>").encoded), List(rs(x, meta.output.length - i))))
 
       val init: Tree = 
         Block(List(
@@ -468,7 +478,7 @@ object SqlMacro {
     val inputLen = if (inputsInferred) meta.input.length else 1
 
     def witnesses = (
-      (meta.output map     (_.name)) :::
+      (meta.output map     (keyName)) :::
       (meta.input  flatMap (_.tag))  :::
       (meta.output flatMap (_.tag))  :::
       (if (keys) { meta.generatedKeyTypes flatMap (_.tag) } else Nil)

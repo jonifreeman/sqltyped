@@ -20,3 +20,21 @@ As a consequence names of some common functions to manipulate records has been c
     scala> r.renameField("name", "nme")   // was 'renameKey'
     scala> r.updateWith("age")(_ + 1)     // was 'modify'
 
+## Configurable naming strategy for record field names
+
+By default the record fields are named identically to database column names. This can
+be altered by providing a function String => String. This function must be put to
+compiler's classpath and passed to macro with environment property:
+
+    sqltyped.naming_strategy
+
+For example:
+
+    object MyNamingStrategy extends (String => String) {
+      def apply(s: String) = ....
+    }
+
+Then:
+
+    System.setProperty("sqltyped.naming_strategy", "MyNamingStrategy$")
+
