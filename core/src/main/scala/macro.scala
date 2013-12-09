@@ -1,14 +1,13 @@
 package sqltyped
 
 import java.sql._
+import scala.util.Properties
 import schemacrawler.schema.Schema
 import NumOfResults._
 
 trait ConfigurationName
 
 object EnableTagging
-
-case class NamingStrategy(f: String => String)
 
 object SqlMacro {
   import shapeless._
@@ -106,7 +105,6 @@ object SqlMacro {
       (sqlExpr: c.Tree): c.Expr[Any] = {
 
     import c.universe._
-    import scala.util.Properties
 
     def sysProp(n: String) = Properties.propOrNone(n) orFail 
         "System property '" + n + "' is required to get a compile time connection to the database"
@@ -191,9 +189,12 @@ object SqlMacro {
       case _ => true
     }
 
-    val namingStrategy: String => String = c.inferImplicitValue(typeOf[NamingStrategy], silent = true) match {
-      case EmptyTree => identity _
-      case tree => c.eval(c.Expr[NamingStrategy](c.resetAllAttrs(tree.duplicate))).f
+    val namingStrategy: String => String = Properties.propOrNone("sqltyped.naming_strategy") match {
+      case None => identity _
+      case Some(cl) => 
+        val constructor = this.getClass.getClassLoader.loadClass(cl).getDeclaredConstructors()(0)
+        constructor.setAccessible(true)
+        constructor.newInstance().asInstanceOf[String => String]
     }
 
     def rs(x: TypedValue, pos: Int) = 
