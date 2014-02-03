@@ -306,7 +306,7 @@ class Typer(schema: Schema, stmt: Ast.Statement[Table]) extends Ast.Resolved {
       case TermList(terms)               => tpeOf(SimpleExpr(terms.head), comparisonTerm)
       case ArithExpr(Input(), op, rhs)   => tpeOf(SimpleExpr(rhs), comparisonTerm)
       case ArithExpr(lhs, op, rhs)       => tpeOf(SimpleExpr(lhs), comparisonTerm)
-      case x                             => sys.error("Term " + x + " not supported")
+      case x                             => ((typeOf[Any], JdbcTypes.JAVA_OBJECT), false).ok
     }
 
     case _                               => ((typeOf[Boolean], JdbcTypes.BOOLEAN), false).ok
