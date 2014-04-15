@@ -11,7 +11,7 @@ object SqltypedBuild extends Build with Publish {
   lazy val sqltypedSettings = Defaults.defaultSettings ++ publishSettings ++ Seq(
     organization := "fi.reaktor",
     version := versionFormat format majorVersion,
-    scalaVersion := "2.10.2",
+    scalaVersion := "2.10.4",
     scalacOptions ++= Seq("-unchecked", "-deprecation", "-feature"),
     javacOptions ++= Seq("-target", "1.6", "-source", "1.6"),
     crossScalaVersions := Seq("2.10"),
@@ -26,7 +26,7 @@ object SqltypedBuild extends Build with Publish {
     base = file("core"),
     settings = sqltypedSettings ++ Seq(
       libraryDependencies ++= Seq(
-        "com.chuusai" % "shapeless" % "2.0.0-SNAPSHOT" cross CrossVersion.full,
+        "com.chuusai" % "shapeless_2.10.4" % "2.0.0",
         "net.sourceforge.schemacrawler" % "schemacrawler" % "8.17",
         "org.scala-lang" % "scala-reflect" % "2.10.2",
         "org.scalatest" %% "scalatest" % "2.0.M5b" % "test",
