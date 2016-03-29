@@ -26,8 +26,8 @@ private[sqltyped] object Jdbc {
 
   def inferOutput(meta: ResultSetMetaData) = 
     (1 to meta.getColumnCount).toList map { i => 
-      TypedValue(meta.getColumnName(i), (mkType(meta.getColumnClassName(i)), meta.getColumnType(i)), 
-                 meta.isNullable(i) == ResultSetMetaData.columnNullable, None, unknownTerm)
+      TypedValue(meta.getColumnLabel(i), (mkType(meta.getColumnClassName(i)), meta.getColumnType(i)), 
+                 meta.isNullable(i) != ResultSetMetaData.columnNoNulls, None, unknownTerm)
     }
 
   def unknownTerm = Ast.Column("unknown", Ast.Table("unknown", None))
