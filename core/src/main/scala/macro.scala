@@ -204,13 +204,15 @@ object SqlMacro {
           List(ValDef(Modifiers(), newTermName("x"), TypeTree(), getValue(x, pos))), 
           If(Apply(Select(Ident(newTermName("rs")), newTermName("wasNull")), List()), 
              Select(Ident(newTermName("scala")), newTermName("None")), 
-             Apply(Select(Select(Ident(newTermName("scala")), newTermName("Some")), newTermName("apply")), List(Ident(newTermName("x"))))))
-      } else getValue(x, pos)
+             Apply(Select(Select(Ident(newTermName("scala")), newTermName("Some")), newTermName("apply")), List(getTyped(x, Ident(newTermName("x")))))))
+      } else getTyped(x, getValue(x, pos))
 
-    def getValue(x: TypedValue, pos: Int) = {
-      def baseValue = Typed(Apply(Select(Ident(newTermName("rs")), newTermName(rsGetterName(x))), 
-                                  List(Literal(Constant(pos)))), scalaBaseType(x))
-      
+    def getValue(x: TypedValue, pos: Int) =
+      Apply(Select(Ident(newTermName("rs")), newTermName(rsGetterName(x))), List(Literal(Constant(pos))))
+
+    def getTyped(x: TypedValue, r: Tree) = {
+      def baseValue = Typed(r, scalaBaseType(x))
+
       (if (enableTagging) x.tag else None) map(t => tagType(t)) map (tagged =>
         Apply(
           Select(
@@ -381,7 +383,7 @@ object SqlMacro {
                        If(Apply(Select(Ident(newTermName("rs")), newTermName("next")), List()), 
                           Block(
                             List(
-                              Apply(Select(Ident(newTermName("keys")), newTermName("append")), List(getValue(keyType, 1)))), 
+                              Apply(Select(Ident(newTermName("keys")), newTermName("append")), List(getTyped(keyType, getValue(keyType, 1))))), 
                             Apply(Ident(newTermName("while$1")), List())), Literal(Constant(())))), 
               Apply(Select(Ident(newTermName("rs")), newTermName("close")), List())), 
             Select(Ident(newTermName("keys")), newTermName("toList")))))
