@@ -5,6 +5,7 @@ import native.JsonMethods
 import JsonMethods._
 
 import shapeless._
+import labelled._
 import poly._
 import ops.hlist._
 import syntax.singleton._

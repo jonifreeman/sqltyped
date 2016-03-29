@@ -1,6 +1,6 @@
 package sqltyped
 
-import shapeless._, ops.hlist._, ops.record._, record.FieldType
+import shapeless._, ops.hlist._, ops.record._, labelled.FieldType
 
 object Record {
   private object fieldToUntyped extends Poly1 {

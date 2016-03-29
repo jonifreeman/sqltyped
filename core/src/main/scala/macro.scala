@@ -295,7 +295,7 @@ object SqlMacro {
     def returnTypeSigRecord = List(meta.output.foldRight(Ident(c.mirror.staticClass("shapeless.HNil")): Tree) { (x, sig) => 
       AppliedTypeTree(
         Ident(c.mirror.staticClass("shapeless.$colon$colon")), 
-        List(AppliedTypeTree(Select(Ident(c.mirror.staticModule("shapeless.record")), newTypeName("FieldType")), List(Select(Ident(newTermName(keyName(x))), newTypeName("T")), possiblyOptional(x, scalaType(x)))), sig)
+        List(AppliedTypeTree(Select(Ident(c.mirror.staticModule("shapeless.labelled")), newTypeName("FieldType")), List(Select(Ident(newTermName(keyName(x))), newTypeName("T")), possiblyOptional(x, scalaType(x)))), sig)
       )
     })
 
