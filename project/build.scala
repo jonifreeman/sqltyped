@@ -54,7 +54,7 @@ object SqltypedBuild extends Build with Publish {
     base = file("slick-integration"),
     settings = sqltypedSettings ++ Seq(
       libraryDependencies ++= Seq(
-        "com.typesafe" %% "slick" % "1.0.0-RC1"
+        "com.typesafe.slick" %% "slick" % "3.1.1"
       ),
       initialize ~= { _ => initSqltyped }
     )
