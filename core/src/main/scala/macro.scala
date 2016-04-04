@@ -147,6 +147,7 @@ object SqlMacro {
 
     def fallback = for {
       db   <- dbConfig
+      _ = Class.forName(db.driver)
       meta <- Jdbc.infer(db, sql)
     } yield meta
 
@@ -168,7 +169,7 @@ object SqlMacro {
       meta      <- timer("analyzing", 2, if (analyze) new Analyzer(typer).refine(resolved, typed) else typed.ok)
     } yield meta }) fold (
       fail => fallback fold ( 
-        _ => c.abort(toPosition(fail), fail.message), 
+        fail2 => c.abort(toPosition(fail2), fail2.message), 
         meta => { 
           c.warning(toPosition(fail), fail.message + "\nFallback to JDBC metadata. Please file a bug at https://github.com/jonifreeman/sqltyped/issues")
           timer("codegen", 2, generateCode(meta))
@@ -203,13 +204,15 @@ object SqlMacro {
           List(ValDef(Modifiers(), newTermName("x"), TypeTree(), getValue(x, pos))), 
           If(Apply(Select(Ident(newTermName("rs")), newTermName("wasNull")), List()), 
              Select(Ident(newTermName("scala")), newTermName("None")), 
-             Apply(Select(Select(Ident(newTermName("scala")), newTermName("Some")), newTermName("apply")), List(Ident(newTermName("x"))))))
-      } else getValue(x, pos)
+             Apply(Select(Select(Ident(newTermName("scala")), newTermName("Some")), newTermName("apply")), List(getTyped(x, Ident(newTermName("x")))))))
+      } else getTyped(x, getValue(x, pos))
 
-    def getValue(x: TypedValue, pos: Int) = {
-      def baseValue = Typed(Apply(Select(Ident(newTermName("rs")), newTermName(rsGetterName(x))), 
-                                  List(Literal(Constant(pos)))), scalaBaseType(x))
-      
+    def getValue(x: TypedValue, pos: Int) =
+      Apply(Select(Ident(newTermName("rs")), newTermName(rsGetterName(x))), List(Literal(Constant(pos))))
+
+    def getTyped(x: TypedValue, r: Tree) = {
+      def baseValue = Typed(r, scalaBaseType(x))
+
       (if (enableTagging) x.tag else None) map(t => tagType(t)) map (tagged =>
         Apply(
           Select(
@@ -295,7 +298,7 @@ object SqlMacro {
     def returnTypeSigRecord = List(meta.output.foldRight(Ident(c.mirror.staticClass("shapeless.HNil")): Tree) { (x, sig) => 
       AppliedTypeTree(
         Ident(c.mirror.staticClass("shapeless.$colon$colon")), 
-        List(AppliedTypeTree(Select(Ident(c.mirror.staticModule("shapeless.record")), newTypeName("FieldType")), List(Select(Ident(newTermName(keyName(x))), newTypeName("T")), possiblyOptional(x, scalaType(x)))), sig)
+        List(AppliedTypeTree(Select(Ident(c.mirror.staticModule("shapeless.labelled")), newTypeName("FieldType")), List(Select(Ident(newTermName(keyName(x))), newTypeName("T")), possiblyOptional(x, scalaType(x)))), sig)
       )
     })
 
@@ -380,7 +383,7 @@ object SqlMacro {
                        If(Apply(Select(Ident(newTermName("rs")), newTermName("next")), List()), 
                           Block(
                             List(
-                              Apply(Select(Ident(newTermName("keys")), newTermName("append")), List(getValue(keyType, 1)))), 
+                              Apply(Select(Ident(newTermName("keys")), newTermName("append")), List(getTyped(keyType, getValue(keyType, 1))))), 
                             Apply(Ident(newTermName("while$1")), List())), Literal(Constant(())))), 
               Apply(Select(Ident(newTermName("rs")), newTermName("close")), List())), 
             Select(Ident(newTermName("keys")), newTermName("toList")))))
