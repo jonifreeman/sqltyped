@@ -208,3 +208,4 @@ Credits
 
 * Joni Freeman
 * Dylan Alex Simon
+* Vassil Dichev
