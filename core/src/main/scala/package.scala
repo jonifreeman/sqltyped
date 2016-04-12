@@ -8,6 +8,7 @@ package object sqltyped {
   class useInputTags extends StaticAnnotation
   class jdbcOnly extends StaticAnnotation
   class returnKeys extends StaticAnnotation
+  class useSymbolKeyRecords extends StaticAnnotation
 
   def sql(s: String) = macro SqlMacro.sqlImpl
 
@@ -18,6 +19,8 @@ package object sqltyped {
   @returnKeys def sqlk(s: String) = macro SqlMacro.sqlImpl
 
   @jdbcOnly def sqlj(s: String) = macro SqlMacro.sqlImpl
+
+  @useSymbolKeyRecords def sqls(s: String) = macro SqlMacro.sqlImpl
 
   implicit class DynSQLContext(sc: StringContext) {
     def sql(exprs: Any*) = macro SqlMacro.dynsqlImpl

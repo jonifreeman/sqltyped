@@ -99,6 +99,10 @@ object SqlMacro {
       _.tree.tpe <:< typeOf[returnKeys]
     )
 
+    val useSymbolKeyRecords = c.macroApplication.symbol.annotations.exists(
+      _.tree.tpe <:< typeOf[useSymbolKeyRecords]
+    )
+
     def sysProp(n: String) = Properties.propOrNone(n) orFail 
         "System property '" + n + "' is required to get a compile time connection to the database"
 
@@ -136,7 +140,7 @@ object SqlMacro {
     } yield DbConfig(url, driver, username, password, Properties.propOrNone(propName("schema")))
 
     def generateCode(meta: TypedStatement) =
-      codeGen(meta, sql, c, returnKeys, inputsInferred)(sqlExpr)
+      codeGen(meta, sql, c, returnKeys, inputsInferred, useSymbolKeyRecords)(sqlExpr)
 
     def fallback = for {
       db   <- dbConfig
@@ -173,7 +177,7 @@ object SqlMacro {
   }
 
   def codeGen[A: c.WeakTypeTag]
-    (meta: TypedStatement, sql: String, c: Context, keys: Boolean, inputsInferred: Boolean)
+    (meta: TypedStatement, sql: String, c: Context, keys: Boolean, inputsInferred: Boolean, useSymbolKeyRecords: Boolean)
     (sqlExpr: c.Tree): c.Expr[Any] = {
 
     import c.universe._
@@ -289,9 +293,14 @@ object SqlMacro {
       else appendRowRecord
 
     def returnTypeSigRecord = List(meta.output.foldRight(Ident(c.mirror.staticClass("shapeless.HNil")): Tree) { (x, sig) => 
+      val keyType = if (useSymbolKeyRecords) {
+        CompoundTypeTree(Template(List((Ident(c.mirror.staticClass("scala.Symbol"))), AppliedTypeTree(Select(Ident(c.mirror.staticModule("shapeless.tag")), TypeName("Tagged")), List(Select(Ident(newTermName(keyName(x))), newTypeName("T"))))), noSelfType, Nil))
+      } else {
+        Select(Ident(newTermName(keyName(x))), newTypeName("T"))
+      }
       AppliedTypeTree(
         Ident(c.mirror.staticClass("shapeless.$colon$colon")), 
-        List(AppliedTypeTree(Select(Ident(c.mirror.staticModule("shapeless.labelled")), newTypeName("FieldType")), List(Select(Ident(newTermName(keyName(x))), newTypeName("T")), possiblyOptional(x, scalaType(x)))), sig)
+        List(AppliedTypeTree(Select(Ident(c.mirror.staticModule("shapeless.labelled")), newTypeName("FieldType")), List(keyType, possiblyOptional(x, scalaType(x)))), sig)
       )
     })
 
@@ -300,13 +309,20 @@ object SqlMacro {
     def returnTypeSigScalar = List(possiblyOptional(meta.output.head, scalaType(meta.output.head)))
 
     def appendRowRecord = {
-      def processRow(x: TypedValue, i: Int): Tree = 
+      def processRow(x: TypedValue, i: Int): Tree = {
+        val key = if (useSymbolKeyRecords) {
+          Apply(Select(Select(Ident(newTermName("scala")), newTermName("Symbol")), newTermName("apply")), List(Literal(Constant(keyName(x)))))
+        } else {
+          Literal(Constant(keyName(x)))
+        }
+
         ValDef(Modifiers(/*Flag.SYNTHETIC*/), 
                newTermName("x$" + (i+1)), 
                TypeTree(), 
                Apply(Select(Apply(
                  Select(Ident(c.mirror.staticModule("shapeless.syntax.singleton")), newTermName("mkSingletonOps")),
-                 List(Literal(Constant(keyName(x))))), newTermName("->>").encoded), List(rs(x, meta.output.length - i))))
+                 List(key)), newTermName("->>").encoded), List(rs(x, meta.output.length - i))))
+      }
 
       val init: Tree = 
         Block(List(
