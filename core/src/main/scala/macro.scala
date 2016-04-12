@@ -42,26 +42,6 @@ object SqlMacro {
 
   def sqlImpl
       (c: Context)
-      (s: c.Expr[String]): c.Expr[Any] = 
-    sqlImpl0(c)(s)
-
-  def sqltImpl
-      (c: Context)
-      (s: c.Expr[String]): c.Expr[Any] = 
-    sqlImpl0(c, useInputTags = true)(s)
-
-  def sqlkImpl
-      (c: Context)
-      (s: c.Expr[String]): c.Expr[Any] = 
-    sqlImpl0(c, useInputTags = false, keys = true)(s)
-
-  def sqljImpl
-      (c: Context)
-      (s: c.Expr[String]): c.Expr[Any] = 
-    sqlImpl0(c, useInputTags = false, keys = false, jdbcOnly = true)(s)
-
-  def sqlImpl0
-      (c: Context, useInputTags: Boolean = false, keys: Boolean = false, jdbcOnly: Boolean = false)
       (s: c.Expr[String]): c.Expr[Any] = {
 
     import c.universe._
@@ -70,7 +50,7 @@ object SqlMacro {
       case Literal(Constant(sql: String)) => sql
       case _ => c.abort(c.enclosingPosition, "Argument to macro must be a String literal")
     }
-    compile(c, useInputTags, keys, jdbcOnly, inputsInferred = true, validate = true,
+    compile(c, inputsInferred = true, validate = true,
             analyze = true,
             sql, (p, s) => p.parseAllWith(p.stmt, s))(Literal(Constant(sql)))
   }
@@ -94,17 +74,30 @@ object SqlMacro {
       case _ => c.abort(c.enclosingPosition, "Expected String literal as first part of interpolation")
     }
 
-    compile(c, useInputTags = false, keys = false, jdbcOnly = false, inputsInferred = false, 
+    compile(c, inputsInferred = false, 
             validate = false, analyze = false,
             sql, (p, s) => p.parseWith(p.selectStmt, s))(sqlExpr)
   }
 
   def compile
-      (c: Context, useInputTags: Boolean, keys: Boolean, jdbcOnly: Boolean, inputsInferred: Boolean, validate: Boolean, analyze: Boolean, 
+      (c: Context, inputsInferred: Boolean, validate: Boolean, analyze: Boolean, 
        sql: String, parse: (SqlParser, String) => ?[Ast.Statement[Option[String]]])
       (sqlExpr: c.Tree): c.Expr[Any] = {
 
     import c.universe._
+
+    val annotations = c.macroApplication.symbol.annotations
+    val jdbcOnly = annotations.exists(
+      _.tree.tpe <:< typeOf[jdbcOnly]
+    )
+
+    val useInputTags = annotations.exists(
+      _.tree.tpe <:< typeOf[useInputTags]
+    )
+
+    val returnKeys = annotations.exists(
+      _.tree.tpe <:< typeOf[returnKeys]
+    )
 
     def sysProp(n: String) = Properties.propOrNone(n) orFail 
         "System property '" + n + "' is required to get a compile time connection to the database"
@@ -143,7 +136,7 @@ object SqlMacro {
     } yield DbConfig(url, driver, username, password, Properties.propOrNone(propName("schema")))
 
     def generateCode(meta: TypedStatement) =
-      codeGen(meta, sql, c, keys, inputsInferred)(sqlExpr)
+      codeGen(meta, sql, c, returnKeys, inputsInferred)(sqlExpr)
 
     def fallback = for {
       db   <- dbConfig

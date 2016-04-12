@@ -1,18 +1,23 @@
 import shapeless._
 
 package object sqltyped {
+  import scala.annotation.StaticAnnotation
   import scala.language.experimental.macros
   import scala.language.implicitConversions
 
+  class useInputTags extends StaticAnnotation
+  class jdbcOnly extends StaticAnnotation
+  class returnKeys extends StaticAnnotation
+
   def sql(s: String) = macro SqlMacro.sqlImpl
 
-  def sqlt(s: String) = macro SqlMacro.sqltImpl
+  @useInputTags def sqlt(s: String) = macro SqlMacro.sqlImpl
 
   // FIXME switch to sql("select ...", keys = true) after;
   // https://issues.scala-lang.org/browse/SI-5920
-  def sqlk(s: String) = macro SqlMacro.sqlkImpl
+  @returnKeys def sqlk(s: String) = macro SqlMacro.sqlImpl
 
-  def sqlj(s: String) = macro SqlMacro.sqljImpl
+  @jdbcOnly def sqlj(s: String) = macro SqlMacro.sqlImpl
 
   implicit class DynSQLContext(sc: StringContext) {
     def sql(exprs: Any*) = macro SqlMacro.dynsqlImpl

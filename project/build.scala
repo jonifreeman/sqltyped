@@ -4,9 +4,9 @@ import Keys._
 object SqltypedBuild extends Build with Publish {
   import Resolvers._
 
-  lazy val versionFormat = "%s"
-  lazy val majorVersion = "0.4.1"
-//  lazy val versionFormat = "%s-SNAPSHOT"
+//lazy val versionFormat = "%s"
+  lazy val majorVersion = "0.4.2"
+  lazy val versionFormat = "%s-SNAPSHOT"
 
   lazy val sqltypedSettings = Defaults.defaultSettings ++ publishSettings ++ Seq(
     organization := "fi.reaktor",
