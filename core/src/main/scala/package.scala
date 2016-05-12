@@ -26,6 +26,10 @@ package object sqltyped {
     def sql(exprs: Any*) = macro SqlMacro.dynsqlImpl
   }
 
+  implicit class DynParamSQLContext(sc: StringContext) {
+    def sqlp(exprs: Any*) = macro SqlMacro.paramDynsqlImpl
+  }
+
   implicit def recordOps[R <: HList](r: R): RecordOps[R] = new RecordOps(r)  
 
   implicit def listOps[L <: HList](l: List[L]): ListOps[L] = new ListOps(l)  

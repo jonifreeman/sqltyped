@@ -52,7 +52,7 @@ object SqlMacro {
     }
     compile(c, inputsInferred = true, validate = true,
             analyze = true,
-            sql, (p, s) => p.parseAllWith(p.stmt, s))(Literal(Constant(sql)))
+            sql, (p, s) => p.parseAllWith(p.stmt, s))(Literal(Constant(sql)), Nil)
   }
 
   def dynsqlImpl
@@ -76,13 +76,26 @@ object SqlMacro {
 
     compile(c, inputsInferred = false, 
             validate = false, analyze = false,
-            sql, (p, s) => p.parseWith(p.selectStmt, s))(sqlExpr)
+            sql, (p, s) => p.parseWith(p.selectStmt, s))(sqlExpr, Nil)
+  }
+
+  def paramDynsqlImpl
+      (c: Context)(exprs: c.Expr[Any]*): c.Expr[Any] = {
+
+    import c.universe._
+
+    val Expr(Apply(_, List(Apply(_, parts)))) = c.prefix
+
+    val sql = parts.map { case Literal(Constant(sql: String)) => sql } mkString "?"
+    compile(c, inputsInferred = true, 
+            validate = true, analyze = true,
+            sql, (p, s) => p.parseAllWith(p.stmt, s))(Literal(Constant(sql)), exprs.map(_.tree).toList)
   }
 
   def compile
       (c: Context, inputsInferred: Boolean, validate: Boolean, analyze: Boolean, 
        sql: String, parse: (SqlParser, String) => ?[Ast.Statement[Option[String]]])
-      (sqlExpr: c.Tree): c.Expr[Any] = {
+      (sqlExpr: c.Tree, args: List[c.Tree]): c.Expr[Any] = {
 
     import c.universe._
 
@@ -140,7 +153,7 @@ object SqlMacro {
     } yield DbConfig(url, driver, username, password, Properties.propOrNone(propName("schema")))
 
     def generateCode(meta: TypedStatement) =
-      codeGen(meta, sql, c, returnKeys, inputsInferred, useSymbolKeyRecords)(sqlExpr)
+      codeGen(meta, sql, c, returnKeys, inputsInferred, useSymbolKeyRecords)(sqlExpr, args)
 
     def fallback = for {
       db   <- dbConfig
@@ -178,7 +191,7 @@ object SqlMacro {
 
   def codeGen[A: c.WeakTypeTag]
     (meta: TypedStatement, sql: String, c: Context, keys: Boolean, inputsInferred: Boolean, useSymbolKeyRecords: Boolean)
-    (sqlExpr: c.Tree): c.Expr[Any] = {
+    (sqlExpr: c.Tree, args: List[c.Tree] = Nil): c.Expr[Any] = {
 
     import c.universe._
 
@@ -504,27 +517,29 @@ object SqlMacro {
         Apply(Select(Ident(c.mirror.staticModule("shapeless.Witness")), newTermName("apply")), 
               List(Literal(Constant(name)))))
 
+    def genQueryClass(inputLen: Int, methodSig: List[Tree], impl: Tree) = {
+      ClassDef(Modifiers(Flag.FINAL), newTypeName("$anon"), List(),
+               Template(List(
+                 AppliedTypeTree(
+                   Ident(c.mirror.staticClass("sqltyped.Query" + inputLen)), methodSig)),
+                        emptyValDef, List(
+                                     DefDef(
+                                       Modifiers(), 
+                                       nme.CONSTRUCTOR, 
+                                       List(), 
+                                       List(List()), 
+                                       TypeTree(), 
+                                       Block(
+                                         List(
+                                           Apply(
+                                             Select(Super(This(""), ""), nme.CONSTRUCTOR), Nil)), 
+                                         Literal(Constant(())))),
+                                     TypeDef(Modifiers(), newTypeName("ReturnType"), List(), returnTypeSig.head), impl)))
+    }
+
     def mkQuery = 
       Block(
-        List(
-          ClassDef(Modifiers(Flag.FINAL), newTypeName("$anon"), List(), 
-                   Template(List(
-                     AppliedTypeTree(
-                       Ident(c.mirror.staticClass("sqltyped.Query" + inputLen)), inputTypeSig ::: List(resultTypeSig))), 
-                            emptyValDef, List(
-                              DefDef(
-                                Modifiers(), 
-                                nme.CONSTRUCTOR, 
-                                List(), 
-                                List(List()), 
-                                TypeTree(), 
-                                Block(
-                                  List(
-                                    Apply(
-                                      Select(Super(This(""), ""), nme.CONSTRUCTOR), Nil)), 
-                                  Literal(Constant(())))),
-                              TypeDef(Modifiers(), newTypeName("ReturnType"), List(), returnTypeSig.head), queryF))
-                 )),
+        List(genQueryClass(inputLen, inputTypeSig ::: List(resultTypeSig), queryF)),
         Apply(Select(New(Ident(newTypeName("$anon"))), nme.CONSTRUCTOR), List())
       )
 
@@ -534,13 +549,24 @@ object SqlMacro {
         List(
           Block(
             witnesses map (i => mkWitness(i)),
-            mkQuery
+            if (args.nonEmpty) {
+              val impl = DefDef(
+                Modifiers(), newTermName("apply"), List(),
+                List(Nil, List(ValDef(Modifiers(Flag.IMPLICIT | Flag.PARAM), newTermName("conn"), Ident(c.mirror.staticClass("java.sql.Connection")), EmptyTree))),
+                TypeTree(),
+                Block(Nil, Apply(Select(mkQuery, newTermName("apply")), args)))
+              Block(
+                List(
+                  genQueryClass(0, List(resultTypeSig), impl)),
+                Apply(Select(New(Ident(newTypeName("$anon"))), nme.CONSTRUCTOR), List())
+              )
+            } else mkQuery
           )
         )
       )
     }
   }
-}
+}  
 
 // FIXME Replace all these with 'trait SqlF[R]' once Scala macros can create public members
 // (apply must be public)
