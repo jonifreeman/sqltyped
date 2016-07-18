@@ -523,6 +523,7 @@ object SqlMacro {
                  AppliedTypeTree(
                    Ident(c.mirror.staticClass("sqltyped.Query" + inputLen)), methodSig)),
                         emptyValDef, List(
+                                     ValDef(Modifiers(), TermName("sql"), TypeTree(), Literal(Constant(sql))),
                                      DefDef(
                                        Modifiers(), 
                                        nme.CONSTRUCTOR, 
@@ -572,93 +573,116 @@ object SqlMacro {
 // (apply must be public)
 trait Query0[R] { 
   type ReturnType
+  val sql: String
   def apply()(implicit conn: Connection): R
 }
 trait Query1[I1, R] { 
   type ReturnType
+  val sql: String
   def apply(i1: I1)(implicit conn: Connection): R
 }
 trait Query2[I1, I2, R] { 
   type ReturnType
+  val sql: String
   def apply(i1: I1, i2: I2)(implicit conn: Connection): R
 }
 trait Query3[I1, I2, I3, R] { 
   type ReturnType
+  val sql: String
   def apply(i1: I1, i2: I2, i3: I3)(implicit conn: Connection): R
 }
 trait Query4[I1, I2, I3, I4, R] { 
   type ReturnType
+  val sql: String
   def apply(i1: I1, i2: I2, i3: I3, i4: I4)(implicit conn: Connection): R
 }
 trait Query5[I1, I2, I3, I4, I5, R] {
   type ReturnType
+  val sql: String
   def apply(i1: I1, i2: I2, i3: I3, i4: I4, i5: I5)(implicit conn: Connection): R
 }
 trait Query6[I1, I2, I3, I4, I5, I6, R] {
   type ReturnType
+  val sql: String
   def apply(i1: I1, i2: I2, i3: I3, i4: I4, i5: I5, i6: I6)(implicit conn: Connection): R
 }
 trait Query7[I1, I2, I3, I4, I5, I6, I7, R] {
   type ReturnType
+  val sql: String
   def apply(i1: I1, i2: I2, i3: I3, i4: I4, i5: I5, i6: I6, i7: I7)(implicit conn: Connection): R
 }
 trait Query8[I1, I2, I3, I4, I5, I6, I7, I8, R] {
   type ReturnType
+  val sql: String
   def apply(i1: I1, i2: I2, i3: I3, i4: I4, i5: I5, i6: I6, i7: I7, i8: I8)(implicit conn: Connection): R
 }
 trait Query9[I1, I2, I3, I4, I5, I6, I7, I8, I9, R] {
   type ReturnType
+  val sql: String
   def apply(i1: I1, i2: I2, i3: I3, i4: I4, i5: I5, i6: I6, i7: I7, i8: I8, i9: I9)(implicit conn: Connection): R
 }
 trait Query10[I1, I2, I3, I4, I5, I6, I7, I8, I9, I10, R] {
   type ReturnType
+  val sql: String
   def apply(i1: I1, i2: I2, i3: I3, i4: I4, i5: I5, i6: I6, i7: I7, i8: I8, i9: I9, i10: I10)(implicit conn: Connection): R
 }
 trait Query11[I1, I2, I3, I4, I5, I6, I7, I8, I9, I10, I11, R] {
   type ReturnType
+  val sql: String
   def apply(i1: I1, i2: I2, i3: I3, i4: I4, i5: I5, i6: I6, i7: I7, i8: I8, i9: I9, i10: I10, i11: I11)(implicit conn: Connection): R
 }
 trait Query12[I1, I2, I3, I4, I5, I6, I7, I8, I9, I10, I11, I12, R] {
   type ReturnType
+  val sql: String
   def apply(i1: I1, i2: I2, i3: I3, i4: I4, i5: I5, i6: I6, i7: I7, i8: I8, i9: I9, i10: I10, i11: I11, i12: I12)(implicit conn: Connection): R
 }
 trait Query13[I1, I2, I3, I4, I5, I6, I7, I8, I9, I10, I11, I12, I13, R] {
   type ReturnType
+  val sql: String
   def apply(i1: I1, i2: I2, i3: I3, i4: I4, i5: I5, i6: I6, i7: I7, i8: I8, i9: I9, i10: I10, i11: I11, i12: I12, i13: I13)(implicit conn: Connection): R
 }
 trait Query14[I1, I2, I3, I4, I5, I6, I7, I8, I9, I10, I11, I12, I13, I14, R] {
   type ReturnType
+  val sql: String
   def apply(i1: I1, i2: I2, i3: I3, i4: I4, i5: I5, i6: I6, i7: I7, i8: I8, i9: I9, i10: I10, i11: I11, i12: I12, i13: I13, i14: I14)(implicit conn: Connection): R
 }
 trait Query15[I1, I2, I3, I4, I5, I6, I7, I8, I9, I10, I11, I12, I13, I14, I15, R] {
   type ReturnType
+  val sql: String
   def apply(i1: I1, i2: I2, i3: I3, i4: I4, i5: I5, i6: I6, i7: I7, i8: I8, i9: I9, i10: I10, i11: I11, i12: I12, i13: I13, i14: I14, i15: I15)(implicit conn: Connection): R
 }
 trait Query16[I1, I2, I3, I4, I5, I6, I7, I8, I9, I10, I11, I12, I13, I14, I15, I16, R] {
   type ReturnType
+  val sql: String
   def apply(i1: I1, i2: I2, i3: I3, i4: I4, i5: I5, i6: I6, i7: I7, i8: I8, i9: I9, i10: I10, i11: I11, i12: I12, i13: I13, i14: I14, i15: I15, i16: I16)(implicit conn: Connection): R
 }
 trait Query17[I1, I2, I3, I4, I5, I6, I7, I8, I9, I10, I11, I12, I13, I14, I15, I16, I17, R] {
   type ReturnType
+  val sql: String
   def apply(i1: I1, i2: I2, i3: I3, i4: I4, i5: I5, i6: I6, i7: I7, i8: I8, i9: I9, i10: I10, i11: I11, i12: I12, i13: I13, i14: I14, i15: I15, i16: I16, i17: I17)(implicit conn: Connection): R
 }
 trait Query18[I1, I2, I3, I4, I5, I6, I7, I8, I9, I10, I11, I12, I13, I14, I15, I16, I17, I18, R] {
   type ReturnType
+  val sql: String
   def apply(i1: I1, i2: I2, i3: I3, i4: I4, i5: I5, i6: I6, i7: I7, i8: I8, i9: I9, i10: I10, i11: I11, i12: I12, i13: I13, i14: I14, i15: I15, i16: I16, i17: I17, i18: I18)(implicit conn: Connection): R
 }
 trait Query19[I1, I2, I3, I4, I5, I6, I7, I8, I9, I10, I11, I12, I13, I14, I15, I16, I17, I18, I19, R] {
   type ReturnType
+  val sql: String
   def apply(i1: I1, i2: I2, i3: I3, i4: I4, i5: I5, i6: I6, i7: I7, i8: I8, i9: I9, i10: I10, i11: I11, i12: I12, i13: I13, i14: I14, i15: I15, i16: I16, i17: I17, i18: I18, i19: I19)(implicit conn: Connection): R
 }
 trait Query20[I1, I2, I3, I4, I5, I6, I7, I8, I9, I10, I11, I12, I13, I14, I15, I16, I17, I18, I19, I20, R] {
   type ReturnType
+  val sql: String
   def apply(i1: I1, i2: I2, i3: I3, i4: I4, i5: I5, i6: I6, i7: I7, i8: I8, i9: I9, i10: I10, i11: I11, i12: I12, i13: I13, i14: I14, i15: I15, i16: I16, i17: I17, i18: I18, i19: I19, i20: I20)(implicit conn: Connection): R
 }
 trait Query21[I1, I2, I3, I4, I5, I6, I7, I8, I9, I10, I11, I12, I13, I14, I15, I16, I17, I18, I19, I20, I21, R] {
   type ReturnType
+  val sql: String
   def apply(i1: I1, i2: I2, i3: I3, i4: I4, i5: I5, i6: I6, i7: I7, i8: I8, i9: I9, i10: I10, i11: I11, i12: I12, i13: I13, i14: I14, i15: I15, i16: I16, i17: I17, i18: I18, i19: I19, i20: I20, i21: I21)(implicit conn: Connection): R
 }
 trait Query22[I1, I2, I3, I4, I5, I6, I7, I8, I9, I10, I11, I12, I13, I14, I15, I16, I17, I18, I19, I20, I21, I22, R] {
   type ReturnType
+  val sql: String
   def apply(i1: I1, i2: I2, i3: I3, i4: I4, i5: I5, i6: I6, i7: I7, i8: I8, i9: I9, i10: I10, i11: I11, i12: I12, i13: I13, i14: I14, i15: I15, i16: I16, i17: I17, i18: I18, i19: I19, i20: I20, i21: I21, i22: I22)(implicit conn: Connection): R
 }
