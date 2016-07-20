@@ -32,7 +32,10 @@ class Variables(typer: Typer) extends Ast.Resolved {
     case Delete(from, where) => where map (w => input(w.expr, None)) getOrElse Nil
 
     case Insert(table, colNames, insertInput) =>
-      def colNamesFromSchema = schema.getTable(table.name).getColumns.toList.map(_.getName)
+      val realSchema = table.schema.flatMap { schemaName =>
+        typer.cachedSchema(schemaName).fold(_ => None, Option.apply)
+      } getOrElse schema
+      def colNamesFromSchema = realSchema.getTable(table.name).getColumns.toList.map(_.getName)
 
       insertInput match {
         case ListedInput(values) => 
@@ -166,7 +169,17 @@ class Variables(typer: Typer) extends Ast.Resolved {
   }
 }
 
-class Typer(schema: Schema, stmt: Ast.Statement[Table]) extends Ast.Resolved {
+class Typer(schema: Schema, stmt: Ast.Statement[Table], dbConfig: DbConfig) extends Ast.Resolved {
+  private val schemaCache = new java.util.WeakHashMap[String, ?[Schema]]()
+  def cachedSchema(schemaName: String) = {
+    val cached = schemaCache.get(schemaName)
+    if (cached != null) cached else {
+      val s = DbSchema.read(dbConfig.copy(schema = Some(schemaName)))
+      schemaCache.put(schemaName, s)
+      s 
+    }
+  }
+
   import java.sql.{Types => JdbcTypes}
 
   type SqlType = ((Type, Int), Boolean)
@@ -352,12 +365,19 @@ class Typer(schema: Schema, stmt: Ast.Statement[Table]) extends Ast.Resolved {
   }
 
   private def tableSchema(tbl: Table) =
-    if (tbl.name.toLowerCase == "dual") DualTable(schema).ok
-    else Option(schema.getTable(tbl.name)) orFail ("Unknown table " + tbl.name)
+    tbl.schema.map { schemaName =>
+      val schema = cachedSchema(schemaName)
+      schema.flatMap { schema =>
+        Option(schema.getTable(tbl.name)) orFail ("Unknown table " + schemaName + "." + tbl.name)
+      }
+    } getOrElse {
+      if (tbl.name.toLowerCase == "dual") DualTable(schema).ok
+      else Option(schema.getTable(tbl.name)) orFail ("Unknown table " + tbl.name)
+    }
 
   private def derivedTable(tbl: Table) = for {
     t     <- DerivedTables(schema, stmt, tbl.name) orFail ("Unknown table XXX " + tbl.name)
-    typed <- new Typer(schema, t).infer(false)
+    typed <- new Typer(schema, t, dbConfig).infer(false)
   } yield typed
 
   private def mkType(t: ColumnDataType) = (Jdbc.mkType(t.getTypeClassName), t.getType)

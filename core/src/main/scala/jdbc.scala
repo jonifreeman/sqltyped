@@ -30,7 +30,7 @@ private[sqltyped] object Jdbc {
                  meta.isNullable(i) != ResultSetMetaData.columnNoNulls, None, unknownTerm)
     }
 
-  def unknownTerm = Ast.Column("unknown", Ast.Table("unknown", None))
+  def unknownTerm = Ast.Column("unknown", Ast.Table("unknown", None, None))
 
   def withConnection[A](conn: Connection)(a: Connection => A): ?[A] = try { 
     a(conn).ok

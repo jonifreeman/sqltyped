@@ -8,7 +8,7 @@ import java.sql.{Types => JdbcTypes}
 trait Dialect {
   def parser: SqlParser
   def validator: Validator
-  def typer(schema: Schema, stmt: Statement[Table]): Typer
+  def typer(schema: Schema, stmt: Statement[Table], dbConfig: DbConfig): Typer
 }
 
 object Dialect {
@@ -22,13 +22,13 @@ object Dialect {
 object GenericDialect extends Dialect {
   val parser = new SqlParser {}
   def validator = JdbcValidator
-  def typer(schema: Schema, stmt: Statement[Table]) = new Typer(schema, stmt)
+  def typer(schema: Schema, stmt: Statement[Table], dbConfig: DbConfig) = new Typer(schema, stmt, dbConfig)
 }
 
 object MysqlDialect extends Dialect {
   def validator = MySQLValidator
 
-  def typer(schema: Schema, stmt: Statement[Table]) = new Typer(schema, stmt) {
+  def typer(schema: Schema, stmt: Statement[Table], dbConfig: DbConfig) = new Typer(schema, stmt, dbConfig) {
     import dsl._
 
     override def extraScalarFunctions = Map(
@@ -191,7 +191,7 @@ object PostgresqlDialect extends Dialect {
   val parser = new SqlParser {}
   def validator = JdbcValidator
 
-  def typer(schema: Schema, stmt: Statement[Table]) = new Typer(schema, stmt) {
+  def typer(schema: Schema, stmt: Statement[Table], dbConfig: DbConfig) = new Typer(schema, stmt, dbConfig) {
     import dsl._
 
     override def extraScalarFunctions = Map(

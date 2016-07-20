@@ -69,7 +69,7 @@ private[sqltyped] object Ast {
   case class TermList[T](terms: List[Term[T]]) extends Term[T]
   case class Case[T](conditions: List[(Expr[T], Term[T])], elze: Option[Term[T]]) extends Term[T]
 
-  case class Table(name: String, alias: Option[String])
+  case class Table(name: String, alias: Option[String], schema: Option[String])
 
   sealed trait Operator1
   case object IsNull extends Operator1
@@ -361,7 +361,7 @@ private[sqltyped] object Ast {
     def name = table.name
   }
   case class DerivedTable[T](name: String, subselect: Select[T], join: List[Join[T]]) extends TableReference[T] {
-    def tables = Table(name, None) :: join.flatMap(_.table.tables)
+    def tables = Table(name, None, None) :: join.flatMap(_.table.tables)
   }
 
   case class Where[T](expr: Expr[T])

@@ -174,7 +174,7 @@ object SqlMacro {
       _         <- timer("validating", 2, validator.validate(db, sql))
       stmt      <- timer("parsing", 2, parse(parser, sql))
       resolved  <- timer("resolving tables", 2, Ast.resolveTables(stmt))
-      typer     = dialect.typer(schema, resolved)
+      typer     = dialect.typer(schema, resolved, db)
       typed     <- timer("typing", 2, typer.infer(useInputTags))
       meta      <- timer("analyzing", 2, if (analyze) new Analyzer(typer).refine(resolved, typed) else typed.ok)
     } yield meta }) fold (

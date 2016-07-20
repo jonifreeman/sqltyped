@@ -99,7 +99,9 @@ trait SqlParser extends RegexParsers with Ast.Unresolved with PackratParsers {
     case s ~ _ ~ a ~ j => DerivedTable(a, s.select, j)
   }
 
-  lazy val table = optParens(ident ~ opt(opt("as".i) ~> ident)) ^^ { case n ~ a => Table(n, a) }
+  lazy val table = optParens(opt(ident <~ ".") ~ ident ~ opt(opt("as".i) ~> ident)) ^^ {
+    case s ~ n ~ a => Table(n, a, s.map(_.mkString))
+  }
 
   lazy val where = "where".i ~> expr ^^ Where.apply
 
