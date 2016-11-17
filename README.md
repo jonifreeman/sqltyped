@@ -180,7 +180,7 @@ Requires at least Scala 2.10.2 and SBT 0.13.
 sqlτyped is published to Sonatype repositories.
 
 ```scala
-"fi.reaktor" %% "sqltyped" % "0.4.0"
+"fi.reaktor" %% "sqltyped" % "0.4.3"
 ```
 
 ### Build ###
